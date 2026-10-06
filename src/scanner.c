@@ -9,6 +9,6 @@
 #include "token.h"
 
 
-Token scanner(FILE* file, SymTable sym_table, Token last_token) {
+Token scanner(FILE* file, SymTable sym_table, TokenType last_token) {
 
 }
