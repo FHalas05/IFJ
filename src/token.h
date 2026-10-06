@@ -11,6 +11,7 @@
 typedef enum {
     IDENT,
     INDENT,
+    AT_MAIN,
     INT,
     DOUBLE,
     STRING
