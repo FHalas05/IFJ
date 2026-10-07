@@ -6,34 +6,15 @@
 #include "sym_table.h"
 #include "token.h"
 #include "scanner.h"
+#include "our_string.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
-
-typedef struct {
-    char string[100];  // todo this is cursed - has to be dynamically extending
-    int len;
-} String;
-
-String* str_init() {  // todo redo whole initialization to be dynamic based on actual used size
-    String* string = malloc(sizeof(String));
-    // todo check for null and handle
-    string->len = 0;
-    return string;
-}
-
-void str_add(String* str, const char c) {
-    str->string[str->len] = c;
-    str->len++;
-};
+#include <string.h>
 
 
-bool is_digit(char c) {
-    return ('0' <= c && c <= '9');
-
-}
+bool is_digit(char c) {return '0' <= c && c <= '9';}
 
 bool is_char_in_string(char* str, char c) {
     for (int i = 0; i < strlen(str); i++) {
@@ -46,11 +27,11 @@ void throw_lexical_error_1() {
     // todo lexical error 1
 };
 
-Token FSM_comments(FILE* file, SymTable sym_table, TokenType last_token) {
+Token FSM_comments(FILE* file, SymTable *sym_table, TokenType last_token) {
 
 }
 
-Token FSM_numerals(FILE* file, SymTable sym_table, TokenType last_token, char first_char) {
+Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char first_char) {
     typedef enum {
         F1, F2, F3, F4, F5, F6, F7, F8, F9
     } State;
@@ -153,6 +134,7 @@ Token FSM_numerals(FILE* file, SymTable sym_table, TokenType last_token, char fi
                 } else {
                     throw_lexical_error_1();
                 }
+                break;
 
             // exponent loop
             case F7:
@@ -173,6 +155,7 @@ Token FSM_numerals(FILE* file, SymTable sym_table, TokenType last_token, char fi
                         return token;
                     }
                 }
+                break;
 
             // _ for exponent
             case F8:
@@ -193,11 +176,13 @@ Token FSM_numerals(FILE* file, SymTable sym_table, TokenType last_token, char fi
                     Token token = {DOUBLE, result};
                     return token;
                 }
+                break;
         }
     }
 }
 
-Token scanner(FILE* file, SymTable sym_table, TokenType last_token) {
+
+Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
     int c;
     while ((c = fgetc(file)) != EOF) {
