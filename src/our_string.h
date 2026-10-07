@@ -15,7 +15,7 @@ typedef struct {
 
 String* str_init();
 
-void str_add(String* string, char c);
+void str_add(String* string, int c);
 
 void str_free(String* string);
 
