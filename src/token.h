@@ -24,6 +24,7 @@ typedef enum {
     T_SEMICOLON,
     T_COLON,
     T_COMMA,
+    T_DOT,
 
     T_KW_DEF,
     T_KW_DO,
