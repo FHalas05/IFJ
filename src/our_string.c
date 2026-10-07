@@ -35,7 +35,7 @@ String* str_init() {
 
 // adds char to dynamic string.
 // inputs are expected to not be NULL
-void str_add(String* string, char c) {
+void str_add(String* string, int c) {
     char* string_new = realloc(string->string, string->len+2);  // +2 bcs new char and terminator
 
     if (string_new == NULL) {

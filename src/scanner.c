@@ -16,9 +16,9 @@
 
 #define VALID_CHARS_AFTER_NUMERAL "+-*/=!><&|();:,."  // todo not sure about this, especially the dot
 
-bool is_digit(char c) {return '0' <= c && c <= '9';}
+bool is_digit(int c) {return '0' <= c && c <= '9';}
 
-bool is_char_in_string(char* str, char c) {
+bool is_char_in_string(char* str, int c) {
     for (int i = 0; i < strlen(str); i++) {
         if (str[i] == c) {return true;}
     }
@@ -27,13 +27,13 @@ bool is_char_in_string(char* str, char c) {
 
 void throw_lexical_error_1() {
     // todo lexical error 1
-};
+}
 
 Token FSM_comments(FILE* file, SymTable *sym_table, TokenType last_token) {
 
 }
 
-Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char first_char) {
+Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
     typedef enum {
         F1, F2, F3, F4, F5, F6, F7, F8, F9
     } State;
@@ -69,7 +69,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                     }
                     else {                                                  // return result
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {INT, result};
+                        Token token = {T_INT, result};
                         return token;
                     }
                 }
@@ -112,7 +112,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                         throw_lexical_error_1();
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {DOUBLE, result};
+                        Token token = {T_DOUBLE, result};
                         return token;
                     }
                 }
@@ -153,7 +153,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                         throw_lexical_error_1();
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {DOUBLE, result};
+                        Token token = {T_DOUBLE, result};
                         return token;
                     }
                 }
@@ -175,7 +175,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                     throw_lexical_error_1();
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                    Token token = {DOUBLE, result};
+                    Token token = {T_DOUBLE, result};
                     return token;
                 }
                 break;
@@ -193,7 +193,7 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
         // numerals
         if (is_digit(c)) {
-            return FSM_numerals(file, sym_table, last_token, c);
+            return FSM_numerals(file, sym_table, c);
         }
 
         // @main
@@ -205,7 +205,7 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
                     exit(1);
                 }
             }
-            Token token = {AT_MAIN, NULL};
+            Token token = {T_AT_MAIN, NULL};
             return token;
         }
 
