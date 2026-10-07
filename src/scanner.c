@@ -14,6 +14,8 @@
 #include <string.h>
 
 
+#define VALID_CHARS_AFTER_NUMERAL "+-*/=!><&|();:,."  // todo not sure about this, especially the dot
+
 bool is_digit(char c) {return '0' <= c && c <= '9';}
 
 bool is_char_in_string(char* str, char c) {
@@ -43,7 +45,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
     while ((c = fgetc(file)) != EOF) {
         switch (state) {
 
-            // int handling
+            // int loop
             case F1:
                 if (is_digit(c)) {                              // digit looping
                     state = F1;
@@ -147,7 +149,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                     state = F9;
                     str_add(result, c);
                 } else {
-                    if (SOMETHING BAD) {  // todo purple squiggly lines
+                    if (!is_char_in_string(VALID_CHARS_AFTER_NUMERAL, c)) {
                         throw_lexical_error_1();
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
@@ -169,7 +171,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
 
             //
             case F9:
-                if (SOMETHING BAD) {    // todo purple squiggly lines
+                if (!is_char_in_string(VALID_CHARS_AFTER_NUMERAL, c)) {
                     throw_lexical_error_1();
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
@@ -179,6 +181,8 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, TokenType last_token, char f
                 break;
         }
     }
+    Token token = {T_EOF, NULL};
+    return token;
 }
 
 
@@ -207,10 +211,12 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
         if (c == '/') {
             Token token;
-            if ((token = FSM_comments(file, sym_table, last_token)) == NULL) {
+            if ((token = FSM_comments(file, sym_table, last_token)).type == NO_TOKEN_FOUND) {
                 continue;
             }
             return token;
         }
     }
+    Token token = {T_EOF, NULL};
+    return token;
 }

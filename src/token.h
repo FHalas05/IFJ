@@ -9,12 +9,14 @@
 #include <stddef.h>
 
 typedef enum {
-    IDENT,
+    NO_TOKEN_FOUND,
+    IDENT = 1, // start at one to allow NO_TOKEN_FOUND to represent a state that runs the loop again
     INDENT,
     AT_MAIN,
     INT,
     DOUBLE,
-    STRING
+    STRING,
+    T_EOF
     // all tokens go here
 } TokenType;
 
