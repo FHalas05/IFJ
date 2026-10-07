@@ -1,0 +1,22 @@
+#ifndef LEXER_H
+#define LEXER_H
+
+typedef enum{
+    TOKEN_IMPORT, TOKEN_DEF, TOKEN_VAL, TOKEN_VAR,
+    TOKEN_IDENTIFIER, TOKEN_INT_LIT, TOKEN_DOUBLE_LIT, TOKEN_STRING_LIT,
+    TOKEN_LPAREN, TOKEN_RPAREN, TOKEN_COLON, TOKEN_EQUALS, TOKEN_COMMA,
+    TOKEN_IF, TOKEN_ELSE, TOKEN_WHILE, TOKEN_RETURN, TOKEN_THEN, TOKEN_DO,
+    TOKEN_INDENT, TOKEN_DEDENT, TOKEN_NEWLINE, TOKEN_DOT, TOKEN_STAR,
+    TOKEN_EOF
+} TokenType;
+
+typedef struct{
+    TokenType type;
+    char *value;
+    int line;
+} Token;
+
+Token get_next_token();
+Token peek_token();
+
+#endif
