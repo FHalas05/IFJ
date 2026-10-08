@@ -21,6 +21,7 @@
 #define ENTRY_NUMERALS ".0123456789"
 #define ENTRY_MAIN     "@"
 #define ENTRY_OPERATORS "=!><+-*&|"
+#define ENTRY_SPECIAL  ";,:()\n"
 
 
 bool string_contains(char* str, int c) {
@@ -175,7 +176,7 @@ Token FSM_comments(FILE* file, SymTable *sym_table) {
  * 
  * @return token tokens for one-line string or multiple-line strings
  */
-Token FSM_string(FILE* file, SymTable *sym_table){
+Token FSM_strings(FILE* file, SymTable *sym_table){
     typedef enum {
         F1, F2, F3, F4, F5, F6
     } State;
@@ -283,7 +284,7 @@ Token FSM_string(FILE* file, SymTable *sym_table){
                 break;
         }
     }
-    str_free(final_string);
+    str_free(final_string);  // todo figure out whether to do this or not
     throw_lexical_error_1();
 }
 
@@ -485,8 +486,8 @@ Token HANDLER_main(FILE* file, SymTable *sym_table) {
     }
 
     // make sure its followed by whitespace
-    int c;
-    if (string_contains(WHITESPACE_CHARS, c = fgetc(file))) {
+    int c = fgetc(file);
+    if (string_contains(WHITESPACE_CHARS, c)) {
         ungetc(c, file);
         Token token = {T_AT_MAIN, NULL};
         return token;
@@ -566,6 +567,31 @@ Token HANDLER_operators(FILE* file, SymTable *sym_table, int first_char) {
     }
 }
 
+Token HANDLER_special(SymTable *sym_table, int c) {
+    Token token = {NO_TOKEN_FOUND, NULL};
+    switch (c) {
+        case ';':
+            token.type = T_SEMICOLON;
+            break;
+        case ',':
+            token.type = T_COMMA;
+            break;
+        case ':':
+            token.type = T_COLON;
+            break;
+        case '(':
+            token.type = T_PAR_L;
+            break;
+        case ')':
+            token.type = T_PAR_R;
+            break;
+        default:
+            throw_lexical_error_1();
+    }
+    return token;
+
+}
+
 Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
     int c;
@@ -579,7 +605,7 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
         }
 
         if (string_contains(ENTRY_STRINGS, c))
-            return FSM_string(file, sym_table);
+            return FSM_strings(file, sym_table);
 
         if (string_contains(ENTRY_NUMERALS, c))
             return FSM_numerals(file, sym_table, c);
@@ -590,6 +616,8 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
         if (string_contains(ENTRY_OPERATORS, c))
             return HANDLER_operators(file, sym_table, c);
 
+        if (string_contains(ENTRY_SPECIAL, c))
+            return HANDLER_special(sym_table, c);
 
     }
     Token token = {T_EOF, NULL};

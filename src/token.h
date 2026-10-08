@@ -10,6 +10,7 @@
 
 typedef enum {
     NO_TOKEN_FOUND,
+
     T_IDENT = 1, // start at one to allow NO_TOKEN_FOUND to represent a state that runs the loop again
     T_NEWLINE,
     T_AT_MAIN,
@@ -19,8 +20,8 @@ typedef enum {
     T_DOUBLE,
     T_STRING,
 
-    T_LPAR,
-    T_RPAR,
+    T_PAR_L,
+    T_PAR_R,
     T_SEMICOLON,
     T_COLON,
     T_COMMA,
