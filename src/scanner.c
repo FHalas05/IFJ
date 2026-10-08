@@ -20,6 +20,7 @@
 #define ENTRY_STRINGS  "\""
 #define ENTRY_NUMERALS ".0123456789"
 #define ENTRY_MAIN     "@"
+#define ENTRY_OPERATORS "=!><+-*&|"
 
 
 bool string_contains(char* str, int c) {
@@ -493,6 +494,78 @@ Token HANDLER_main(FILE* file, SymTable *sym_table) {
     throw_lexical_error_1();
 }
 
+Token HANDLER_operators(FILE* file, SymTable *sym_table, int first_char) {
+    int second_char = fgetc(file);
+    Token token = {NO_TOKEN_FOUND, NULL};
+
+    switch (first_char) {
+        case '=':
+            if (second_char == '=')
+                token.type = T_OP_EQ;
+            else if (second_char == '>')
+                token.type = T_OP_ROCKET;
+            else {
+                ungetc(second_char, file);
+                token.type = T_OP_ASSIGN;
+            }
+            return token;
+        case '!':
+            if (second_char == '=')
+                token.type = T_OP_NOT_EQ;
+            else {
+                ungetc(second_char, file);
+                token.type = T_OP_BIN_NOT;
+            }
+            return token;
+        case '>':
+            if (second_char == '=')
+                token.type = T_OP_GR_EQ;
+            else {
+                ungetc(second_char, file);
+                token.type = T_OP_GR;
+            }
+            return token;
+        case '<':
+            if (second_char == '=')
+                token.type = T_OP_LESS_EQ;
+            else {
+                ungetc(second_char, file);
+                token.type = T_OP_LESS;
+            }
+            return token;
+        case '+':
+            if (second_char == '+')
+                token.type = T_OP_PLUS_PLUS;
+            else {
+                ungetc(second_char, file);
+                token.type = T_OP_PLUS;
+            }
+            return token;
+        case '-':
+            ungetc(second_char, file);
+            token.type = T_OP_MINUS;
+            return token;
+        case '*':
+            ungetc(second_char, file);
+            token.type = T_OP_MUL;
+            return token;
+        case '&':
+            if (second_char == '&') {
+                token.type = T_OP_BIN_AND;
+                return token;
+            }
+            throw_lexical_error_1();
+        case '|':
+            if (second_char == '|') {
+                token.type = T_OP_BIN_OR;
+                return token;
+            }
+            throw_lexical_error_1();
+        default:
+            throw_lexical_error_1();
+    }
+}
+
 Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
     int c;
@@ -513,6 +586,9 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
         if (string_contains(ENTRY_MAIN, c))
             return HANDLER_main(file, sym_table);
+
+        if (string_contains(ENTRY_OPERATORS, c))
+            return HANDLER_operators(file, sym_table, c);
 
 
     }
