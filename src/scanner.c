@@ -32,10 +32,10 @@ void throw_lexical_error_1() {
 
 /**
  * @brief FSM for comments and division
- *
- * This FSM handels token for division ('/') , one line comments and block comments
- *
- * @param file The programm soure file
+ * 
+ * This FSM handels tokens for division ('/') , one line comments and block comments
+ * 
+ * @param file The programm soure file 
  * @param sym_table The table of symbols of compiler
  *
  * @return token tokens for '/' , one line comments and block commentsn
@@ -158,6 +158,128 @@ Token FSM_comments(FILE* file, SymTable *sym_table) {
     }
     Token token = {T_EOF, NULL};
     return token;
+}
+
+/**
+ * @brief FSM for strings
+ * 
+ * This FSM handels tokens for one-line string and multiple-line strings
+ * 
+ * @param file The programm soure file 
+ * @param sym_table The symbols table of compiler
+ * 
+ * @return token tokens for one-line string or multiple-line strings
+ */
+Token FSM_string(FILE* file, SymTable *sym_table){
+    typedef enum {
+        F1, F2, F3, F4, F5, F6
+    } State;
+
+    State state = F1;
+    String* final_string = str_init(); // string returned as token attribute
+    int c;
+    bool line_string = false; // check for multiple-line string
+
+    while ((c = fgetc(file)) != EOF) {
+        switch(state) {
+            // initial division of string by type
+            case F1:
+                if (c == '\n') {
+                    str_free(final_string);
+                    throw_lexical_error_1();
+                }
+                else if (c == '"' && !line_string) { // possible multiple-line string or empty string
+                    state = F2;
+                }
+                else if (c == '"' && line_string) { // final one line string
+                    Token token = {T_STRING, final_string};
+                    return token;
+                }
+                else if (c == '\\') { // check for presence of espcape sequences
+                    line_string = true;
+                    state = F6;
+                }
+                else { // one line string loop
+                    line_string = true; 
+                    str_add(final_string, c);
+                    state = F1;
+                }
+                break;
+            // secondary division of string by type    
+            case F2:
+                if (c == '"') {
+                    state = F3;
+                }
+                else {
+                    ungetc(c, file);
+                    Token token = {T_STRING, final_string};
+                    return token;
+                }
+                break;
+            // possible ending sequence for multiple-line string or multiple-line string loop
+            case F3:
+                if (c == '"') {
+                    state = F4;
+                }
+                else {
+                    str_add(final_string, c);
+                }
+                break;
+            // possible continuens of ending sequence for multiple-line string or " in string
+            case F4:
+                if (c == '"') {
+                    state = F5;
+                }
+                else {
+                    str_add(final_string, '"');
+                    str_add(final_string, c);
+                    state = F3;
+                }
+                break;
+            // end of multiple-line string or "" in string
+            case F5:
+                if (c == '"') {
+                    Token token = {T_STRING, final_string};
+                    return token;
+                }
+                else {
+                    str_add(final_string, '"');
+                    str_add(final_string, '"');
+                    str_add(final_string, c);
+                    state = F3;
+                }
+                break;
+            // handels escape squence recognition and insertion into string
+            case F6:
+                if (c == '\\') {
+                    str_add(final_string, '\\');
+                    state = F1;
+                }
+                else if (c == '"') {
+                    str_add(final_string, '\"');
+                    state = F1;
+                }
+                else if (c == 'n') {
+                    str_add(final_string, '\n');
+                    state = F1;
+                }
+                else if (c == 'r') {
+                    str_add(final_string, '\r');
+                    state = F1;
+                }
+                else if (c == 't') {
+                    str_add(final_string, '\t');
+                    state = F1;
+                }
+                else {
+                    str_free(final_string);
+                    throw_lexical_error_1();
+                }
+                break;
+        }
+    }
+    str_free(final_string);
+    throw_lexical_error_1();
 }
 
 Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
@@ -381,6 +503,10 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
                 continue;
             }
             return token;
+        }
+
+        if (c == '"') {
+            return FSM_string(file, sym_table);
         }
     }
     Token token = {T_EOF, NULL};
