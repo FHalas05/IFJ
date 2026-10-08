@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define WHITESPACE_CHARS " \t\n\v\f\r"
 
@@ -22,6 +23,7 @@
 #define ENTRY_MAIN     "@"
 #define ENTRY_OPERATORS "=!><+-*&|"
 #define ENTRY_SPECIAL  ";,:()\n"
+#define ENTRY_WHITESPACE  " \t\v\f\r"
 
 
 bool string_contains(char* str, int c) {
@@ -592,7 +594,23 @@ Token HANDLER_special(SymTable *sym_table, int c) {
 
 }
 
-Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
+Token HANDLER_whitespace(FILE* file, SymTable *sym_table, TokenType last_token_type, int c) {
+    Token token = {NO_TOKEN_FOUND, NULL};
+
+    if (c == ' ' && last_token_type == T_NEWLINE) {
+        int spaces = 1;
+        while ((c = fgetc(file)) == ' ')
+            spaces++;
+
+        ungetc(c, file);
+        token.type = T_INDENT;
+        token_set_indent_count(token, spaces);
+    }
+
+    return token;
+}
+
+Token scanner(FILE* file, SymTable *sym_table, TokenType last_token_type) {
 
     int c;
     while ((c = fgetc(file)) != EOF) {
@@ -618,6 +636,13 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
         if (string_contains(ENTRY_SPECIAL, c))
             return HANDLER_special(sym_table, c);
+
+        if (string_contains(ENTRY_WHITESPACE, c)) {
+            Token token;
+            if ((token = HANDLER_whitespace(file, sym_table, last_token_type, c)).type == NO_TOKEN_FOUND)
+                continue;
+            return token;
+        }
 
     }
     Token token = {T_EOF, NULL};
