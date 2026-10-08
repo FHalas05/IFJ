@@ -16,8 +16,13 @@
 
 #define WHITESPACE_CHARS " \t\n\v\f\r"
 
+#define ENTRY_COMMENTS "/"
+#define ENTRY_STRINGS  "\""
+#define ENTRY_NUMERALS ".0123456789"
+#define ENTRY_MAIN     "@"
 
-bool is_char_in_string(char* str, int c) {
+
+bool string_contains(char* str, int c) {
     for (int i = 0; i < strlen(str); i++) {
         if (str[i] == c) {return true;}
     }
@@ -469,44 +474,47 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
     return token;
 }
 
+Token HANDLER_main(FILE* file, SymTable *sym_table) {
+    // compare to "main"
+    char str[5] = "main";
+    for (int i = 0; i < 4; i++) {
+        if (fgetc(file) != str[i]) {
+            throw_lexical_error_1();
+        }
+    }
+
+    // make sure its followed by whitespace
+    int c;
+    if (string_contains(WHITESPACE_CHARS, c = fgetc(file))) {
+        ungetc(c, file);
+        Token token = {T_AT_MAIN, NULL};
+        return token;
+    }
+    throw_lexical_error_1();
+}
 
 Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
     int c;
     while ((c = fgetc(file)) != EOF) {
 
-        // numerals
-        if (isdigit(c) || c == '.') {
-            return FSM_numerals(file, sym_table, c);
-        }
-
-        // @main
-        if (c == '@') {
-            char str[5] = "main";
-            for (int i = 0; i < 4; i++) {
-                if (fgetc(file) != str[i]) {
-                    throw_lexical_error_1();
-                }
-            }
-            if (is_char_in_string(WHITESPACE_CHARS, c = fgetc(file))) {
-                ungetc(c, file);
-                Token token = {T_AT_MAIN, NULL};
-                return token;
-            }
-            throw_lexical_error_1();
-        }
-
-        if (c == '/') {
+        if (string_contains(ENTRY_COMMENTS, c)) {
             Token token;
-            if ((token = FSM_comments(file, sym_table)).type == NO_TOKEN_FOUND) {
+            if ((token = FSM_comments(file, sym_table)).type == NO_TOKEN_FOUND)
                 continue;
-            }
             return token;
         }
 
-        if (c == '"') {
+        if (string_contains(ENTRY_STRINGS, c))
             return FSM_string(file, sym_table);
-        }
+
+        if (string_contains(ENTRY_NUMERALS, c))
+            return FSM_numerals(file, sym_table, c);
+
+        if (string_contains(ENTRY_MAIN, c))
+            return HANDLER_main(file, sym_table);
+
+
     }
     Token token = {T_EOF, NULL};
     return token;
