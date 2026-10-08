@@ -1,7 +1,7 @@
 //
 // Created by Filip on 7. 10. 2026.
 //
-// Tstring to avoid collision with the C string.h library
+// named our_string to avoid confusion with the C string.h library
 
 
 #ifndef IFJ_STRING_H
