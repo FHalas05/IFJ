@@ -30,8 +30,134 @@ void throw_lexical_error_1() {
     exit(1);
 }
 
-Token FSM_comments(FILE* file, SymTable *sym_table, TokenType last_token) {
+/**
+ * @brief FSM for comments and division
+ * 
+ * This FSM handels token for division ('/') , one line comments and block comments
+ * 
+ * @param file The programm soure file 
+ * @param sym_table The table of symbols of compiler
+ * 
+ * @return token tokens for '/' , one line comments and block commentsn
+ */
+Token FSM_comments(FILE* file, SymTable *sym_table) {
+    typedef enum {
+        F1, F2, F3, F4, F5, F6
+    } State;
 
+    State state = F1;
+    
+    int c; 
+    int nesting_depth = 0;
+    bool new_line_check = false; // tracks whether there is a new line in block commnet
+    while ((c = fgetc(file)) != EOF) {
+        switch (state)
+        {
+        // division or comment
+        case F1:
+            if (c == '/') {
+                state = F2;
+            }
+            else if (c == '*') {
+                nesting_depth++;
+                state = F3;
+            }
+            else {
+                ungetc(c, file);
+                Token token = {T_OP_DIV, NULL};
+                return token;
+            }
+            break;
+        // line comments 
+        case F2:
+            if (c == '\n') {
+                Token token = {T_NEWLINE, NULL};
+                return token;
+            }
+            else {
+                state = F2;
+            }
+            break;
+        // innitial block commets
+        case F3:
+            if (c == '/'){ 
+                state = F4;
+            }
+            else if (c == '*'){
+                state = F5;
+            }
+            else if (c == '\n') {
+                new_line_check = true;
+            }
+            else {
+                state = F3;
+            }
+            break;
+        //aditional nesting sequence
+        case F4:
+            if (c == '*') {
+                state = F3;
+                nesting_depth++;
+            }
+            else if (c == '/') {
+                state = F4;
+            }
+            else if (c == '\n') {
+                new_line_check = true;
+                state = F3;
+            }
+            else {
+                state = F3;
+            }
+            break;
+        //aditional denesting sequence
+        case F5:
+            if (c == '/') {
+                state = F3;
+                nesting_depth--;
+                if (nesting_depth == 0 && new_line_check) {
+                    state = F6;
+                }
+                else if (nesting_depth == 0 && !new_line_check) {
+                    Token token = {NO_TOKEN_FOUND};
+                    return token;
+                }
+            }
+            else if (c == '*') {
+                state = F5;
+            }
+            else if (c == '\n') {
+                new_line_check = true;
+                state = F3;
+            }
+            else {
+                state = F3;
+            }
+            break;
+        // Checks to ensure that there is nothing but whitespace after a block comment followed by a newline
+        case F6:
+            if (c == ' ' || c == '\t' || c == '\r') {
+                state = F6;
+            }
+            else if (c == '\n') {
+                Token token = {T_NEWLINE, NULL};
+                return token;
+            }
+            else {
+                throw_lexical_error_1();
+            }
+            break;
+        }
+    }
+    if (state == F1) { // handels case when division sign is last character of the file
+        Token token = {T_OP_DIV, NULL};
+        return token;
+    }
+    if (nesting_depth > 0) { // checks that no block commet was left open
+        throw_lexical_error_1();
+    } 
+    Token token = {T_EOF, NULL};
+    return token;
 }
 
 Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
@@ -236,7 +362,7 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
 
         if (c == '/') {
             Token token;
-            if ((token = FSM_comments(file, sym_table, last_token)).type == NO_TOKEN_FOUND) {
+            if ((token = FSM_comments(file, sym_table)).type == NO_TOKEN_FOUND) {
                 continue;
             }
             return token;
