@@ -16,7 +16,6 @@
 
 #define WHITESPACE_CHARS " \t\n\v\f\r"
 
-bool is_digit(int c) {return '0' <= c && c <= '9';}
 
 bool is_char_in_string(char* str, int c) {
     for (int i = 0; i < strlen(str); i++) {
@@ -297,7 +296,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // int loop
             case F1:
-                if (is_digit(c)) {  // digit looping
+                if (isdigit(c)) {  // digit looping
                     state = F1;
                     str_add(result, c);
                 }
@@ -327,7 +326,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // _ in INT
             case F2:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F1;
                     str_add(result, c);
                 } else { // there must always be a digit after '_'
@@ -337,7 +336,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // . in double / double entry point
             case F3:
-                if (is_digit(c)) {  // process to the mantissa loop
+                if (isdigit(c)) {  // process to the mantissa loop
                     state = F4;
                     str_add(result, c);
                 }
@@ -353,7 +352,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // double mantissa loop
             case F4:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F4;
                     str_add(result, c);
                 }
@@ -382,7 +381,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // _ for mantissa
             case F5:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F4;
                     str_add(result, c);
                 }
@@ -393,7 +392,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // exponent entry
             case F6:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
                 }
@@ -408,7 +407,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // exponent sign
             case F7:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
                 }
@@ -419,7 +418,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // exponent loop
             case F8:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
                 }
@@ -444,7 +443,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
 
             // _ for exponent
             case F9:
-                if (is_digit(c)) {
+                if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
                 }
@@ -477,7 +476,7 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token) {
     while ((c = fgetc(file)) != EOF) {
 
         // numerals
-        if (is_digit(c) || c == '.') {
+        if (isdigit(c) || c == '.') {
             return FSM_numerals(file, sym_table, c);
         }
 
