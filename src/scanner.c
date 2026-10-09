@@ -25,7 +25,8 @@
 #define ENTRY_OPERATORS "=!><+-*&|"
 #define ENTRY_SPECIAL  ";,:()\n"
 #define ENTRY_WHITESPACE  " \t\v\f\r"
-
+#define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYX_"
+#define IDENTIFIERS_NUMENRALS "0123456789"
 
 bool string_contains(char* str, int c) {
     for (int i = 0; i < strlen(str); i++) {
@@ -291,41 +292,6 @@ Token FSM_strings(FILE* file, SymTable *sym_table){
     throw_lexical_error_1();
 }
 
-Token FSM_idetifier(FILE* file, SymTable *sym_table, int first_char) {
-    typedef enum {
-        F1
-    } State;
-
-    State state = F1;
-    int c;
-    String* id = str_init();
-    str_add(id, first_char);
-    
-    
-    while ((c = fgetc(file)) != EOF) {
-        switch (state) {
-            case F1:
-                if (c == ' ') {
-                    ungetc(c, file);
-                    return is_keyword(id);
-                }
-                else if (c == '\n') {
-                    ungetc(c, file);
-                    return is_keyword(id);
-                }
-                else if (isalnum(c) ||  c == '_'){
-                    state = F1;
-                    str_add(id, c);
-                }
-                else {
-                    throw_lexical_error_1();
-                }
-                break;
-        }
-    }
-    return is_keyword(id);
-}
-
 Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
     typedef enum {
         F1, F2, F3, F4, F5, F6, F7, F8, F9, F10
@@ -514,6 +480,23 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
     return token;
 }
 
+Token HANDLER_idetifiers(FILE* file, SymTable *sym_table, int first_char) {
+    int c;
+    String* id = str_init();
+    str_add(id, first_char);
+    
+    while ((c = fgetc(file)) != EOF) {
+        if (string_contains(ENTRY_IDENTIFIERS, c) || string_contains(IDENTIFIERS_NUMENRALS, c)){
+            str_add(id, c);
+        }
+        else {
+            ungetc(c, file);
+            return is_keyword(id);
+            }
+    }
+    return is_keyword(id);
+}
+
 Token HANDLER_main(FILE* file, SymTable *sym_table) {
     // compare to "main"
     char str[5] = "main";
@@ -679,8 +662,8 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token_type) {
                 continue;
             return token;
         }
-        if (isalpha(c) || c == '_') {
-            return FSM_idetifier(file, sym_table, c);
+        if (string_contains(ENTRY_IDENTIFIERS, c)) {
+            return HANDLER_idetifiers(file, sym_table, c);
         }
 
     }
