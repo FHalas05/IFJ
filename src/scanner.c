@@ -7,6 +7,7 @@
 #include "token.h"
 #include "scanner.h"
 #include "our_string.h"
+#include "keywords.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -288,6 +289,41 @@ Token FSM_strings(FILE* file, SymTable *sym_table){
     }
     str_free(final_string);  // todo figure out whether to do this or not
     throw_lexical_error_1();
+}
+
+Token FSM_idetifier(FILE* file, SymTable *sym_table, int first_char) {
+    typedef enum {
+        F1
+    } State;
+
+    State state = F1;
+    int c;
+    String* id = str_init();
+    str_add(id, first_char);
+    
+    
+    while ((c = fgetc(file)) != EOF) {
+        switch (state) {
+            case F1:
+                if (c == ' ') {
+                    ungetc(c, file);
+                    return is_keyword(id);
+                }
+                else if (c == '\n') {
+                    ungetc(c, file);
+                    return is_keyword(id);
+                }
+                else if (isalnum(c) ||  c == '_'){
+                    state = F1;
+                    str_add(id, c);
+                }
+                else {
+                    throw_lexical_error_1();
+                }
+                break;
+        }
+    }
+    return is_keyword(id);
 }
 
 Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
@@ -642,6 +678,9 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token_type) {
             if ((token = HANDLER_whitespace(file, sym_table, last_token_type, c)).type == NO_TOKEN_FOUND)
                 continue;
             return token;
+        }
+        if (isalpha(c) || c == '_') {
+            return FSM_idetifier(file, sym_table, c);
         }
 
     }
