@@ -21,3 +21,7 @@ void throw_fatal_error(int error_number, char* error_type) {
     fprintf(stderr, "FATAL ERROR: %d - %s\n" ,error_number, error_type);
     exit(1);
 }
+
+void throw_nonfatal_error(int error_number, char* error_type) {
+    fprintf(stderr, "NONFATAL ERROR: %d - %s\n" ,error_number, error_type);
+}
