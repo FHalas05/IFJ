@@ -26,31 +26,30 @@
 #define ENTRY_SPECIAL  ";,:()\n"
 #define ENTRY_WHITESPACE  " \t\v\f\r"
 #define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYX_"
-#define IDENTIFIERS_NUMENRALS "0123456789"
 
-bool string_contains(char* str, int c) {
+bool string_contains(char *str, int c) {
     for (int i = 0; i < strlen(str); i++) {
-        if (str[i] == c) {return true;}
+        if (str[i] == c) { return true; }
     }
     return false;
 }
 
 void throw_lexical_error_1() {
-    fprintf(stderr,"LEXICAL ERROR 1\n");
+    fprintf(stderr, "LEXICAL ERROR 1\n");
     exit(1);
 }
 
 /**
  * @brief FSM for comments and division
- * 
- * This FSM handels tokens for division ('/') , one line comments and block comments
- * 
- * @param file The programm soure file 
+ *
+ * This FSM handles tokens for division ('/') , one line comments and block comments
+ *
+ * @param file The program source file
  * @param sym_table The table of symbols of compiler
  *
- * @return token tokens for '/' , one line comments and block commentsn
+ * @return token tokens for '/' , one line comments and block comments
  */
-Token FSM_comments(FILE* file, SymTable *sym_table) {
+Token FSM_comments(FILE *file, SymTable *sym_table) {
     typedef enum {
         F1, F2, F3, F4, F5, F6
     } State;
@@ -59,111 +58,97 @@ Token FSM_comments(FILE* file, SymTable *sym_table) {
 
     int c;
     int nesting_depth = 0;
-    bool new_line_check = false; // tracks whether there is a new line in block commnet
+    bool new_line_check = false; // tracks whether there is a new line in block comment
     while ((c = fgetc(file)) != EOF) {
-        switch (state)
-        {
-        // division or comment
-        case F1:
-            if (c == '/') {
-                state = F2;
-            }
-            else if (c == '*') {
-                nesting_depth++;
-                state = F3;
-            }
-            else {
-                ungetc(c, file);
-                Token token = {T_OP_DIV, NULL};
-                return token;
-            }
-            break;
-        // line comments
-        case F2:
-            if (c == '\n') {
-                Token token = {T_NEWLINE, NULL};
-                return token;
-            }
-            else {
-                state = F2;
-            }
-            break;
-        // innitial block commets
-        case F3:
-            if (c == '/'){
-                state = F4;
-            }
-            else if (c == '*'){
-                state = F5;
-            }
-            else if (c == '\n') {
-                new_line_check = true;
-            }
-            else {
-                state = F3;
-            }
-            break;
-        //aditional nesting sequence
-        case F4:
-            if (c == '*') {
-                state = F3;
-                nesting_depth++;
-            }
-            else if (c == '/') {
-                state = F4;
-            }
-            else if (c == '\n') {
-                new_line_check = true;
-                state = F3;
-            }
-            else {
-                state = F3;
-            }
-            break;
-        //aditional denesting sequence
-        case F5:
-            if (c == '/') {
-                state = F3;
-                nesting_depth--;
-                if (nesting_depth == 0 && new_line_check) {
-                    state = F6;
-                }
-                else if (nesting_depth == 0 && !new_line_check) {
-                    Token token = {NO_TOKEN_FOUND};
+        switch (state) {
+            // division or comment
+            case F1:
+                if (c == '/') {
+                    state = F2;
+                } else if (c == '*') {
+                    nesting_depth++;
+                    state = F3;
+                } else {
+                    ungetc(c, file);
+                    Token token = {T_OP_DIV, NULL};
                     return token;
                 }
-            }
-            else if (c == '*') {
-                state = F5;
-            }
-            else if (c == '\n') {
-                new_line_check = true;
-                state = F3;
-            }
-            else {
-                state = F3;
-            }
-            break;
-        // Checks to ensure that there is nothing but whitespace after a block comment followed by a newline
-        case F6:
-            if (c == ' ' || c == '\t' || c == '\r') {
-                state = F6;
-            }
-            else if (c == '\n') {
-                Token token = {T_NEWLINE, NULL};
-                return token;
-            }
-            else {
-                throw_lexical_error_1();
-            }
-            break;
+                break;
+            // line comments
+            case F2:
+                if (c == '\n') {
+                    Token token = {T_NEWLINE, NULL};
+                    return token;
+                } else {
+                    state = F2;
+                }
+                break;
+            // initial block comments
+            case F3:
+                if (c == '/') {
+                    state = F4;
+                } else if (c == '*') {
+                    state = F5;
+                } else if (c == '\n') {
+                    new_line_check = true;
+                } else {
+                    state = F3;
+                }
+                break;
+            //additional nesting sequence
+            case F4:
+                if (c == '*') {
+                    state = F3;
+                    nesting_depth++;
+                } else if (c == '/') {
+                    state = F4;
+                } else if (c == '\n') {
+                    new_line_check = true;
+                    state = F3;
+                } else {
+                    state = F3;
+                }
+                break;
+            //additional denesting sequence
+            case F5:
+                if (c == '/') {
+                    state = F3;
+                    nesting_depth--;
+                    if (nesting_depth == 0 && new_line_check) {
+                        state = F6;
+                    } else if (nesting_depth == 0 && !new_line_check) {
+                        Token token = {NO_TOKEN_FOUND};
+                        return token;
+                    }
+                } else if (c == '*') {
+                    state = F5;
+                } else if (c == '\n') {
+                    new_line_check = true;
+                    state = F3;
+                } else {
+                    state = F3;
+                }
+                break;
+            // Checks to ensure that there is nothing but whitespace after a block comment followed by a newline
+            case F6:
+                if (c == ' ' || c == '\t' || c == '\r') {
+                    state = F6;
+                } else if (c == '\n') {
+                    Token token = {T_NEWLINE, NULL};
+                    return token;
+                } else {
+                    throw_lexical_error_1();
+                }
+                break;
         }
     }
-    if (state == F1) { // handels case when division sign is last character of the file
+    if (state == F1) {
+        // handles case when division sign is last character of the file
         Token token = {T_OP_DIV, NULL};
         return token;
     }
-    if (nesting_depth > 0) { // checks that no block commet was left open
+    if (nesting_depth > 0) {
+        // checks that no block comment was left open
         throw_lexical_error_1();
     }
     Token token = {T_EOF, NULL};
@@ -172,55 +157,54 @@ Token FSM_comments(FILE* file, SymTable *sym_table) {
 
 /**
  * @brief FSM for strings
- * 
- * This FSM handels tokens for one-line string and multiple-line strings
- * 
- * @param file The programm soure file 
+ *
+ * This FSM handles tokens for one-line string and multiple-line strings
+ *
+ * @param file The program source file
  * @param sym_table The symbols table of compiler
- * 
+ *
  * @return token tokens for one-line string or multiple-line strings
  */
-Token FSM_strings(FILE* file, SymTable *sym_table){
+Token FSM_strings(FILE *file, SymTable *sym_table) {
     typedef enum {
         F1, F2, F3, F4, F5, F6
     } State;
 
     State state = F1;
-    String* final_string = str_init(); // string returned as token attribute
+    String *final_string = str_init(); // string returned as token attribute
     int c;
     bool line_string = false; // check for multiple-line string
 
     while ((c = fgetc(file)) != EOF) {
-        switch(state) {
+        switch (state) {
             // initial division of string by type
             case F1:
                 if (c == '\n') {
                     str_free(final_string);
                     throw_lexical_error_1();
-                }
-                else if (c == '"' && !line_string) { // possible multiple-line string or empty string
+                } else if (c == '"' && !line_string) {
+                    // possible multiple-line string or empty string
                     state = F2;
-                }
-                else if (c == '"' && line_string) { // final one line string
+                } else if (c == '"' && line_string) {
+                    // final one line string
                     Token token = {T_STRING, final_string};
                     return token;
-                }
-                else if (c == '\\') { // check for presence of espcape sequences
+                } else if (c == '\\') {
+                    // check for presence of escape sequences
                     line_string = true;
                     state = F6;
-                }
-                else { // one line string loop
-                    line_string = true; 
+                } else {
+                    // one line string loop
+                    line_string = true;
                     str_add(final_string, c);
                     state = F1;
                 }
                 break;
-            // secondary division of string by type    
+            // secondary division of string by type
             case F2:
                 if (c == '"') {
                     state = F3;
-                }
-                else {
+                } else {
                     ungetc(c, file);
                     Token token = {T_STRING, final_string};
                     return token;
@@ -230,17 +214,15 @@ Token FSM_strings(FILE* file, SymTable *sym_table){
             case F3:
                 if (c == '"') {
                     state = F4;
-                }
-                else {
+                } else {
                     str_add(final_string, c);
                 }
                 break;
-            // possible continuens of ending sequence for multiple-line string or " in string
+            // possible continues of ending sequence for multiple-line string or " in string
             case F4:
                 if (c == '"') {
                     state = F5;
-                }
-                else {
+                } else {
                     str_add(final_string, '"');
                     str_add(final_string, c);
                     state = F3;
@@ -251,83 +233,78 @@ Token FSM_strings(FILE* file, SymTable *sym_table){
                 if (c == '"') {
                     Token token = {T_STRING, final_string};
                     return token;
-                }
-                else {
+                } else {
                     str_add(final_string, '"');
                     str_add(final_string, '"');
                     str_add(final_string, c);
                     state = F3;
                 }
                 break;
-            // handels escape squence recognition and insertion into string
+            // handles escape sequence recognition and insertion into string
             case F6:
                 if (c == '\\') {
                     str_add(final_string, '\\');
                     state = F1;
-                }
-                else if (c == '"') {
+                } else if (c == '"') {
                     str_add(final_string, '\"');
                     state = F1;
-                }
-                else if (c == 'n') {
+                } else if (c == 'n') {
                     str_add(final_string, '\n');
                     state = F1;
-                }
-                else if (c == 'r') {
+                } else if (c == 'r') {
                     str_add(final_string, '\r');
                     state = F1;
-                }
-                else if (c == 't') {
+                } else if (c == 't') {
                     str_add(final_string, '\t');
                     state = F1;
-                }
-                else {
+                } else {
                     str_free(final_string);
                     throw_lexical_error_1();
                 }
                 break;
         }
     }
-    str_free(final_string);  // todo figure out whether to do this or not
+    str_free(final_string); // todo figure out whether to do this or not
     throw_lexical_error_1();
 }
 
-Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
+Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     typedef enum {
         F1, F2, F3, F4, F5, F6, F7, F8, F9, F10
     } State;
 
-    State state = first_char == '.' ? F3 : F1;  // if first char is ".", go straight to double entry point (F3), else F1
-    String* result = str_init();
+    State state = first_char == '.' ? F3 : F1; // if first char is ".", go straight to double entry point (F3), else F1
+    String *result = str_init();
     str_add(result, first_char);
     int c;
 
     while ((c = fgetc(file)) != EOF) {
         switch (state) {
-
             // int loop
             case F1:
-                if (isdigit(c)) {  // digit looping
+                if (isdigit(c)) {
+                    // digit looping
                     state = F1;
                     str_add(result, c);
-                }
-                else if (c == '_') {  // _
+                } else if (c == '_') {
+                    // _
                     state = F2;
-                }
-                else if (c == 'e' || c == 'E') {  // eE converts to double and proceeds to exponents
+                } else if (c == 'e' || c == 'E') {
+                    // eE converts to double and proceeds to exponents
                     state = F6;
                     str_add(result, c);
-                }
-                else if (c == '.') {  // . converts to double and proceeds to mantissa
+                } else if (c == '.') {
+                    // . converts to double and proceeds to mantissa
                     state = F3;
                     str_add(result, c);
-                }
-                else {                                          // handle invalid last tokens, return result when valid
-                    if ((first_char == '0' && result->len != 1) ||          // cannot start with 0 and be something else than 0
-                        isalpha(c)) {                           // cannot be a letter (except {E,e} - handled above)
+                } else {
+                    // handle invalid last tokens, return result when valid
+                    if ((first_char == '0' && result->len != 1) || // cannot start with 0 and be something else than 0
+                        isalpha(c)) {
+                        // cannot be a letter (except {E,e} - handled above)
                         throw_lexical_error_1();
-                    }
-                    else {                                                  // return result
+                    } else {
+                        // return result
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_INT, result};
                         return token;
@@ -340,24 +317,26 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F1;
                     str_add(result, c);
-                } else { // there must always be a digit after '_'
+                } else {
+                    // there must always be a digit after '_'
                     throw_lexical_error_1();
                 }
                 break;
 
             // . in double / double entry point
             case F3:
-                if (isdigit(c)) {  // process to the mantissa loop
+                if (isdigit(c)) {
+                    // process to the mantissa loop
                     state = F4;
                     str_add(result, c);
-                }
-                else {  // if the first char was '.' and theres no number after it, then it must be the dot operator
+                } else {
+                    // if the first char was '.' and theres no number after it, then it must be the dot operator
                     if (first_char == '.') {
                         ungetc(c, file);
                         Token token = {T_DOT, result};
                         return token;
                     }
-                    throw_lexical_error_1();  // if its something else than '.' or a numeral, its invalid
+                    throw_lexical_error_1(); // if its something else than '.' or a numeral, its invalid
                 }
                 break;
 
@@ -366,23 +345,21 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F4;
                     str_add(result, c);
-                }
-                else if (c == '_') {
+                } else if (c == '_') {
                     state = F5;
-                }
-                else if (c == 'e' || c == 'E') {  // eE proceeds to exponents
+                } else if (c == 'e' || c == 'E') {
+                    // eE proceeds to exponents
                     state = F6;
                     str_add(result, c);
-                }
-                else if (c == 'd' || c == 'D') {  // dD proceeds to final decision state (F10)
+                } else if (c == 'd' || c == 'D') {
+                    // dD proceeds to final decision state (F10)
                     state = F10;
                     str_add(result, c);
-                }
-                else {
-                    if (c == '.' || isalpha(c)) {  // if is a "." or a letter except "eEdD" throw error
+                } else {
+                    if (c == '.' || isalpha(c)) {
+                        // if is a "." or a letter except "eEdD" throw error
                         throw_lexical_error_1();
-                    }
-                    else {
+                    } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
                         return token;
@@ -395,8 +372,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F4;
                     str_add(result, c);
-                }
-                else {
+                } else {
                     throw_lexical_error_1();
                 }
                 break;
@@ -406,12 +382,10 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
-                }
-                else if (c == '+' || c == '-') {
+                } else if (c == '+' || c == '-') {
                     state = F7;
                     str_add(result, c);
-                }
-                else {
+                } else {
                     throw_lexical_error_1();
                 }
                 break;
@@ -421,8 +395,7 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
-                }
-                else {
+                } else {
                     throw_lexical_error_1();
                 }
                 break;
@@ -432,19 +405,17 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
-                }
-                else if (c == '_') {
+                } else if (c == '_') {
                     state = F9;
-                }
-                else if (c == 'd' || c == 'D') {                // dD proceeds to final decision state (F10)
+                } else if (c == 'd' || c == 'D') {
+                    // dD proceeds to final decision state (F10)
                     state = F10;
                     str_add(result, c);
-                }
-                else {
-                    if (isalpha(c)) {  // other letters than dD throw error
+                } else {
+                    if (isalpha(c)) {
+                        // other letters than dD throw error
                         throw_lexical_error_1();
-                    }
-                    else {
+                    } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
                         return token;
@@ -457,18 +428,17 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F8;
                     str_add(result, c);
-                }
-                else {
+                } else {
                     throw_lexical_error_1();
                 }
                 break;
 
             // final decision state
             case F10:
-                if (isalpha(c)) {  // other letters than dD throw error
+                if (isalpha(c)) {
+                    // other letters than dD throw error
                     throw_lexical_error_1();
-                }
-                else {
+                } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                     Token token = {T_DOUBLE, result};
                     return token;
@@ -480,24 +450,23 @@ Token FSM_numerals(FILE* file, SymTable *sym_table, int first_char) {
     return token;
 }
 
-Token HANDLER_idetifiers(FILE* file, SymTable *sym_table, int first_char) {
+Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
     int c;
-    String* id = str_init();
+    String *id = str_init();
     str_add(id, first_char);
-    
+
     while ((c = fgetc(file)) != EOF) {
-        if (string_contains(ENTRY_IDENTIFIERS, c) || string_contains(IDENTIFIERS_NUMENRALS, c)){
+        if (string_contains(ENTRY_IDENTIFIERS, c) || isdigit(c)) {
             str_add(id, c);
-        }
-        else {
+        } else {
             ungetc(c, file);
             return is_keyword(id);
-            }
+        }
     }
     return is_keyword(id);
 }
 
-Token HANDLER_main(FILE* file, SymTable *sym_table) {
+Token HANDLER_main(FILE *file, SymTable *sym_table) {
     // compare to "main"
     char str[5] = "main";
     for (int i = 0; i < 4; i++) {
@@ -516,7 +485,7 @@ Token HANDLER_main(FILE* file, SymTable *sym_table) {
     throw_lexical_error_1();
 }
 
-Token HANDLER_operators(FILE* file, SymTable *sym_table, int first_char) {
+Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
     int second_char = fgetc(file);
     Token token = {NO_TOKEN_FOUND, NULL};
 
@@ -610,10 +579,9 @@ Token HANDLER_special(SymTable *sym_table, int c) {
             throw_lexical_error_1();
     }
     return token;
-
 }
 
-Token HANDLER_whitespace(FILE* file, SymTable *sym_table, TokenType last_token_type, int c) {
+Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_type, int c) {
     Token token = {NO_TOKEN_FOUND, NULL};
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
@@ -629,11 +597,9 @@ Token HANDLER_whitespace(FILE* file, SymTable *sym_table, TokenType last_token_t
     return token;
 }
 
-Token scanner(FILE* file, SymTable *sym_table, TokenType last_token_type) {
-
+Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
     int c;
     while ((c = fgetc(file)) != EOF) {
-
         if (string_contains(ENTRY_COMMENTS, c)) {
             Token token;
             if ((token = FSM_comments(file, sym_table)).type == NO_TOKEN_FOUND)
@@ -662,10 +628,8 @@ Token scanner(FILE* file, SymTable *sym_table, TokenType last_token_type) {
                 continue;
             return token;
         }
-        if (string_contains(ENTRY_IDENTIFIERS, c)) {
-            return HANDLER_idetifiers(file, sym_table, c);
-        }
-
+        if (string_contains(ENTRY_IDENTIFIERS, c))
+            return HANDLER_identifiers(file, sym_table, c);
     }
     Token token = {T_EOF, NULL};
     return token;
