@@ -259,6 +259,16 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
     throw_lexical_error();
 }
 
+/**
+ * @brief FSM for numerals (int, double)
+ *
+ * This FSM handles all numeral types and the dot operator
+ *
+ * @param file The program source file
+ * @param sym_table The table of symbols of compiler
+ *
+ * @return token token of numeral with its content
+ */
 Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     typedef enum {
         F1, F2, F3, F4, F5, F6, F7, F8, F9, F10
@@ -468,6 +478,14 @@ Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
     return is_keyword(id);
 }
 
+/**
+ * @brief Handler for the (at)main annotation
+ *
+ * @param file The program source file
+ * @param sym_table The symbols table of compiler
+ *
+ * @return token token of type T_AT_MAIN
+ */
 Token HANDLER_main(FILE *file, SymTable *sym_table) {
     // compare to "main"
     char str[5] = "main";
@@ -487,6 +505,17 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
     throw_lexical_error();
 }
 
+/**
+ * @brief Handler for operators
+ *
+ * Handles identifying operators and returning the correct Token
+ *
+ * @param file The program source file
+ * @param sym_table The symbols table of compiler
+ * @param first_char The first character of the operator
+ *
+ * @return token for the operator
+ */
 Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
     int second_char = fgetc(file);
     Token token = {NO_TOKEN_FOUND, NULL};
@@ -559,9 +588,17 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
     }
 }
 
-Token HANDLER_special(SymTable *sym_table, int c) {
+/**
+ * @brief Handler for other/special tokens
+ *
+ * @param sym_table The symbols table of compiler
+ * @param c The special character
+ *
+ * @return token for the matched lexem
+ */
+Token HANDLER_special(SymTable *sym_table, int special_c) {
     Token token = {NO_TOKEN_FOUND, NULL};
-    switch (c) {
+    switch (special_c) {
         case ';':
             token.type = T_SEMICOLON;
             break;
@@ -583,6 +620,17 @@ Token HANDLER_special(SymTable *sym_table, int c) {
     return token;
 }
 
+/**
+ * @brief Handler for whitespace and indentation
+ *
+ * Handles removing unneeded whitespace and determines the indentation level after a NEWLINE
+ *
+ * @param file The program source file
+ * @param sym_table The symbols table of compiler
+ * @param last_token_type The type of the last token passed to caller (parser)
+ *
+ * @return token token of type T_INDENT with indent level, or of type NO_TOKEN_FOUND for discarded whitespace
+ */
 Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_type, int c) {
     Token token = {NO_TOKEN_FOUND, NULL};
 
@@ -599,6 +647,16 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
     return token;
 }
 
+/**
+ * @brief provides next token from file
+ *
+ * Scans file and returns the next token or throws error if no token type matches
+ *
+ * @param file The program source file
+ * @param sym_table The table of symbols of compiler
+ *
+ * @return token Matched token
+ */
 Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
     int c;
     while ((c = fgetc(file)) != EOF) {
