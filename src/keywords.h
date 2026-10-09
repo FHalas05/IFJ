@@ -6,8 +6,8 @@
 #define IFJ_KEYWORD_H
 
 #include <stddef.h>
-#include <token.h>
-#include "our_string.h"
+#include "token.h"
+#include "dynamic_string.h"
 
 /**
  * @brief checks if string is keyword
@@ -16,6 +16,6 @@
  * 
  * @return token token of identifier or keyword
  */
-Token is_keyword(String* string);
+Token is_keyword(DynamicString* string);
 
 #endif // IFJ_KEYWORD_H

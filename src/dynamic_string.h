@@ -11,12 +11,12 @@
 typedef struct {
     char* string;
     size_t len;
-} String;
+} DynamicString;
 
-String* str_init();
+DynamicString* dyn_str_init();
 
-void str_add(String* string, int c);
+void dyn_str_add(DynamicString* string, int c);
 
-void str_free(String* string);
+void dyn_str_free(DynamicString* string);
 
 #endif //IFJ_STRING_H

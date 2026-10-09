@@ -2,7 +2,7 @@
 // Created by Filip on 7. 10. 2026.
 //
 
-#include "our_string.h"
+#include "dynamic_string.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,8 +11,8 @@
 
 
 // Initializes dynamic string.
-String* str_init() {
-    String* string_obj = calloc(1, sizeof(String));
+DynamicString* dyn_str_init() {
+    DynamicString* string_obj = calloc(1, sizeof(DynamicString));
     if (string_obj == NULL) {
         fprintf(stderr, "Could not allocate memory. (str_init)\n");
         exit(1);
@@ -35,7 +35,7 @@ String* str_init() {
 
 // adds char to dynamic string.
 // inputs are expected to not be NULL
-void str_add(String* string, int c) {
+void dyn_str_add(DynamicString* string, int c) {
     char* string_new = realloc(string->string, string->len+2);  // +2 bcs new char and terminator
 
     if (string_new == NULL) {
@@ -50,7 +50,7 @@ void str_add(String* string, int c) {
 }
 
 // free dynamic string
-void str_free(String* string) {
+void dyn_str_free(DynamicString* string) {
     if (string == NULL) {
         fprintf(stderr, "Input is NULL\n");
         exit(1);

@@ -6,8 +6,9 @@
 #include "sym_table.h"
 #include "token.h"
 #include "scanner.h"
-#include "our_string.h"
+#include "dynamic_string.h"
 #include "keywords.h"
+#include "library.h"
 
 #include <ctype.h>
 #include <stdbool.h>
@@ -27,17 +28,7 @@
 #define ENTRY_WHITESPACE  " \t\v\f\r"
 #define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYX_"
 
-bool string_contains(char *str, int c) {
-    for (int i = 0; i < strlen(str); i++) {
-        if (str[i] == c) { return true; }
-    }
-    return false;
-}
-
-void throw_lexical_error_1() {
-    fprintf(stderr, "LEXICAL ERROR 1\n");
-    exit(1);
-}
+#define throw_lexical_error() throw_fatal_error(1, "")
 
 /**
  * @brief FSM for comments and division
@@ -137,7 +128,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
                     Token token = {T_NEWLINE, NULL};
                     return token;
                 } else {
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
         }
@@ -149,7 +140,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
     }
     if (nesting_depth > 0) {
         // checks that no block comment was left open
-        throw_lexical_error_1();
+        throw_lexical_error();
     }
     Token token = {T_EOF, NULL};
     return token;
@@ -171,7 +162,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
     } State;
 
     State state = F1;
-    String *final_string = str_init(); // string returned as token attribute
+    DynamicString *final_string = dyn_str_init(); // string returned as token attribute
     int c;
     bool line_string = false; // check for multiple-line string
 
@@ -180,8 +171,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
             // initial division of string by type
             case F1:
                 if (c == '\n') {
-                    str_free(final_string);
-                    throw_lexical_error_1();
+                    dyn_str_free(final_string);
+                    throw_lexical_error();
                 } else if (c == '"' && !line_string) {
                     // possible multiple-line string or empty string
                     state = F2;
@@ -196,7 +187,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 } else {
                     // one line string loop
                     line_string = true;
-                    str_add(final_string, c);
+                    dyn_str_add(final_string, c);
                     state = F1;
                 }
                 break;
@@ -215,7 +206,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 if (c == '"') {
                     state = F4;
                 } else {
-                    str_add(final_string, c);
+                    dyn_str_add(final_string, c);
                 }
                 break;
             // possible continues of ending sequence for multiple-line string or " in string
@@ -223,8 +214,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 if (c == '"') {
                     state = F5;
                 } else {
-                    str_add(final_string, '"');
-                    str_add(final_string, c);
+                    dyn_str_add(final_string, '"');
+                    dyn_str_add(final_string, c);
                     state = F3;
                 }
                 break;
@@ -234,38 +225,38 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                     Token token = {T_STRING, final_string};
                     return token;
                 } else {
-                    str_add(final_string, '"');
-                    str_add(final_string, '"');
-                    str_add(final_string, c);
+                    dyn_str_add(final_string, '"');
+                    dyn_str_add(final_string, '"');
+                    dyn_str_add(final_string, c);
                     state = F3;
                 }
                 break;
             // handles escape sequence recognition and insertion into string
             case F6:
                 if (c == '\\') {
-                    str_add(final_string, '\\');
+                    dyn_str_add(final_string, '\\');
                     state = F1;
                 } else if (c == '"') {
-                    str_add(final_string, '\"');
+                    dyn_str_add(final_string, '\"');
                     state = F1;
                 } else if (c == 'n') {
-                    str_add(final_string, '\n');
+                    dyn_str_add(final_string, '\n');
                     state = F1;
                 } else if (c == 'r') {
-                    str_add(final_string, '\r');
+                    dyn_str_add(final_string, '\r');
                     state = F1;
                 } else if (c == 't') {
-                    str_add(final_string, '\t');
+                    dyn_str_add(final_string, '\t');
                     state = F1;
                 } else {
-                    str_free(final_string);
-                    throw_lexical_error_1();
+                    dyn_str_free(final_string);
+                    throw_lexical_error();
                 }
                 break;
         }
     }
-    str_free(final_string); // todo figure out whether to do this or not
-    throw_lexical_error_1();
+    dyn_str_free(final_string); // todo figure out whether to do this or not
+    throw_lexical_error();
 }
 
 Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
@@ -274,8 +265,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     } State;
 
     State state = first_char == '.' ? F3 : F1; // if first char is ".", go straight to double entry point (F3), else F1
-    String *result = str_init();
-    str_add(result, first_char);
+    DynamicString *result = dyn_str_init();
+    dyn_str_add(result, first_char);
     int c;
 
     while ((c = fgetc(file)) != EOF) {
@@ -285,24 +276,24 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     // digit looping
                     state = F1;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == '_') {
                     // _
                     state = F2;
                 } else if (c == 'e' || c == 'E') {
                     // eE converts to double and proceeds to exponents
                     state = F6;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == '.') {
                     // . converts to double and proceeds to mantissa
                     state = F3;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
                     // handle invalid last tokens, return result when valid
                     if ((first_char == '0' && result->len != 1) || // cannot start with 0 and be something else than 0
                         isalpha(c)) {
                         // cannot be a letter (except {E,e} - handled above)
-                        throw_lexical_error_1();
+                        throw_lexical_error();
                     } else {
                         // return result
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
@@ -316,10 +307,10 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F2:
                 if (isdigit(c)) {
                     state = F1;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
                     // there must always be a digit after '_'
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
 
@@ -328,7 +319,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     // process to the mantissa loop
                     state = F4;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
                     // if the first char was '.' and theres no number after it, then it must be the dot operator
                     if (first_char == '.') {
@@ -336,7 +327,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                         Token token = {T_DOT, result};
                         return token;
                     }
-                    throw_lexical_error_1(); // if its something else than '.' or a numeral, its invalid
+                    throw_lexical_error(); // if its something else than '.' or a numeral, its invalid
                 }
                 break;
 
@@ -344,21 +335,21 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F4:
                 if (isdigit(c)) {
                     state = F4;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == '_') {
                     state = F5;
                 } else if (c == 'e' || c == 'E') {
                     // eE proceeds to exponents
                     state = F6;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == 'd' || c == 'D') {
                     // dD proceeds to final decision state (F10)
                     state = F10;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
                     if (c == '.' || isalpha(c)) {
                         // if is a "." or a letter except "eEdD" throw error
-                        throw_lexical_error_1();
+                        throw_lexical_error();
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
@@ -371,9 +362,9 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F5:
                 if (isdigit(c)) {
                     state = F4;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
 
@@ -381,12 +372,12 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F6:
                 if (isdigit(c)) {
                     state = F8;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == '+' || c == '-') {
                     state = F7;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
 
@@ -394,9 +385,9 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F7:
                 if (isdigit(c)) {
                     state = F8;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
 
@@ -404,17 +395,17 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F8:
                 if (isdigit(c)) {
                     state = F8;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else if (c == '_') {
                     state = F9;
                 } else if (c == 'd' || c == 'D') {
                     // dD proceeds to final decision state (F10)
                     state = F10;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
                     if (isalpha(c)) {
                         // other letters than dD throw error
-                        throw_lexical_error_1();
+                        throw_lexical_error();
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
@@ -427,9 +418,9 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F9:
                 if (isdigit(c)) {
                     state = F8;
-                    str_add(result, c);
+                    dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 }
                 break;
 
@@ -437,7 +428,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F10:
                 if (isalpha(c)) {
                     // other letters than dD throw error
-                    throw_lexical_error_1();
+                    throw_lexical_error();
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                     Token token = {T_DOUBLE, result};
@@ -453,22 +444,22 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
 /**
  * @brief Handler for identifiers and keywords
  *
- * Handels storing the idetifier a check whether it is a keyword
+ * Handles storing the identifier a check whether it is a keyword
  *
- * @param file The programm soure file
+ * @param file The program source file
  * @param sym_table The symbols table of compiler
  * @param first_char The first character of identifier or keyword
  *
- * @return token token for either identifier or keyword
+ * @return token for either identifier or keyword
  */
 Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
     int c;
-    String *id = str_init();
-    str_add(id, first_char);
+    DynamicString *id = dyn_str_init();
+    dyn_str_add(id, first_char);
 
     while ((c = fgetc(file)) != EOF) {
         if (string_contains(ENTRY_IDENTIFIERS, c) || isdigit(c)) {
-            str_add(id, c);
+            dyn_str_add(id, c);
         } else {
             ungetc(c, file);
             return is_keyword(id);
@@ -482,7 +473,7 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
     char str[5] = "main";
     for (int i = 0; i < 4; i++) {
         if (fgetc(file) != str[i]) {
-            throw_lexical_error_1();
+            throw_lexical_error();
         }
     }
 
@@ -493,7 +484,7 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
         Token token = {T_AT_MAIN, NULL};
         return token;
     }
-    throw_lexical_error_1();
+    throw_lexical_error();
 }
 
 Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
@@ -556,15 +547,15 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
                 token.type = T_OP_BIN_AND;
                 return token;
             }
-            throw_lexical_error_1();
+            throw_lexical_error();
         case '|':
             if (second_char == '|') {
                 token.type = T_OP_BIN_OR;
                 return token;
             }
-            throw_lexical_error_1();
+            throw_lexical_error();
         default:
-            throw_lexical_error_1();
+            throw_lexical_error();
     }
 }
 
@@ -587,7 +578,7 @@ Token HANDLER_special(SymTable *sym_table, int c) {
             token.type = T_PAR_R;
             break;
         default:
-            throw_lexical_error_1();
+            throw_lexical_error();
     }
     return token;
 }
