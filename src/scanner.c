@@ -450,6 +450,17 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     return token;
 }
 
+/**
+ * @brief Handler for identifiers and keywords
+ *
+ * Handels storing the idetifier a check whether it is a keyword
+ *
+ * @param file The programm soure file
+ * @param sym_table The symbols table of compiler
+ * @param first_char The first character of identifier or keyword
+ *
+ * @return token token for either identifier or keyword
+ */
 Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
     int c;
     String *id = str_init();

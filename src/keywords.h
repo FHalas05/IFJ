@@ -9,6 +9,13 @@
 #include <token.h>
 #include "our_string.h"
 
+/**
+ * @brief checks if string is keyword
+ *  
+ * @param string checked string
+ * 
+ * @return token token of identifier or keyword
+ */
 Token is_keyword(String* string);
 
 #endif // IFJ_KEYWORD_H
