@@ -459,7 +459,7 @@ static int run_single_test(const TestCase *tc, char *err_buf, size_t err_buf_siz
         close(pipefd[1]);
 
         FILE *fp = create_test_stream(tc->input);
-        Token tok = scanner(fp, NULL, NO_TOKEN_FOUND);
+        Token tok = scanner(fp, NULL, T_NEWLINE);  // There MUST be T_NEWLINE here, to accurately emulate the starting state
         fclose(fp);
 
         if (tc->expected_out_token_type == NO_TOKEN_FOUND) {

@@ -325,13 +325,14 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
 
             // . in double / double entry point
             case F3:
-                if (isdigit(c)) {
+                if (isdigit(c) &&
+                    !(result->string[0] == '0' && result->len >= 3)) { // >=3 to disallow numbers like 0x.xxx or 0xxx.xx - but it leaves 0.xxx, as that is allowed
                     // process to the mantissa loop
                     state = F4;
                     dyn_str_add(result, c);
                 } else {
-                    // if the first char was '.' and theres no number after it, then it must be the dot operator
-                    if (first_char == '.') {
+                    // if the first char was '.' and theres no number before and after it, then it must be the dot operator
+                    if (first_char == '.' && result->len == 1) {
                         ungetc(c, file);
                         Token token = {T_DOT, result};
                         return token;
