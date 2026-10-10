@@ -14,7 +14,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
 
 #define ENTRY_COMMENTS "/"
@@ -106,7 +105,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
                     if (nesting_depth == 0 && new_line_check) {
                         state = F6;
                     } else if (nesting_depth == 0 && !new_line_check) {
-                        Token token = {NO_TOKEN_FOUND};
+                        Token token = {NO_TOKEN_FOUND, NULL};
                         return token;
                     }
                 } else if (c == '*') {
@@ -331,7 +330,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     state = F4;
                     dyn_str_add(result, c);
                 } else {
-                    // if the first char was '.' and theres no number before and after it, then it must be the dot operator
+                    // if the first char was '.' and there's no number before and after it, then it must be the dot operator
                     if (first_char == '.' && result->len == 1) {
                         ungetc(c, file);
                         Token token = {T_DOT, result};
@@ -638,7 +637,7 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
 
         ungetc(c, file);
         token.type = T_INDENT;
-        token_set_indent_count(token, spaces);
+        token_set_indent_count(&token, spaces);
     }
 
     return token;

@@ -24,11 +24,11 @@ int token_get_indent_count(Token token) {
 
 // stores the indent level in a INDENT type token
 // invalid token type -> -1, else 0
-int token_set_indent_count(Token token, int indent_count) {
-    if (token.type != T_INDENT)
+int token_set_indent_count(Token* token, int indent_count) {
+    if (token->type != T_INDENT)
         return 0;
 
-    token.data = (void*)(intptr_t)indent_count;
+    token->data = (void*)(intptr_t)indent_count;
     return -1;
 }
 

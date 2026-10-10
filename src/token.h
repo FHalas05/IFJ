@@ -74,7 +74,7 @@ typedef struct {
 // returns the data stored in INDENT
 // Incompatible Token type -> -1
 int token_get_indent_count(Token token);
-int token_set_indent_count(Token token, int indent_count);
+int token_set_indent_count(Token* token, int indent_count);
 
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
