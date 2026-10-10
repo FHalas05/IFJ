@@ -28,7 +28,7 @@
 #define ENTRY_WHITESPACE  " \t\v\f\r"
 #define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYXZ_"
 
-#define throw_lexical_error() throw_fatal_error(1, "")
+#define throw_lexical_error(description) throw_fatal_error(1, description)
 
 /**
  * @brief FSM for comments and division
@@ -128,7 +128,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
                     Token token = {T_NEWLINE, NULL};
                     return token;
                 } else {
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_comments - F6");
                 }
                 break;
         }
@@ -140,7 +140,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
     }
     if (nesting_depth > 0) {
         // checks that no block comment was left open
-        throw_lexical_error();
+        throw_lexical_error("FSM_comments - multiline comment was left open");
     }
     Token token = {T_EOF, NULL};
     return token;
@@ -172,7 +172,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
             case F1:
                 if (c == '\n') {
                     dyn_str_free(final_string);
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_strings - F1");
                 } else if (c == '"' && !line_string) {
                     // possible multiple-line string or empty string
                     state = F2;
@@ -250,13 +250,13 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                     state = F1;
                 } else {
                     dyn_str_free(final_string);
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_strings - F6");
                 }
                 break;
         }
     }
     dyn_str_free(final_string); // todo figure out whether to do this or not
-    throw_lexical_error();
+    throw_lexical_error("FSM_strings - end state");
 }
 
 /**
@@ -279,7 +279,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     dyn_str_add(result, first_char);
     int c;
 
-    while ((c = fgetc(file)) != EOF) {
+    while (42) {
+        c = fgetc(file);
         switch (state) {
             // int loop
             case F1:
@@ -303,7 +304,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     if ((first_char == '0' && result->len != 1) || // cannot start with 0 and be something else than 0
                         isalpha(c)) {
                         // cannot be a letter (except {E,e} - handled above)
-                        throw_lexical_error();
+                        throw_lexical_error("FSM_numerals - Nonzero number starts with 0, OR an invalid letter follows the number");
                     } else {
                         // return result
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
@@ -320,7 +321,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     dyn_str_add(result, c);
                 } else {
                     // there must always be a digit after '_'
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F2 - No digit after '_'");
                 }
                 break;
 
@@ -337,7 +338,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                         Token token = {T_DOT, result};
                         return token;
                     }
-                    throw_lexical_error(); // if its something else than '.' or a numeral, its invalid
+                    throw_lexical_error("FSM_numerals - F3 - there is no digit after a decimal point"); // if its something else than '.' or a numeral, its invalid
                 }
                 break;
 
@@ -359,7 +360,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 } else {
                     if (c == '.' || isalpha(c)) {
                         // if is a "." or a letter except "eEdD" throw error
-                        throw_lexical_error();
+                        throw_lexical_error("FSM_numerals - F4 - Invalid char after number");
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
@@ -374,7 +375,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     state = F4;
                     dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F5 - No digit after '_'");
                 }
                 break;
 
@@ -387,7 +388,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     state = F7;
                     dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F6 - Invalid char after exponent (e/E)");
                 }
                 break;
 
@@ -397,7 +398,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     state = F8;
                     dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F7 - no digit after exponent sign (+/-)");
                 }
                 break;
 
@@ -415,7 +416,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 } else {
                     if (isalpha(c)) {
                         // other letters than dD throw error
-                        throw_lexical_error();
+                        throw_lexical_error("FSM_numerals - F8 - invalid char after exponent");
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                         Token token = {T_DOUBLE, result};
@@ -430,7 +431,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     state = F8;
                     dyn_str_add(result, c);
                 } else {
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F9 - No digit after '_'");
                 }
                 break;
 
@@ -438,7 +439,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             case F10:
                 if (isalpha(c)) {
                     // other letters than dD throw error
-                    throw_lexical_error();
+                    throw_lexical_error("FSM_numerals - F10 - Invalid char after number");
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
                     Token token = {T_DOUBLE, result};
@@ -488,21 +489,20 @@ Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
  */
 Token HANDLER_main(FILE *file, SymTable *sym_table) {
     // compare to "main"
-    char str[5] = "main";
-    for (int i = 0; i < 4; i++) {
-        if (fgetc(file) != str[i]) {
-            throw_lexical_error();
+    if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
+        // make sure its followed by whitespace
+        int c = fgetc(file);
+        printf("yes");
+        if (string_contains(WHITESPACE_CHARS, c)) {
+            printf("yes");
+
+            ungetc(c, file);
+            Token token = {T_AT_MAIN, NULL};
+            return token;
         }
     }
 
-    // make sure its followed by whitespace
-    int c = fgetc(file);
-    if (string_contains(WHITESPACE_CHARS, c)) {
-        ungetc(c, file);
-        Token token = {T_AT_MAIN, NULL};
-        return token;
-    }
-    throw_lexical_error();
+    throw_lexical_error("HANDLER_main - F6 -  Invalid chars after '@'");
 }
 
 /**
@@ -576,15 +576,15 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
                 token.type = T_OP_BIN_AND;
                 return token;
             }
-            throw_lexical_error();
+            throw_lexical_error("HANDLER_operators - Invalid char after '&'");
         case '|':
             if (second_char == '|') {
                 token.type = T_OP_BIN_OR;
                 return token;
             }
-            throw_lexical_error();
+            throw_lexical_error("HANDLER_operators - Invalid char after '|'");
         default:
-            throw_lexical_error();
+            throw_lexical_error("HANDLER_operators - Invalid char passed into HANDLER_operators - please be smarter next time");
     }
 }
 
@@ -615,7 +615,7 @@ Token HANDLER_special(SymTable *sym_table, int special_c) {
             token.type = T_PAR_R;
             break;
         default:
-            throw_lexical_error();
+            throw_lexical_error("HANDLER_special - Invalid char passed into HANDLER_special - please be smarter next time");
     }
     return token;
 }
@@ -692,6 +692,8 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
         }
         if (string_contains(ENTRY_IDENTIFIERS, c))
             return HANDLER_identifiers(file, sym_table, c);
+
+        throw_lexical_error("scanner() - newest char does not match any token type. Char: '%c', ASCII number: %d");
     }
     Token token = {T_EOF, NULL};
     return token;
