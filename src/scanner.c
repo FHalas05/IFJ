@@ -26,7 +26,7 @@
 #define ENTRY_OPERATORS "=!><+-*&|"
 #define ENTRY_SPECIAL  ";,:()\n"
 #define ENTRY_WHITESPACE  " \t\v\f\r"
-#define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYX_"
+#define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYXZ_"
 
 #define throw_lexical_error() throw_fatal_error(1, "")
 
@@ -651,6 +651,8 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
  * @brief provides next token from file
  *
  * Scans file and returns the next token or throws error if no token type matches
+ *
+ * @warning first run should use T_NEWLINE as last_token_type
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler

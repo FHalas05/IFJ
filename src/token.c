@@ -4,7 +4,8 @@
 
 #include "token.h"
 
-#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 
 // returns the indent count stored in a INDENT token

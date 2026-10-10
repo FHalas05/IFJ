@@ -39,11 +39,11 @@ static const KeyWordItem keywords[] = {
 Token is_keyword(DynamicString* string) {
     for (size_t i = 0; i < KEYWORDS_COUNT; i++) {
         if (strcmp(string->string, keywords[i].keyword) == 0) {
-            Token token = {keywords[i].type};
-            str_free(string);
+            Token token = {keywords[i].type, NULL};
+            dyn_str_free(string);
             return token;
         }
     }
-    Token token = {T_IDENT, string};
+    Token token = {T_IDENT, string->string};
     return token;
 }

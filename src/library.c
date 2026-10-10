@@ -11,7 +11,7 @@
 
 
 bool string_contains(char *str, int c) {
-    for (int i = 0; i < strlen(str); i++) {
+    for (size_t i = 0; i < strlen(str); i++) {
         if (str[i] == c) { return true; }
     }
     return false;
