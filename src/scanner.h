@@ -15,4 +15,6 @@
 // if file only contains EOF - will return EOF indefinitely without consuming it
 Token scanner(FILE* file, SymTable *sym_table, TokenType last_token);
 
+Token HANDLER_main(FILE *file, SymTable *sym_table);
+
 #endif // IFJ_SCANNER_H

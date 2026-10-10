@@ -17,8 +17,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#define WHITESPACE_CHARS " \t\n\v\f\r"
-
 #define ENTRY_COMMENTS "/"
 #define ENTRY_STRINGS  "\""
 #define ENTRY_NUMERALS ".0123456789"
@@ -492,14 +490,12 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
         int c = fgetc(file);
-        printf("yes");
-        if (string_contains(WHITESPACE_CHARS, c)) {
-            printf("yes");
-
+        if (string_contains( "\t\n\v\f\r", c)) {
             ungetc(c, file);
             Token token = {T_AT_MAIN, NULL};
             return token;
         }
+        throw_lexical_error("HANDLER_main - F6 -  Invalid chars after '@main', could be EOF as well");
     }
 
     throw_lexical_error("HANDLER_main - F6 -  Invalid chars after '@'");
