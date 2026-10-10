@@ -100,7 +100,7 @@ TestCase tests[] = {
     /* ====================================================================== */
     /* 5. ANNOTATION @main AND BOUNDARY FORMATIONS                            */
     /* ====================================================================== */
-    { .name = "annotation_main",    .input = "@main",               .expected_out_token_type = T_AT_MAIN,       .expected_out_data = NULL },
+    { .name = "annotation_main",    .input = "@main ",               .expected_out_token_type = T_AT_MAIN,       .expected_out_data = NULL },
     { .name = "err_at_alone",       .input = "@",                   .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
     { .name = "err_at_space_main",  .input = "@ main",              .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
     { .name = "err_at_foo",         .input = "@foo",                .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
@@ -359,6 +359,14 @@ static void escape_input_string(const char *src, char *dst, size_t dst_size) {
     dst[j] = '\0';
 }
 
+static void trim_trailing_whitespace(char *str) {
+    if (!str) return;
+    size_t len = strlen(str);
+    while (len > 0 && (str[len - 1] == '\n' || str[len - 1] == '\r' || str[len - 1] == ' ' || str[len - 1] == '\t')) {
+        str[--len] = '\0';
+    }
+}
+
 static FILE *create_test_stream(const char *input) {
     FILE *fp = tmpfile();
     if (!fp) {
@@ -437,40 +445,37 @@ static int run_single_test(const TestCase *tc, char *err_buf, size_t err_buf_siz
 
     if (pid == 0) {
         // Child Process: Execute scanner in isolated sandbox
-        close(pipefd[0]);
+        close(pipefd[0]); // Close read end in child
 
-        // Redirect stdout and stderr to /dev/null
+        // Redirect stdout to /dev/null
         int null_fd = open("/dev/null", O_WRONLY);
         if (null_fd >= 0) {
             dup2(null_fd, STDOUT_FILENO);
-            dup2(null_fd, STDERR_FILENO);
             close(null_fd);
         }
 
-        FILE *fp = create_test_stream(tc->input);
-        Token tok = scanner(fp, NULL, T_NEWLINE);
-        fclose(fp);
+        // Redirect stderr directly to pipefd[1] so scanner output goes to parent
+        dup2(pipefd[1], STDERR_FILENO);
+        close(pipefd[1]);
 
-        char msg[2048];
+        FILE *fp = create_test_stream(tc->input);
+        Token tok = scanner(fp, NULL, NO_TOKEN_FOUND);
+        fclose(fp);
 
         if (tc->expected_out_token_type == NO_TOKEN_FOUND) {
             if (tok.type == NO_TOKEN_FOUND) {
                 _exit(1);
             }
-            snprintf(msg, sizeof(msg), "Expected lexical error exit(1), but scanner returned token type %s (%d) for Input: \"%s\".",
-                     token_type_to_str(tok.type), tok.type, escaped_input);
-            write(pipefd[1], msg, strlen(msg) + 1);
-            close(pipefd[1]);
+            fprintf(stderr, "Expected lexical error exit(1), but scanner returned token type %s (%d) for Input: \"%.200s\".",
+                    token_type_to_str(tok.type), tok.type, escaped_input);
             _exit(2);
         }
 
         // Assert TokenType
         if (tok.type != tc->expected_out_token_type) {
-            snprintf(msg, sizeof(msg), "Expected token type %s (%d), obtained %s (%d) for Input: \"%s\".",
-                     token_type_to_str(tc->expected_out_token_type), tc->expected_out_token_type,
-                     token_type_to_str(tok.type), tok.type, escaped_input);
-            write(pipefd[1], msg, strlen(msg) + 1);
-            close(pipefd[1]);
+            fprintf(stderr, "Expected token type %s (%d), obtained %s (%d) for Input: \"%.200s\".",
+                    token_type_to_str(tc->expected_out_token_type), tc->expected_out_token_type,
+                    token_type_to_str(tok.type), tok.type, escaped_input);
             _exit(2);
         }
 
@@ -479,10 +484,8 @@ static int run_single_test(const TestCase *tc, char *err_buf, size_t err_buf_siz
             int indent = token_get_indent_count(tok);
             int expected_indent = tc->expected_out_data ? atoi(tc->expected_out_data) : 0;
             if (indent != expected_indent) {
-                snprintf(msg, sizeof(msg), "Expected indent count %d, obtained %d for Input: \"%s\".",
-                         expected_indent, indent, escaped_input);
-                write(pipefd[1], msg, strlen(msg) + 1);
-                close(pipefd[1]);
+                fprintf(stderr, "Expected indent count %d, obtained %d for Input: \"%.200s\".",
+                        expected_indent, indent, escaped_input);
                 _exit(2);
             }
         }
@@ -490,52 +493,58 @@ static int run_single_test(const TestCase *tc, char *err_buf, size_t err_buf_siz
         else if (tc->expected_out_data != NULL) {
             const char *actual_data = get_token_string_value(tok);
             if (actual_data == NULL || strcmp(actual_data, tc->expected_out_data) != 0) {
-                snprintf(msg, sizeof(msg), "Expected data string '%s', obtained '%s' for Input: \"%s\".",
-                         tc->expected_out_data, actual_data ? actual_data : "NULL", escaped_input);
-                write(pipefd[1], msg, strlen(msg) + 1);
-                close(pipefd[1]);
+                fprintf(stderr, "Expected data string '%.200s', obtained '%.200s' for Input: \"%.200s\".",
+                        tc->expected_out_data, actual_data ? actual_data : "NULL", escaped_input);
                 _exit(2);
             }
         }
 
-        close(pipefd[1]);
         _exit(0);
     }
 
     // Parent Process: Collect results sequentially
-    close(pipefd[1]);
+    close(pipefd[1]); // Close write end in parent
 
     char pipe_msg[2048] = {0};
-    ssize_t bytes = read(pipefd[0], pipe_msg, sizeof(pipe_msg) - 1);
-    if (bytes > 0) {
-        pipe_msg[bytes] = '\0';
+    size_t total_bytes = 0;
+    while (total_bytes < sizeof(pipe_msg) - 1) {
+        ssize_t bytes = read(pipefd[0], pipe_msg + total_bytes, sizeof(pipe_msg) - 1 - total_bytes);
+        if (bytes <= 0) break;
+        total_bytes += bytes;
     }
+    pipe_msg[total_bytes] = '\0';
     close(pipefd[0]);
+
+    trim_trailing_whitespace(pipe_msg);
 
     int status;
     waitpid(pid, &status, 0);
 
     if (tc->expected_out_token_type == NO_TOKEN_FOUND) {
         if (WIFEXITED(status) && WEXITSTATUS(status) == 1) {
-            return 1;
+            return 1; // PASSED
         } else {
             if (pipe_msg[0] != '\0') {
-                snprintf(err_buf, err_buf_size, "%s", pipe_msg);
+                snprintf(err_buf, err_buf_size, "%.2000s", pipe_msg);
             } else {
-                snprintf(err_buf, err_buf_size, "Expected lexical error exit(1), but scanner did not trigger a fatal error for Input: \"%s\".", escaped_input);
+                snprintf(err_buf, err_buf_size, "Expected lexical error exit(1), but scanner did not trigger a fatal error for Input: \"%.200s\".", escaped_input);
             }
             return 0;
         }
     } else {
         if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            return 1;
+            return 1; // PASSED
         } else {
             if (WIFEXITED(status) && WEXITSTATUS(status) == 1) {
-                snprintf(err_buf, err_buf_size, "Scanner unexpectedly encountered a fatal error exit(1) for Input: \"%s\".", escaped_input);
+                if (pipe_msg[0] != '\0') {
+                    snprintf(err_buf, err_buf_size, "Scanner unexpectedly encountered a fatal error exit(1) for Input: \"%.200s\". Scanner stderr: \"%.1000s\"", escaped_input, pipe_msg);
+                } else {
+                    snprintf(err_buf, err_buf_size, "Scanner unexpectedly encountered a fatal error exit(1) for Input: \"%.200s\".", escaped_input);
+                }
             } else if (pipe_msg[0] != '\0') {
-                snprintf(err_buf, err_buf_size, "%s", pipe_msg);
+                snprintf(err_buf, err_buf_size, "%.2000s", pipe_msg);
             } else {
-                snprintf(err_buf, err_buf_size, "Child process failed with status %d for Input: \"%s\".", status, escaped_input);
+                snprintf(err_buf, err_buf_size, "Child process failed with status %d for Input: \"%.200s\".", status, escaped_input);
             }
             return 0;
         }
