@@ -14,6 +14,9 @@
 //   and is therefore limited in its usefulness to just that.
 //      Another test file will probably later be created to focus on testing whole files at a time.
 
+// compile by:   gcc -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough test_scanner_comprehensive.c scanner.c token.c dynamic_string.c keywords.c library.c sym_table.c -o test_scanner_comprehensive
+// run by:       ./test_scanner_comprehensive
+
 #define COLOR_RED     "\033[1;31m"
 #define COLOR_GREEN   "\033[1;32m"
 #define COLOR_YELLOW  "\033[1;33m"
