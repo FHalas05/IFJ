@@ -125,7 +125,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
                     Token token = {T_NEWLINE, NULL};
                     return token;
                 } else {
-                    throw_lexical_error("FSM_comments - F6");
+                    throw_lexical_error("FSM_comments - F6 - Unexpected character after block comment on the same line");
                 }
                 break;
         }
@@ -169,7 +169,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
             case F1:
                 if (c == '\n') {
                     dyn_str_free(final_string);
-                    throw_lexical_error("FSM_strings - F1");
+                    throw_lexical_error("FSM_strings - F1 - Unfinished string literal");
                 } else if (c == '"' && !line_string) {
                     // possible multiple-line string or empty string
                     state = F2;
@@ -247,7 +247,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                     state = F1;
                 } else {
                     dyn_str_free(final_string);
-                    throw_lexical_error("FSM_strings - F6");
+                    throw_lexical_error("FSM_strings - F6 - Invalid escape sequence");
                 }
                 break;
         }
