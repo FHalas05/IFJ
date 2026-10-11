@@ -175,7 +175,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                     state = F2;
                 } else if (c == '"' && line_string) {
                     // final one line string
-                    Token token = {T_STRING, final_string};
+                    Token token = {T_STRING, final_string->string};
                     return token;
                 } else if (c == '\\') {
                     // check for presence of escape sequences
@@ -194,7 +194,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                     state = F3;
                 } else {
                     ungetc(c, file);
-                    Token token = {T_STRING, final_string};
+                    Token token = {T_STRING, final_string->string};
                     return token;
                 }
                 break;
@@ -219,7 +219,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
             // end of multiple-line string or "" in string
             case F5:
                 if (c == '"') {
-                    Token token = {T_STRING, final_string};
+                    Token token = {T_STRING, final_string->string};
                     return token;
                 } else {
                     dyn_str_add(final_string, '"');
@@ -251,6 +251,10 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 }
                 break;
         }
+    }
+    if (state == F2) {
+        Token token = {T_STRING, final_string->string};
+        return token;
     }
     dyn_str_free(final_string); // todo figure out whether to do this or not
     throw_lexical_error("FSM_strings - end state");
