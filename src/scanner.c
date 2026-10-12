@@ -620,7 +620,11 @@ Token HANDLER_special(SymTable *sym_table, int special_c) {
         case ')':
             token.type = T_PAR_R;
             break;
+        case '\n':
+            token.type = T_NEWLINE;
+            break;
         default:
+            fprintf(stderr, "The char ASCII number for the following error is: %d.\n", special_c);
             throw_lexical_error("HANDLER_special - Invalid char passed into HANDLER_special - please be smarter next time");
     }
     return token;
