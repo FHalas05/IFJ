@@ -7,6 +7,6 @@
 #include <stdbool.h>
 
 bool string_contains(char *str, int c);
-void throw_fatal_error(int error_number, char* error_type);
+void throw_fatal_error(int error_number, char *error_type);
 
-#endif //IFJ_LIBRARY_H
+#endif // IFJ_LIBRARY_H

@@ -7,24 +7,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
-
-
 // Initializes dynamic string.
-DynamicString* dyn_str_init() {
-    DynamicString* string_obj = calloc(1, sizeof(DynamicString));
+DynamicString *dyn_str_init() {
+    DynamicString *string_obj = calloc(1, sizeof(DynamicString));
     if (string_obj == NULL) {
         fprintf(stderr, "Could not allocate memory. (str_init)\n");
         exit(1);
     }
 
-    char* string_inner = calloc(1, sizeof(char));
+    char *string_inner = calloc(1, sizeof(char));
     if (string_inner == NULL) {
         free(string_obj);
         fprintf(stderr, "Could not allocate memory. (str_init)\n");
         exit(1);
     }
-
 
     string_inner[0] = '\0';
     string_obj->string = string_inner;
@@ -35,8 +31,8 @@ DynamicString* dyn_str_init() {
 
 // adds char to dynamic string.
 // inputs are expected to not be NULL
-void dyn_str_add(DynamicString* string, int c) {
-    char* string_new = realloc(string->string, string->len+2);  // +2 bcs new char and terminator
+void dyn_str_add(DynamicString *string, int c) {
+    char *string_new = realloc(string->string, string->len + 2); // +2 bcs new char and terminator
 
     if (string_new == NULL) {
         fprintf(stderr, "Could not allocate memory. (str_add)\n");
@@ -45,12 +41,12 @@ void dyn_str_add(DynamicString* string, int c) {
 
     string->string = string_new;
     string->string[string->len] = c;
-    string->string[string->len+1] = '\0';
+    string->string[string->len + 1] = '\0';
     string->len++;
 }
 
 // free dynamic string
-void dyn_str_free(DynamicString* string) {
+void dyn_str_free(DynamicString *string) {
     if (string == NULL) {
         fprintf(stderr, "Input is NULL\n");
         exit(1);

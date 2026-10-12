@@ -4,9 +4,8 @@
 
 #include "token.h"
 
-#include <stdint.h>
 #include <stddef.h>
-
+#include <stdint.h>
 
 // returns the indent count stored in a INDENT token
 // Incompatible Token type -> -1
@@ -24,15 +23,13 @@ int token_get_indent_count(Token token) {
 
 // stores the indent level in a INDENT type token
 // invalid token type -> -1, else 0
-int token_set_indent_count(Token* token, int indent_count) {
+int token_set_indent_count(Token *token, int indent_count) {
     if (token->type != T_INDENT)
         return 0;
 
-    token->data = (void*)(intptr_t)indent_count;
+    token->data = (void *)(intptr_t)indent_count;
     return -1;
 }
-
-
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL

@@ -2,18 +2,16 @@
 // Created by Filip on 12. 10. 2026.
 //
 
-
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "../src/token.h"
 #include "../src/scanner.h"
+#include "../src/token.h"
 
 // INFO
-// This will take the input file and write its tokenized output into tests/RESULT_filetest_latest.txt
-// It is specifically made to be comparable line to line
-
+// This will take the input file and write its tokenized output into
+// tests/RESULT_filetest_latest.txt It is specifically made to be comparable line to line
 
 // compile (from root directory) by:
 // gcc -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough -Isrc tests/test_scanner_files.c src/scanner.c src/token.c src/dynamic_string.c src/keywords.c src/library.c src/sym_table.c -o tests/test_scanner_files
@@ -23,33 +21,51 @@
 
 // prints a string on a single line, rewriting escape sequences literally
 void fprint_inline_escapes(FILE *out, const char *str) {
-    if (!out || !str) return;
+    if (!out || !str)
+        return;
 
     while (*str) {
         unsigned char c = (unsigned char)*str;
 
         switch (c) {
-            case '\n': fputs("\\n", out);  break;
-            case '\t': fputs("\\t", out);  break;
-            case '\r': fputs("\\r", out);  break;
-            case '\\': fputs("\\\\", out); break;
-            case '\"': fputs("\\\"", out); break;
-            case '\a': fputs("\\a", out);  break;
-            case '\b': fputs("\\b", out);  break;
-            case '\f': fputs("\\f", out);  break;
-            case '\v': fputs("\\v", out);  break;
-            default:
-                if (isprint(c)) {
-                    fputc(c, out);
-                } else {
-                    fprintf(out, "\\x%02X", c);
-                }
-                break;
+        case '\n':
+            fputs("\\n", out);
+            break;
+        case '\t':
+            fputs("\\t", out);
+            break;
+        case '\r':
+            fputs("\\r", out);
+            break;
+        case '\\':
+            fputs("\\\\", out);
+            break;
+        case '\"':
+            fputs("\\\"", out);
+            break;
+        case '\a':
+            fputs("\\a", out);
+            break;
+        case '\b':
+            fputs("\\b", out);
+            break;
+        case '\f':
+            fputs("\\f", out);
+            break;
+        case '\v':
+            fputs("\\v", out);
+            break;
+        default:
+            if (isprint(c)) {
+                fputc(c, out);
+            } else {
+                fprintf(out, "\\x%02X", c);
+            }
+            break;
         }
         str++;
     }
 }
-
 
 static const char *token_type_to_str(TokenType type) {
     switch (type) {
@@ -106,17 +122,18 @@ static const char *token_type_to_str(TokenType type) {
     }
 }
 
-
-
 // USAGE: test_scanner_files {in_file} {out_file}
-int main(int argc, char* argv[]) {
-    if (argc != 3) {fprintf(stderr, "wrong arg count\n");return 1;}
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "wrong arg count\n");
+        return 1;
+    }
 
-    char* in_file = argv[1];
-    char* out_file = argv[2];
+    char *in_file = argv[1];
+    char *out_file = argv[2];
 
-    FILE* working_file = fopen(in_file, "r");
-    FILE* result_file = fopen(out_file, "w");
+    FILE *working_file = fopen(in_file, "r");
+    FILE *result_file = fopen(out_file, "w");
 
     if (working_file == NULL || result_file == NULL) {
         fprintf(stderr, "TESTING ERROR: problem opening files\n");
@@ -141,7 +158,7 @@ int main(int argc, char* argv[]) {
         }
 
         // if data is in token - print it out too
-        char* data;
+        char *data;
         if ((data = token_get_data_IDENT_INT_DOUBLE_STRING(token)) != NULL) {
             fputs("(\"", result_file);
             fprint_inline_escapes(result_file, data);

@@ -5,11 +5,11 @@
 #ifndef IFJ_TOKEN_H
 #define IFJ_TOKEN_H
 
-
 typedef enum {
     NO_TOKEN_FOUND,
 
-    T_IDENT = 1, // start at one to allow NO_TOKEN_FOUND to represent a state that runs the loop again
+    T_IDENT =
+        1, // start at one to allow NO_TOKEN_FOUND to represent a state that runs the loop again
     T_NEWLINE,
     T_AT_MAIN,
     T_INDENT,
@@ -64,18 +64,15 @@ typedef enum {
     T_EOF
 } TokenType;
 
-
 typedef struct {
-    TokenType type;;
+    TokenType type;
     void *data;
 } Token;
-
 
 // returns the data stored in INDENT
 // Incompatible Token type -> -1
 int token_get_indent_count(Token token);
-int token_set_indent_count(Token* token, int indent_count);
-
+int token_set_indent_count(Token *token, int indent_count);
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL

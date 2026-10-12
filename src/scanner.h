@@ -10,9 +10,8 @@
 #include "sym_table.h"
 #include "token.h"
 
-
 // Returns next token from file
 // if file only contains EOF - will return EOF indefinitely without consuming it
-Token scanner(FILE* file, SymTable *sym_table, TokenType last_token);
+Token scanner(FILE *file, SymTable *sym_table, TokenType last_token);
 
 #endif // IFJ_SCANNER_H
