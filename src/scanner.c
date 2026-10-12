@@ -367,7 +367,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                         throw_lexical_error("FSM_numerals - F4 - Invalid char after number");
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {T_DOUBLE, result};
+                        Token token = {T_DOUBLE, result->string};
                         return token;
                     }
                 }
@@ -425,7 +425,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                         throw_lexical_error("FSM_numerals - F8 - invalid char after exponent");
                     } else {
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {T_DOUBLE, result};
+                        Token token = {T_DOUBLE, result->string};
                         return token;
                     }
                 }
@@ -450,7 +450,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     throw_lexical_error("FSM_numerals - F10 - Invalid char after number");
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                    Token token = {T_DOUBLE, result};
+                    Token token = {T_DOUBLE, result->string};
                     return token;
                 }
                 break;
