@@ -320,6 +320,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F1;
                     dyn_str_add(result, c);
+                } else if (c == '_') {
+                    state = F2;
                 } else {
                     // there must always be a digit after '_'
                     throw_lexical_error("FSM_numerals - F2 - No digit after '_'");
@@ -376,6 +378,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F4;
                     dyn_str_add(result, c);
+                } else if (c == '_') {
+                    state = F5;
                 } else {
                     throw_lexical_error("FSM_numerals - F5 - No digit after '_'");
                 }
@@ -432,6 +436,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (isdigit(c)) {
                     state = F8;
                     dyn_str_add(result, c);
+                } else if (c == '_') {
+                    state = F9;
                 } else {
                     throw_lexical_error("FSM_numerals - F9 - No digit after '_'");
                 }
