@@ -445,7 +445,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
 
             // final decision state
             case F10:
-                if (isalpha(c)) {
+                if (isalnum(c)) {
                     // other letters than dD throw error
                     throw_lexical_error("FSM_numerals - F10 - Invalid char after number");
                 } else {
