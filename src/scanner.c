@@ -309,7 +309,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     } else {
                         // return result
                         ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                        Token token = {T_INT, result};
+                        Token token = {T_INT, result->string};
                         return token;
                     }
                 }

@@ -4,6 +4,7 @@
 
 
 #include <stdio.h>
+#include <string.h>
 
 #include "../src/token.h"
 #include "../src/scanner.h"
@@ -113,7 +114,12 @@ int main(int argc, char* argv[]) {
         char* data;
         if ((data = token_get_data_IDENT_INT_DOUBLE_STRING(token)) != NULL) {
             fputs("(", result_file);
-            fputs(data, result_file);
+            for (size_t i = 0; i < strlen(data); i++) {
+                printf("%c", data[i]);
+                fputc(data[i], result_file);
+            }
+            printf("\n");
+
             fputs(")", result_file);
         }
 
