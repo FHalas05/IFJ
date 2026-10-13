@@ -34,7 +34,7 @@
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
  *
- * @return token tokens for '/' , one line comments and block comments
+ * @return Token for '/' , one line comments and block comments
  */
 Token FSM_comments(FILE *file, SymTable *sym_table) {
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
@@ -150,7 +150,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
  * @param file The program source file
  * @param sym_table The symbols table of compiler
  *
- * @return token tokens for one-line string or multiple-line strings
+ * @return Token for one-line string or multiple-line strings
  */
 Token FSM_strings(FILE *file, SymTable *sym_table) {
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
@@ -268,8 +268,9 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
+ * @param first_char The first char of the supposed numeral
  *
- * @return token token of numeral with its content
+ * @return Token of numeral with its content
  */
 Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
     typedef enum { F1, F2, F3, F4, F5, F6, F7, F8, F9, F10 } State;
@@ -353,7 +354,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     return token;
                 }
                 throw_lexical_error(
-                    "FSM_numerals - F3 - there is no digit after a decimal point"); // if its
+                    "FSM_numerals - F3 - there is no digit after a decimal point"); // if it's
                                                                                     // something
                                                                                     // else than '.'
                                                                                     // or a numeral,
@@ -478,11 +479,8 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 dyn_str_free(result);
                 return token;
             }
-            break;
         }
     }
-    Token token = {T_EOF, NULL};
-    return token;
 }
 
 /**
@@ -494,7 +492,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
  * @param sym_table The symbols table of compiler
  * @param first_char The first character of identifier or keyword
  *
- * @return token for either identifier or keyword
+ * @return Token for either identifier or keyword
  */
 Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
     int c;
@@ -518,7 +516,7 @@ Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
  * @param file The program source file
  * @param sym_table The symbols table of compiler
  *
- * @return token token of type T_AT_MAIN
+ * @return Token of type T_AT_MAIN
  */
 Token HANDLER_main(FILE *file, SymTable *sym_table) {
     // compare to "main"
@@ -546,7 +544,7 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
  * @param sym_table The symbols table of compiler
  * @param first_char The first character of the operator
  *
- * @return token for the operator
+ * @return Token for the operator
  */
 Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
     int second_char = fgetc(file);
@@ -625,9 +623,9 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
  * @brief Handler for other/special tokens
  *
  * @param sym_table The symbols table of compiler
- * @param c The special character
+ * @param special_c The special character
  *
- * @return token for the matched lexem
+ * @return Token for the matched lexeme
  */
 Token HANDLER_special(SymTable *sym_table, int special_c) {
     Token token = {NO_TOKEN_FOUND, NULL};
@@ -666,8 +664,9 @@ Token HANDLER_special(SymTable *sym_table, int special_c) {
  * @param file The program source file
  * @param sym_table The symbols table of compiler
  * @param last_token_type The type of the last token passed to caller (parser)
+ * @param c The supposed whitespace char
  *
- * @return token token of type T_INDENT with indent level, or of type NO_TOKEN_FOUND for discarded
+ * @return Token of type T_INDENT with indent level, or of type NO_TOKEN_FOUND for discarded
  * whitespace
  */
 Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_type, int c) {
@@ -695,8 +694,9 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
+ * @param last_token_type The type of the last token this function has returned (The initial one should be T_NEWLINE)
  *
- * @return token Matched token
+ * @return Matched token
  */
 Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
     int c;
