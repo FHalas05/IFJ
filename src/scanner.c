@@ -257,7 +257,7 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
         dyn_str_free(final_string);
         return token;
     }
-    dyn_str_free(final_string); // todo figure out whether to do this or not
+    dyn_str_free(final_string);
     throw_lexical_error("FSM_strings - end state");
 }
 
@@ -308,7 +308,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                     isalpha(c)) {
                     // cannot be a letter (except {E,e} - handled above)
                     dyn_str_free(result);
-                    throw_lexical_error("FSM_numerals - Nonzero number starts with 0, OR an "
+                    throw_lexical_error("FSM_numerals - F1 - Nonzero number starts with 0, OR an "
                                         "invalid letter follows the number");
                 } else {
                     // return result
@@ -531,10 +531,10 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
             return token;
         }
         throw_lexical_error(
-            "HANDLER_main - F6 -  Invalid chars after '@main', could be EOF as well");
+            "HANDLER_main - Invalid chars after '@main', could be EOF as well");
     }
 
-    throw_lexical_error("HANDLER_main - F6 -  Invalid chars after '@'");
+    throw_lexical_error("HANDLER_main - Invalid chars after '@'");
 }
 
 /**
