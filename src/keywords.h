@@ -16,6 +16,6 @@
  *
  * @return token token of identifier or keyword
  */
-Token is_keyword(DynamicString *string);
+Token get_token_for_KEYWORD_or_IDENT(DynamicString *string);
 
 #endif // IFJ_KEYWORD_H

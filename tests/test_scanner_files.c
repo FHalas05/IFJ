@@ -14,7 +14,7 @@
 // tests/RESULT_filetest_latest.txt It is specifically made to be comparable line to line
 
 // compile (from root directory) by:
-// gcc -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough -Isrc tests/test_scanner_files.c src/scanner.c src/token.c src/dynamic_string.c src/keywords.c src/library.c src/sym_table.c -o tests/test_scanner_files
+// gcc -std=c2x -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough -Isrc tests/test_scanner_files.c src/scanner.c src/token.c src/dynamic_string.c src/keywords.c src/library.c src/sym_table.c -o tests/test_scanner_files
 // run by:       tests/test_scanner_files {.scala or .ifj26 file} tests/RESULT_filetest_latest.txt
 
 

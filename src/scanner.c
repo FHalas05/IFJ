@@ -172,7 +172,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 state = F2;
             } else if (c == '"' && line_string) {
                 // final one line string
-                Token token = {T_STRING, final_string->string};
+                Token token = {T_STRING, dyn_str_get_string_copy(final_string)};
+                dyn_str_free(final_string);
                 return token;
             } else if (c == '\\') {
                 // check for presence of escape sequences
@@ -191,7 +192,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
                 state = F3;
             } else {
                 ungetc(c, file);
-                Token token = {T_STRING, final_string->string};
+                Token token = {T_STRING, dyn_str_get_string_copy(final_string)};
+                dyn_str_free(final_string);
                 return token;
             }
             break;
@@ -216,7 +218,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
         // end of multiple-line string or "" in string
         case F5:
             if (c == '"') {
-                Token token = {T_STRING, final_string->string};
+                Token token = {T_STRING, dyn_str_get_string_copy(final_string)};
+                dyn_str_free(final_string);
                 return token;
             } else {
                 dyn_str_add(final_string, '"');
@@ -250,7 +253,8 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
         }
     }
     if (state == F2) {
-        Token token = {T_STRING, final_string->string};
+        Token token = {T_STRING, dyn_str_get_string_copy(final_string)};
+        dyn_str_free(final_string);
         return token;
     }
     dyn_str_free(final_string); // todo figure out whether to do this or not
@@ -303,12 +307,14 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                      result->len != 1) || // cannot start with 0 and be something else than 0
                     isalpha(c)) {
                     // cannot be a letter (except {E,e} - handled above)
+                    dyn_str_free(result);
                     throw_lexical_error("FSM_numerals - Nonzero number starts with 0, OR an "
                                         "invalid letter follows the number");
                 } else {
                     // return result
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                    Token token = {T_INT, result->string};
+                    Token token = {T_INT, dyn_str_get_string_copy(result)};
+                    dyn_str_free(result);
                     return token;
                 }
             }
@@ -323,6 +329,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 state = F2;
             } else {
                 // there must always be a digit after '_'
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F2 - No digit after '_'");
             }
             break;
@@ -330,7 +337,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
         // . in double / double entry point
         case F3:
             if (isdigit(c) &&
-                !(result->string[0] == '0' &&
+                !(dyn_str_get_string_copy(result)[0] == '0' &&
                   result->len >= 3)) { // >=3 to disallow numbers like 0x.xxx or 0xxx.xx - but it
                                        // leaves 0.xxx, as that is allowed
                 // process to the mantissa loop
@@ -342,6 +349,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 if (first_char == '.' && result->len == 1) {
                     ungetc(c, file);
                     Token token = {T_DOT, result};
+                    dyn_str_free(result);
                     return token;
                 }
                 throw_lexical_error(
@@ -371,10 +379,12 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             } else {
                 if (c == '.' || isalpha(c)) {
                     // if is a "." or a letter except "eEdD" throw error
+                    dyn_str_free(result);
                     throw_lexical_error("FSM_numerals - F4 - Invalid char after number");
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                    Token token = {T_DOUBLE, result->string};
+                    Token token = {T_DOUBLE, dyn_str_get_string_copy(result)};
+                    dyn_str_free(result);
                     return token;
                 }
             }
@@ -388,6 +398,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             } else if (c == '_') {
                 state = F5;
             } else {
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F5 - No digit after '_'");
             }
             break;
@@ -401,6 +412,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 state = F7;
                 dyn_str_add(result, c);
             } else {
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F6 - Invalid char after exponent (e/E)");
             }
             break;
@@ -411,6 +423,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
                 state = F8;
                 dyn_str_add(result, c);
             } else {
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F7 - no digit after exponent sign (+/-)");
             }
             break;
@@ -429,10 +442,12 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             } else {
                 if (isalpha(c)) {
                     // other letters than dD throw error
+                    dyn_str_free(result);
                     throw_lexical_error("FSM_numerals - F8 - invalid char after exponent");
                 } else {
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                    Token token = {T_DOUBLE, result->string};
+                    Token token = {T_DOUBLE, dyn_str_get_string_copy(result)};
+                    dyn_str_free(result);
                     return token;
                 }
             }
@@ -446,6 +461,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
             } else if (c == '_') {
                 state = F9;
             } else {
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F9 - No digit after '_'");
             }
             break;
@@ -454,10 +470,12 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
         case F10:
             if (isalnum(c)) {
                 // other letters than dD throw error
+                dyn_str_free(result);
                 throw_lexical_error("FSM_numerals - F10 - Invalid char after number");
             } else {
                 ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
-                Token token = {T_DOUBLE, result->string};
+                Token token = {T_DOUBLE, dyn_str_get_string_copy(result)};
+                dyn_str_free(result);
                 return token;
             }
             break;
@@ -488,10 +506,10 @@ Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
             dyn_str_add(id, c);
         } else {
             ungetc(c, file);
-            return is_keyword(id);
+            return get_token_for_KEYWORD_or_IDENT(id);
         }
     }
-    return is_keyword(id);
+    return get_token_for_KEYWORD_or_IDENT(id);
 }
 
 /**
