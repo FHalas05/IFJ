@@ -687,7 +687,7 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
 }
 
 /**
- * @brief provides next token from file
+ * @brief Returns next token from file
  *
  * Scans file and returns the next token or throws error if no token type matches
  *
@@ -733,8 +733,9 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
         if (string_contains(ENTRY_IDENTIFIERS, c))
             return HANDLER_identifiers(file, sym_table, c);
 
+        fprintf(stderr, "The ASCII number of the char causing the following error: %d", c);
         throw_lexical_error(
-            "scanner() - newest char does not match any token type. Char: '%c', ASCII number: %d");
+            "scanner() - newest char does not match any token type");
     }
     Token token = {T_EOF, NULL};
     return token;
