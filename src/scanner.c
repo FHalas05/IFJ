@@ -22,7 +22,7 @@
 #define ENTRY_OPERATORS "=!><+-*&|"
 #define ENTRY_SPECIAL ";,:()\n"
 #define ENTRY_WHITESPACE " \t\v\f\r"
-#define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYXZ_"
+#define ENTRY_IDENTIFIERS "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 
 #define throw_lexical_error(description) throw_fatal_error(1, description)
 
