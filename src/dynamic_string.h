@@ -16,7 +16,7 @@ DynamicString *dyn_str_init();
 
 void dyn_str_add(DynamicString *string, int c);
 
-char* dyn_str_get_string_copy(DynamicString *string);
+char *dyn_str_get_string_copy(DynamicString *string);
 
 void dyn_str_free(DynamicString *string);
 

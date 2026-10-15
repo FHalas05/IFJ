@@ -532,8 +532,7 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
             Token token = {T_AT_MAIN, NULL};
             return token;
         }
-        throw_lexical_error(
-            "HANDLER_main - Invalid chars after '@main', could be EOF as well");
+        throw_lexical_error("HANDLER_main - Invalid chars after '@main', could be EOF as well");
     }
 
     throw_lexical_error("HANDLER_main - Invalid chars after '@'");
@@ -651,7 +650,7 @@ Token HANDLER_special(SymTable *sym_table, TokenType last_token_type, int specia
         token.type = T_PAR_R;
         break;
     case '\n':
-        if (last_token_type != T_NEWLINE) {  // two newlines after one another are just pointless
+        if (last_token_type != T_NEWLINE) { // two newlines after one another are just pointless
             token.type = T_NEWLINE;
         }
         break;
@@ -684,18 +683,18 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
         while ((c = fgetc(file)) == ' ')
             spaces++;
 
-        while (string_contains("\t\v\f\r", c)) {
+        while (string_contains("\t\v\f\r", c))
             c = fgetc(file);
-        }
 
         // if theres newline right after indent and or other whitespace, the whole line can be discarded
-        if (c == '\n') {
+        if (c == '\n')
             return token;
-        }
 
         ungetc(c, file);
         token.type = T_INDENT;
         token_set_indent_count(&token, spaces);
+    } else if (last_token_type == T_NEWLINE) { // no non-space whitespace is allowed after a newline
+        throw_lexical_error("Disallowed whitespace after newline - (probably a tab)");
     }
 
     return token;
@@ -710,7 +709,8 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
- * @param last_token_type The type of the last token this function has returned (The initial one should be T_NEWLINE)
+ * @param last_token_type The type of the last token this function has returned (The initial one
+ * should be T_NEWLINE)
  *
  * @return Matched token
  */
@@ -738,8 +738,7 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
 
         if (string_contains(ENTRY_SPECIAL, c)) {
             Token token;
-            if ((token = HANDLER_special(sym_table, last_token_type, c)).type ==
-                NO_TOKEN_FOUND)
+            if ((token = HANDLER_special(sym_table, last_token_type, c)).type == NO_TOKEN_FOUND)
                 continue;
             return token;
         }
@@ -754,9 +753,8 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
         if (string_contains(ENTRY_IDENTIFIERS, c))
             return HANDLER_identifiers(file, sym_table, c);
 
-        fprintf(stderr, "The ASCII number of the char causing the following error: %d", c);
-        throw_lexical_error(
-            "scanner() - newest char does not match any token type");
+        fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
+        throw_lexical_error("scanner() - newest char does not match any token type");
     }
     Token token = {T_EOF, NULL};
     return token;

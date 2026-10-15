@@ -46,8 +46,7 @@ void dyn_str_add(DynamicString *string, int c) {
     string->len++;
 }
 
-
-char* dyn_str_get_string_copy(DynamicString *string) {
+char *dyn_str_get_string_copy(DynamicString *string) {
     if (string == NULL) {
         fprintf(stderr, "Input is NULL\n");
         exit(1);

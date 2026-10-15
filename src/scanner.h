@@ -19,7 +19,8 @@
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
- * @param last_token_type The type of the last token this function has returned (The initial one should be T_NEWLINE)
+ * @param last_token_type The type of the last token this function has returned (The initial one
+ * should be T_NEWLINE)
  *
  * @return Matched token
  */

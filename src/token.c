@@ -34,8 +34,9 @@ int token_set_indent_count(Token *token, int indent_count) {
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL
 char *token_get_data_IDENT_INT_DOUBLE_STRING(Token token) {
-    if (token.type == T_IDENT || token.type == T_INT || token.type == T_DOUBLE || token.type == T_STRING) {
-        return (char *) token.data;
+    if (token.type == T_IDENT || token.type == T_INT || token.type == T_DOUBLE ||
+        token.type == T_STRING) {
+        return (char *)token.data;
     }
     return NULL;
 }
