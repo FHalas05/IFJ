@@ -1,6 +1,4 @@
-// Zakladni zadani: retezce, vestavene funkce, return, implicitni konverze Int->Double
 import ifj26.*
-
 def withoutLineFeed(text: String): String =
   val length = strLength(text)
   if length == 0 then
@@ -12,7 +10,6 @@ def withoutLineFeed(text: String): String =
       return subStr(text, 0, last)
     else
       return text
-
 def reverse(text: String): String =
   val length = strLength(text)
   var index = length - 1
@@ -23,7 +20,6 @@ def reverse(text: String): String =
     result = result + character // konkatenace
     index = index - 1
   result
-
 def prefix(text: String): String =
   val length = strLength(text)
   var end = length
@@ -35,15 +31,10 @@ def prefix(text: String): String =
     return ""
   else
     return subStr(text, 0, end)
-
-// length se implicitne prevede na Double, protoze prava strana deleni
-// obsahuje Double
 def halfLength(length: Int): Double = length / 2.0
-
 def showLine(text: String): Unit =
   print(text)
   print("\n")
-
 @main def stringsExample(): Unit =
   val raw = readLine()
   val text = withoutLineFeed(raw)

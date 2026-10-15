@@ -33,10 +33,11 @@
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler
+ * @param last_token_type The type of the last token passed to caller (parser)
  *
  * @return Token for '/' , one line comments and block comments
  */
-Token FSM_comments(FILE *file, SymTable *sym_table) {
+Token FSM_comments(FILE *file, SymTable *sym_table, TokenType last_token_type) {
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
 
     State state = F1;
@@ -62,7 +63,10 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
         // line comments
         case F2:
             if (c == '\n') {
-                Token token = {T_NEWLINE, NULL};
+                Token token = {NO_TOKEN_FOUND, NULL};
+                if (last_token_type != T_NEWLINE) {
+                    token.type = T_NEWLINE;
+                }
                 return token;
             } else {
                 state = F2;
@@ -117,7 +121,7 @@ Token FSM_comments(FILE *file, SymTable *sym_table) {
         // Checks to ensure that there is nothing but whitespace after a block comment followed by a
         // newline
         case F6:
-            if (c == ' ' || c == '\t' || c == '\r') {
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\v') {
                 state = F6;
             } else if (c == '\n') {
                 Token token = {T_NEWLINE, NULL};
@@ -623,11 +627,12 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
  * @brief Handler for other/special tokens
  *
  * @param sym_table The symbols table of compiler
+ * @param last_token_type The type of the last token passed to caller (parser)
  * @param special_c The special character
  *
  * @return Token for the matched lexeme
  */
-Token HANDLER_special(SymTable *sym_table, int special_c) {
+Token HANDLER_special(SymTable *sym_table, TokenType last_token_type, int special_c) {
     Token token = {NO_TOKEN_FOUND, NULL};
     switch (special_c) {
     case ';':
@@ -646,7 +651,9 @@ Token HANDLER_special(SymTable *sym_table, int special_c) {
         token.type = T_PAR_R;
         break;
     case '\n':
-        token.type = T_NEWLINE;
+        if (last_token_type != T_NEWLINE) {  // two newlines after one another are just pointless
+            token.type = T_NEWLINE;
+        }
         break;
     default:
         fprintf(stderr, "The char ASCII number for the following error is: %d.\n", special_c);
@@ -677,6 +684,15 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
         while ((c = fgetc(file)) == ' ')
             spaces++;
 
+        while (string_contains("\t\v\f\r", c)) {
+            c = fgetc(file);
+        }
+
+        // if theres newline right after indent and or other whitespace, the whole line can be discarded
+        if (c == '\n') {
+            return token;
+        }
+
         ungetc(c, file);
         token.type = T_INDENT;
         token_set_indent_count(&token, spaces);
@@ -703,7 +719,7 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
     while ((c = fgetc(file)) != EOF) {
         if (string_contains(ENTRY_COMMENTS, c)) {
             Token token;
-            if ((token = FSM_comments(file, sym_table)).type == NO_TOKEN_FOUND)
+            if ((token = FSM_comments(file, sym_table, last_token_type)).type == NO_TOKEN_FOUND)
                 continue;
             return token;
         }
@@ -720,8 +736,13 @@ Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
         if (string_contains(ENTRY_OPERATORS, c))
             return HANDLER_operators(file, sym_table, c);
 
-        if (string_contains(ENTRY_SPECIAL, c))
-            return HANDLER_special(sym_table, c);
+        if (string_contains(ENTRY_SPECIAL, c)) {
+            Token token;
+            if ((token = HANDLER_special(sym_table, last_token_type, c)).type ==
+                NO_TOKEN_FOUND)
+                continue;
+            return token;
+        }
 
         if (string_contains(ENTRY_WHITESPACE, c)) {
             Token token;

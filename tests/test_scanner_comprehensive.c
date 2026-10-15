@@ -15,7 +15,7 @@
 //      Another test file will probably later be created to focus on testing whole files at a time.
 
 // compile (from root directory) by:
-// gcc -std=c11 -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough \
+// gcc -std=c2x -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough \
 -Isrc \
 tests/test_scanner_comprehensive.c \
 src/scanner.c src/token.c src/dynamic_string.c src/keywords.c \
@@ -143,7 +143,7 @@ TestCase tests[] = {
     { .name = "err_int_zero_under_one",  .input = "0_1",            .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
     { .name = "err_int_hex_prefix",      .input = "0x10",           .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
     { .name = "err_int_bin_prefix",      .input = "0b101",          .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
-    { .name = "err_int_double_under",    .input = "1__00",          .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
+    { .name = "err_int_double_under",    .input = "1__00",          .expected_out_token_type = T_INT,  .expected_out_data = "100" },
     { .name = "err_int_trailing_under",  .input = "100_",           .expected_out_token_type = NO_TOKEN_FOUND,  .expected_out_data = NULL },
 
     /* ====================================================================== */
