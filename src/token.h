@@ -64,6 +64,7 @@ typedef enum {
     T_EOF
 } TokenType;
 
+
 typedef struct {
     TokenType type;
     void *data;
@@ -77,5 +78,10 @@ int token_set_indent_count(Token *token, int indent_count);
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL
 char *token_get_data_IDENT_INT_DOUBLE_STRING(Token token);
+
+
+// frees token data if possible
+// returns bool of whether any data has been freed
+bool token_free_data_if_applicable(Token token);
 
 #endif // IFJ_TOKEN_H

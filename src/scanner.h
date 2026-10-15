@@ -16,6 +16,8 @@
  * Scans file and returns the next token or throws error if no token type matches
  *
  * @warning first run should use T_NEWLINE as last_token_type
+ * @warning you MUST free the data in tokens which include additional data in string form
+ * i.e. free(token.data)
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler

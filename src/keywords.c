@@ -24,13 +24,13 @@ static const KeyWordItem keywords[] = {
 #define KEYWORDS_COUNT (sizeof(keywords) / sizeof(keywords[0]))
 
 Token get_token_for_KEYWORD_or_IDENT(DynamicString *string) {
-    if (!strcmp(dyn_str_get_string_copy(string), "_")) {
+    if (!strcmp(string->string, "_")) {  // using string->string here makes sense because control of it is not passed elsewhere
         Token token = {NO_TOKEN_FOUND, NULL};
         dyn_str_free(string);
         return token;
     }
     for (size_t i = 0; i < KEYWORDS_COUNT; i++) {
-        if (strcmp(dyn_str_get_string_copy(string), keywords[i].keyword) == 0) {
+        if (strcmp(string->string, keywords[i].keyword) == 0) {  // using string->string here makes sense because control of it is not passed elsewhere
             Token token = {keywords[i].type, NULL};
             dyn_str_free(string);
             return token;

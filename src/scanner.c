@@ -342,7 +342,7 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
         // . in double / double entry point
         case F3:
             if (isdigit(c) &&
-                !(dyn_str_get_string_copy(result)[0] == '0' &&
+                !(result->string[0] == '0' &&  // using string->string here makes sense because control of it is not passed elsewhere
                   result->len >= 3)) { // >=3 to disallow numbers like 0x.xxx or 0xxx.xx - but it
                                        // leaves 0.xxx, as that is allowed
                 // process to the mantissa loop
@@ -706,6 +706,8 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
  * Scans file and returns the next token or throws error if no token type matches
  *
  * @warning first run should use T_NEWLINE as last_token_type
+ * @warning you MUST free the data in tokens which include additional data in string form
+ * i.e. free(token.data)
  *
  * @param file The program source file
  * @param sym_table The table of symbols of compiler

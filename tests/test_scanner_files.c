@@ -141,6 +141,7 @@ int main(int argc, char *argv[]) {
 
     Token token = {T_NEWLINE, NULL};
     while (token.type != T_EOF) {
+        token_free_data_if_applicable(token);
 
         // get new token
         token = scanner(working_file, NULL, token.type);

@@ -46,6 +46,7 @@ void dyn_str_add(DynamicString *string, int c) {
     string->len++;
 }
 
+// WARNING: the returned string NEEDS to be freed eventually (use token_free_data_if_applicable())
 char *dyn_str_get_string_copy(DynamicString *string) {
     if (string == NULL) {
         fprintf(stderr, "Input is NULL\n");
