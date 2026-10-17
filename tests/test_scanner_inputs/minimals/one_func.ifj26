@@ -1,0 +1,10 @@
+// Zakladni zadani: vstup, val/var, podminky, cyklus, funkce, rekurze.
+import ifj26.*
+
+def factorialIterative(n: Int): Int =
+  var result = 1  // promenne
+  var i: Int = 2
+  while i <= n do
+    result = result * i
+    i = i + 1
+  result
