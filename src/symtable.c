@@ -8,24 +8,19 @@
 #include <string.h>
 #include <stdlib.h>
 
+typedef struct tavlnode {
+    TKey key;
+    TData data;
+    int height;
+    struct tavlnode *left;
+    struct tavlnode *right;
+} TAVLNode;
 
-void PrintAVLTree(const TAVLNode *root, int depth) {
-    if (root == NULL) {
-        return;
-    }
+struct SymTable{
+    TAVLNode *root;
+};
 
-    PrintAVLTree(root->right, depth + 1);
-
-    printf("%*s%s(%d)\n", depth * 4, "", root->key, root->height);
-
-    PrintAVLTree(root->left, depth + 1);
-}
-
-void PrintSymTable(const SymTable *table) {
-    PrintAVLTree(table->root, 0);
-}
-
-int max(int num1, int num2) {
+static int max(int num1, int num2) {
     if(num1 > num2) {
         return num1;
     }
@@ -33,7 +28,14 @@ int max(int num1, int num2) {
     return num2;
 }
 
-int AVL_node_height(TAVLNode *node) {
+static TAVLNode* AVL_min(TAVLNode *root) {
+    if(root->left == NULL) {
+        return root;
+    }
+    return AVL_min(root->left);
+}
+
+static int AVL_node_height(TAVLNode *node) {
     if(node == NULL) {
         return 0;
     }
@@ -41,21 +43,41 @@ int AVL_node_height(TAVLNode *node) {
     return node->height;
 }
 
-int get_balance(TAVLNode *node) {
+static int get_balance(TAVLNode *node) {
     if(node == NULL) {
         return 0;
     }
     return AVL_node_height(node->right) - AVL_node_height(node->left);
 }
 
-void update_node_height(TAVLNode *node) {
+static void update_node_height(TAVLNode *node) {
     if(node == NULL) {
         return;
     }
     node->height = max(AVL_node_height(node->right), AVL_node_height(node->left)) + 1;
 }
 
-TAVLNode* search_AVL_tree(TAVLNode *root, TKey k) {
+static TAVLNode *right_rotate(TAVLNode *root) {
+    TAVLNode *newRoot = root->left;
+    root->left = newRoot->right;
+    newRoot->right = root;
+    update_node_height(root);
+    update_node_height(newRoot);
+
+    return newRoot;
+}
+
+static TAVLNode *left_rotate(TAVLNode *root) {
+    TAVLNode *newRoot = root->right;
+    root->right = newRoot->left;
+    newRoot->left = root;
+    update_node_height(root);
+    update_node_height(newRoot);
+
+    return newRoot;
+}
+
+static TAVLNode* search_AVL_tree(TAVLNode *root, TKey k) {
     if(root == NULL) {
         return NULL;
     }
@@ -70,7 +92,7 @@ TAVLNode* search_AVL_tree(TAVLNode *root, TKey k) {
     return search_AVL_tree(root->left, k);
 }
 
-TAVLNode* create_AVL_node(TKey k, TData d) {
+static TAVLNode* create_AVL_node(TKey k, TData d) {
     TAVLNode *new = (TAVLNode *)malloc(sizeof(TAVLNode));
     if(new == NULL) {
         throw_fatal_error(99, "Could not allocate memory!\n");
@@ -84,7 +106,7 @@ TAVLNode* create_AVL_node(TKey k, TData d) {
     return new;
 }
 
-TAVLNode* insert(TAVLNode *root, TKey k, TData d) {
+static TAVLNode* insert_AVL_node(TAVLNode *root, TKey k, TData d) {
     if(root == NULL) {
         return create_AVL_node(k, d);
     }
@@ -94,9 +116,9 @@ TAVLNode* insert(TAVLNode *root, TKey k, TData d) {
         root->data = d;
     } else {
         if(cmp > 0) {
-            root->right = insert(root->right, k, d);
+            root->right = insert_AVL_node(root->right, k, d);
         } else {
-            root->left =  insert(root->left, k, d);
+            root->left =  insert_AVL_node(root->left, k, d);
         }
         update_node_height(root);
         int balance = get_balance(root);
@@ -118,14 +140,7 @@ TAVLNode* insert(TAVLNode *root, TKey k, TData d) {
     return root;
 }
 
-TAVLNode* AVL_min(TAVLNode *root) {
-    if(root->left == NULL) {
-        return root;
-    }
-    return AVL_min(root->left);
-}
-
-TAVLNode* AVL_delete(TAVLNode *root, TKey k) {
+static TAVLNode* AVL_delete(TAVLNode *root, TKey k) {
     if(root == NULL) {
         return NULL;
     }
@@ -177,27 +192,7 @@ TAVLNode* AVL_delete(TAVLNode *root, TKey k) {
     return root;
 }
 
-TAVLNode *right_rotate(TAVLNode *root) {
-    TAVLNode *newRoot = root->left;
-    root->left = newRoot->right;
-    newRoot->right = root;
-    update_node_height(root);
-    update_node_height(newRoot);
-
-    return newRoot;
-}
-
-TAVLNode *left_rotate(TAVLNode *root) {
-    TAVLNode *newRoot = root->right;
-    root->right = newRoot->left;
-    newRoot->left = root;
-    update_node_height(root);
-    update_node_height(newRoot);
-
-    return newRoot;
-}
-
-void destroy_AVL_tree(TAVLNode *root) {
+static void destroy_AVL_tree(TAVLNode *root) {
     if(root == NULL) {
         return;
     }
@@ -206,28 +201,32 @@ void destroy_AVL_tree(TAVLNode *root) {
     free(root);
 }
 
-void init_SymTable(SymTable *symtable) {
-    symtable->root = NULL;
+SymTable *create_symtable(void) {
+    SymTable *table = (SymTable *)malloc(sizeof(SymTable));
+    if(table == NULL) {
+        throw_fatal_error(99, "Could not allocate memory!\n");
+    }
+    table->root = NULL;
+    return table;
 }
 
-void delete_SymTable(SymTable *symtable) {
+void insert(SymTable *symtable, TKey k, TData d) {
+    symtable->root = insert_AVL_node(symtable->root, k, d);
+}
+
+void symtable_delete(SymTable *symtable, TKey k) {
+    symtable->root = AVL_delete(symtable->root, k);
+}
+
+TData *search(SymTable *symtable, TKey k) {
+    TAVLNode *node = search_AVL_tree(symtable->root, k);
+    if(node != NULL) {
+        return &node->data;
+    }
+    return NULL;
+}
+
+void destroy_symtable(SymTable *symtable) {
     destroy_AVL_tree(symtable->root);
-    symtable->root = NULL;
-}
-
-int main() {
-    TData data;
-    data.data = "test";
-    SymTable table;
-    init_SymTable(&table);
-
-    table.root = insert(table.root, "a", data);
-    table.root = insert(table.root, "b", data);
-    table.root = insert(table.root, "c", data);
-
-    PrintSymTable(&table);
-
-    delete_SymTable(&table);
-
-    return 0;
+    free(symtable);
 }

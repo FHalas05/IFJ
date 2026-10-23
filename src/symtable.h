@@ -11,33 +11,12 @@ typedef struct {
     char *data; //todo
 } TData;
 
-typedef struct tavlnode {
-    TKey key;
-    TData data;
-    int height;
-    struct tavlnode *left;
-    struct tavlnode *right;
-} TAVLNode;
+typedef struct SymTable SymTable;
 
-typedef struct {
-    TAVLNode *root;
-} SymTable;
-
-int max(int num1, int num2);
-int AVL_node_height(TAVLNode *node);
-int get_balance(TAVLNode *node);
-void update_node_height(TAVLNode *node);
-TAVLNode* AVL_min(TAVLNode *root);
-TAVLNode *right_rotate(TAVLNode *root);
-TAVLNode *left_rotate(TAVLNode *root);
-
-TAVLNode* create_AVL_node(TKey k, TData d);
-TAVLNode* search_AVL_tree(TAVLNode *root, TKey k);
-TAVLNode* insert(TAVLNode *root, TKey k, TData d);
-TAVLNode* AVL_delete(TAVLNode *root, TKey k);
-void destroy_AVL_tree(TAVLNode *root);
-void init_SymTable(SymTable *symtable);
-void delete_SymTable(SymTable *symtable);
-
+SymTable *create_symtable(void);
+void insert(SymTable *symtable, TKey k, TData d);
+void symtable_delete(SymTable *symtable, TKey k);
+TData *search(SymTable *symtable, TKey k);
+void destroy_symtable(SymTable *symtable);
 
 #endif // IFJ_SYMTABLE_H
