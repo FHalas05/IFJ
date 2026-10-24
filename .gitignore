@@ -1,3 +1,6 @@
 .metals/
 .DS_Store
 __pycache__/
+.bsp/
+.scala-build/
+.vscode/
