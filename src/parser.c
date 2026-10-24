@@ -1,125 +1,260 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fake_lexer.h"
+#include <stdbool.h>
+
+#include "scanner.h"
+#include "token.h"
 #include "parser.h"
 #include "ast.h"
 
-static void syntax_error(const char *msg){
-    fprintf(stderr, "Syntax error %s\n", msg);
+
+#define T_DEDENT ((TokenType)(T_EOF + 1))
+#define MAX_INDENT 256
+
+static void syntax_error(const char *msg) {
+    fprintf(stderr, "Syntax error: %s\n", msg);
     exit(2);
 }
 
-ASTNode* parse_program(){
-    parse_prolog();
+/* ===== Obal kolem scanneru: z T_INDENT(n) dela INDENT / DEDENT ===== */
 
-    ASTNode *prog = create_node(NODE_PROGRAM);
-    prog->data.program.functions = NULL;
-    prog->data.program.count = 0;
-    prog->data.program.capacity = 0;
+static FILE *src;                         
+static SymTable *symtab;                   
+static TokenType last_scanned = T_NEWLINE; 
 
-    while (peek_token().type != TOKEN_EOF){
-        ASTNode *prog_tok = parse_function_def();
-        ast_array_append(&prog->data.program.functions, &prog->data.program.count, &prog->data.program.capacity, prog_tok);
-    }
-    return prog;
+static int  indent_stack[MAX_INDENT] = {0}; 
+static int  indent_top = 0;
+static int  pending_dedents = 0;            
+static bool line_start = true;              
+static bool eof_newline_done = false;
+
+static Token la;                            
+static bool  has_la = false;
+
+static Token make_token(TokenType type) {
+    Token t = {type, NULL};
+    return t;
 }
 
+static Token raw_scan(void) {
+    if (has_la) {
+        has_la = false;
+        return la;
+    }
+    Token t = scanner(src, symtab, last_scanned);
+    last_scanned = t.type;
+    return t;
+}
 
-static void parse_prolog(){
-    Token t = get_next_token();
-    if (t.type != TOKEN_IMPORT){
-        syntax_error("expected 'import' prolog");
-    } 
+static Token next_token(void) {
+    if (pending_dedents > 0) {
+        pending_dedents--;
+        return make_token(T_DEDENT);
+    }
+
+    Token t = raw_scan();
+
+    if (!line_start) {
+        if (t.type == T_NEWLINE) {
+            line_start = true;
+        } else if (t.type == T_EOF && !eof_newline_done) {
+            eof_newline_done = true;
+            la = t;
+            has_la = true;
+            line_start = true;
+            return make_token(T_NEWLINE);
+        }
+        return t;
+    }
+
     
-    Token u = get_next_token();
-    if ((u.type != TOKEN_IDENTIFIER)|| strcmp(u.value, "ifj26")!=0){
-        syntax_error("expected 'import ifj26.*' in prolog");
+    int level = 0;
+    if (t.type == T_INDENT) {
+        level = token_get_indent_count(t);
+        t = raw_scan();
+        if (t.type == T_NEWLINE)        
+            return next_token();
+    }
+    if (t.type == T_EOF) {
+        level = 0;                      
+        eof_newline_done = true;
     }
 
-    Token dot = get_next_token();
-    if(dot.type != TOKEN_DOT){
-        syntax_error("expected '.' in prolog");
-    }
+    line_start = false;
+    la = t;                             
+    has_la = true;
 
-    Token star = get_next_token();
-    if(star.type != TOKEN_STAR){
-        syntax_error("expected '*' in prolog");
+    if (level > indent_stack[indent_top]) {          
+        if (indent_top + 1 >= MAX_INDENT)
+            exit(99);
+        indent_stack[++indent_top] = level;
+        return make_token(T_INDENT);
+    }
+    while (level < indent_stack[indent_top]) {       
+        indent_top--;
+        pending_dedents++;
+    }
+    if (level != indent_stack[indent_top])           
+        syntax_error("inconsistent indentation");
+
+    return next_token();   
+}
+
+static Token token;          
+
+static void advance(void) {
+    token_free_data_if_applicable(token);   
+    token = next_token();                   
+}
+
+static void expect(TokenType type) {
+    if (token.type != type)
+        syntax_error("unexpected token");
+    advance();
+}
+
+static void parse_prolog(void);
+
+static void parse_function_list(void);
+
+static void parse_function_def(void);
+
+static void parse_annotation_opt(void);
+
+static void parse_annotation_remaining(void);
+
+static void parse_return_type(void);
+
+static void parse_type(void);
+
+static void parse_params(void);
+
+static void parse_one_param(void);
+
+static void parse_param_tail(void);
+
+static void parse_function_body(void);
+
+static void parse_single_line_body(void);
+
+static void parse_ident_suffix(void);
+
+static void parse_args(void);
+
+static void parse_expr_remaining(void);
+
+static void parse_binary_op(void);
+
+static void parse_operand(void);
+
+static void parse_literal(void);
+
+static void parse_arg_list(void);
+
+static void parse_term(void);
+
+static void parse_args_tail(void);
+
+static void parse_non_ident_expr_start(void);
+
+static void parse_block(void);
+
+static void parse_stmt_list(void);
+
+static void parse_simple_end(void);
+
+static void parse_stmt_list_end(void);
+
+static void parse_simple_stmt(void);
+
+static void parse_after_ident(void);
+
+static void parse_return_val(void);
+
+static void parse_def_value(void);
+
+static void parse_compound_stmt(void);
+
+static void parse_else_opt(void);
+
+static void parse_cond(void);
+
+
+
+
+
+void parse_program(FILE *file, SymTable *table) {
+    src = file;              
+    symtab = table;
+    advance();               
+    switch (token.type){
+        case T_KW_IMPORT:
+            parse_prolog();
+            parse_function_list();
+            expect(T_EOF);
+            break;
+        default:
+            syntax_error("Program must start with import");
     }
 }
 
-static ASTNode* parse_function_def(){
-    Token def_tok = get_next_token();
-    if (def_tok.type != TOKEN_DEF){
-        syntax_error("No 'def' token");
+static void parse_prolog(void){
+    switch (token.type){
+        case T_KW_IMPORT:
+            advance();
+            expect(T_IDENT);
+            expect(T_DOT);
+            expect(T_OP_MUL);
+            expect(T_NEWLINE);
+            break;
+        default:
+            syntax_error("Program must start with import");
     }
-
-    Token name_tok = get_next_token();
-    if (name_tok.type != TOKEN_IDENTIFIER){
-        syntax_error("No 'id' token");
-    }
-
-    //TODO parse_params
-
-    char *return_types = NULL;
-
-    Token next = peek_token();
-    if (next.type == TOKEN_COLON){
-        get_next_token();
-        Token check_tok = get_next_token();
-            if(check_tok.type != TOKEN_IDENTIFIER){
-                syntax_error("Token is not identifier");
-            }
-        return_types = check_tok.value;
-    }
-
-    Token equal_tok = get_next_token();
-    if (equal_tok.type != TOKEN_EQUALS){
-        syntax_error("No '=' token");
-    }
-    
-    //TODO parse_function_body
-
-
-    ASTNode *func_def = create_node(NODE_FUNCTION_DEF);
-    func_def->data.function_def.name = name_tok.value;
-    func_def->data.function_def.parameters = NULL;
-    func_def->data.function_def.param_count = 0;
-    func_def->data.function_def.body = NULL;
-    func_def->data.function_def.return_type = return_types;
-    func_def->data.function_def.has_explicit_return_type = (return_types != NULL);
-       
-    return func_def;
 }
 
-static ASTNode* parse_function_header();
+static void parse_function_list(void){
+    switch (token.type){
+        case T_AT_MAIN:
+        case T_KW_DEF:
+            parse_function_def();
+            parse_function_list();
+            break;
+        case T_EOF:
+            break;
+        default:
+            syntax_error("Expected @main, def or eof");
+    }   
+}
 
-static ASTNode* parse_params();
+static void parse_function_def(void){
+    switch (token.type){
+        case T_AT_MAIN:
+        case T_KW_DEF:
+            parse_annotation_opt();
+            expect(T_KW_DEF);
+            expect(T_IDENT);
+            expect(T_PAR_L);
+            parse_params();
+            expect(T_PAR_R);
+            parse_return_type();
+            expect(T_OP_ASSIGN);
+            parse_function_body();
+            break;
+        default:
+            syntax_error("No function definition");
+    }
+}
 
-static ASTNode* parse_function_body();
-
-static ASTNode* parse_expr_or_call();
-
-static ASTNode* parse_block();
-
-static ASTNode* parse_statement();
-
-static ASTNode* parse_var_def();
-
-static ASTNode* parse_assignment();
-
-static ASTNode* parse_function_call();
-
-static ASTNode* parse_arguments();
-
-static ASTNode* parse_return();
-
-static ASTNode* parse_if();
-
-static ASTNode* parse_condition();
-
-static ASTNode* parse_while();
-
-//call from preced. parser
-ASTNode* parse_expression();
+static void parse_annotation_opt(void){
+    switch (token.type){
+        case T_AT_MAIN:
+            expect(T_AT_MAIN);
+            parse_annotation_remaining();
+            break;
+        case T_KW_DEF:
+            break;
+        default:
+            syntax_error("No annotation option");
+    }
+}
