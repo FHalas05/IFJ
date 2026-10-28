@@ -3,5 +3,6 @@
 __pycache__/
 .bsp/
 .scala-build/
-.vscode/ifj26
+.vscode/
+ifj26
 *Zone.Identifier
