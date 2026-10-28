@@ -1,0 +1,7 @@
+import ifj26.*
+@main def main(): Unit =
+  var x = 1; var y = 2; x = x + y
+  print(x); print(y)
+  while x > 0 do
+    x = x - 1; print(x)
+  print(y)

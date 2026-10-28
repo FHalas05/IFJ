@@ -1,0 +1,17 @@
+// blok konci if/while (zadny prikaz za nim), dalsi funkce hned potom
+import ifj26.*
+def a(x: Int): Unit =
+  while x > 0 do
+    if x == 5 then
+      print(x)
+    else
+      print(0)
+def b(x: Int): Unit =
+  if x > 0 then
+    while x > 0 do
+      x = x - 1
+  else
+    print(x)
+@main def main(): Unit =
+  a(3)
+  b(3)

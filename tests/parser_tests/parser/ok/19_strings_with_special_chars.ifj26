@@ -1,0 +1,9 @@
+// zavorky, klicova slova a komentare uvnitr retezcu se nesmi pocitat
+import ifj26.*
+@main def main(): Unit =
+  print("(")
+  print(")")
+  print("while if def )) ((")
+  val s = "// tohle neni komentar"
+  val t = "/* ani tohle */"
+  print(s)

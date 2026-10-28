@@ -1,0 +1,14 @@
+import ifj26.*
+def noParams(): Int =
+  return 42
+def one(a: Int): Int =
+  return a
+def many(a: Int, b: Double, c: String, d: Int): Unit =
+  print(a)
+  print(b)
+  print(c)
+  print(d)
+@main def main(): Unit =
+  val n = noParams()
+  val o = one(n)
+  many(1, 2.5, "text", o)

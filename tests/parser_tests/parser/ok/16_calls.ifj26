@@ -1,0 +1,13 @@
+import ifj26.*
+def f0(): Int =
+  return 0
+def f3(a: Int, b: String, c: Double): Unit =
+  print(a)
+@main def main(): Unit =
+  f0()
+  f3(1, "two", 3.0)
+  var x = f0()
+  val y = 7
+  f3(x, "s", 1.5)
+  f3(y, "", 0.5)
+  x = f0()

@@ -1,0 +1,28 @@
+// uvnitr zavorek muze byt novy radek kdekoli (i prazdny radek a komentar)
+// pokracovaci radky jsou odsazene vic nez prvni radek logickeho radku
+import ifj26.*
+def sum3(
+    a: Int,
+    b:
+    Int,
+    c: Int
+  ): Int =
+  return a + b + c
+@main def main(): Unit =
+  val s = sum3(
+    1, // prvni
+    2,
+
+    3
+    )
+  var t = (s
+    + 1
+    * 2)
+  t = (
+    t - 1
+    )
+  if (t >
+      0) then
+    print(t)
+  else
+    print(s)

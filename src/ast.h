@@ -8,22 +8,22 @@
 
 //Everything that can be in the program
 typedef enum{
-    NODE_PROGRAM                //program
-    NODE_BLOCK                  //block of operations
-    NODE_FUNCTION_DEF           //function definition
-    NODE_FUNCTION_CALL          //call function
-    NODE_DEF_VAR                //definition - val, var
-    NODE_BINOP                  //binnary operation
-    NODE_IF                     //if cycle
-    NODE_WHILE                  //while_cycle
-    NODE_ASSIGN                 //assignment (x=1)
-    NODE_RETURN                 //return
-    NODE_IDENTIFIER             //Variable name in expression
-    NODE_INT_LITERAL            //intiger        
-    NODE_DOUBLE_LITERAL         //double                 
-    NODE_STRING_LITERAL         //string
-    NODE_BOOL_LITERAL           //boolean
-    NODE_UNIT_LITERAL           //unit
+    NODE_PROGRAM,                //program
+    NODE_BLOCK,                  //block of operations
+    NODE_FUNCTION_DEF,           //function definition
+    NODE_FUNCTION_CALL,          //call function
+    NODE_DEF_VAR,                //definition - val, var
+    NODE_BINOP,                  //binnary operation
+    NODE_IF,                     //if cycle
+    NODE_WHILE,                  //while_cycle
+    NODE_ASSIGN,                 //assignment (x=1)
+    NODE_RETURN,                 //return
+    NODE_IDENTIFIER,             //Variable name in expression
+    NODE_INT_LITERAL,            //intiger        
+    NODE_DOUBLE_LITERAL,         //double                 
+    NODE_STRING_LITERAL,         //string
+    NODE_BOOL_LITERAL,           //boolean
+    NODE_UNIT_LITERAL,           //unit
 } NodeType;
 
 //operations for numbers

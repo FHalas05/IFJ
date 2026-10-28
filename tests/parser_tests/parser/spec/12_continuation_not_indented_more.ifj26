@@ -1,0 +1,8 @@
+// OCEKAVANO: chyba (1 nebo 2?) - slajd 26: pokracovani v zavorkach musi byt odsazeno vic nez prvni radek
+import ifj26.*
+def f(a: Int, b: Int): Int =
+  return a
+@main def main(): Unit =
+  val y = f(1,
+  2)
+  print(y)

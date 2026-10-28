@@ -1,0 +1,4 @@
+// OCEKAVANO: 0 syntakticky, ale semanticky chyba (chybi @main) - kod viz zadani
+import ifj26.*
+def f(): Unit =
+  print(1)

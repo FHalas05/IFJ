@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include "parser.h"
 
-int main() {
-    printf("Hello world!");
+
+int main(void) {
+    parse_program(stdin, NULL);
 
     return 0;
 }

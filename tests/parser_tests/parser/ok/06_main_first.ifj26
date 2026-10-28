@@ -1,0 +1,6 @@
+import ifj26.*
+@main def main(): Unit =
+  val x = helper(2)
+  print(x)
+def helper(n: Int): Int =
+  return n * n

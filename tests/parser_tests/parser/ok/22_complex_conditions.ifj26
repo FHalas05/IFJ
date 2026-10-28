@@ -1,0 +1,12 @@
+import ifj26.*
+@main def main(): Unit =
+  var a = 1
+  var b = 10
+  while (a + 1) * 2 < b - 3 do
+    a = a + 1
+  if a * 2 + 1 >= (b - a) / 2 then
+    print(a)
+  else
+    print(b)
+  while (((a))) != b do
+    a = a + 1
