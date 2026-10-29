@@ -36,6 +36,7 @@
  * @return Token for '/' , one line comments and block comments
  */
 Token FSM_comments(FILE *file, TokenType last_token_type) {
+    fprintf(stderr, "FSM_comments\n");
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
 
     State state = F1;
@@ -154,6 +155,8 @@ Token FSM_comments(FILE *file, TokenType last_token_type) {
  * @return Token for one-line string or multiple-line strings
  */
 Token FSM_strings(FILE *file) {
+    fprintf(stderr, "FSM_strings\n");
+
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
 
     State state = F1;
@@ -273,6 +276,8 @@ Token FSM_strings(FILE *file) {
  * @return Token of numeral with its content
  */
 Token FSM_numerals(FILE *file, int first_char) {
+    fprintf(stderr, "FSM_numerals\n");
+
     typedef enum { F1, F2, F3, F4, F5, F6, F7, F8, F9, F10 } State;
 
     State state = first_char == '.'
@@ -494,6 +499,8 @@ Token FSM_numerals(FILE *file, int first_char) {
  * @return Token for either identifier or keyword
  */
 Token HANDLER_identifiers(FILE *file, int first_char) {
+    fprintf(stderr, "HANDLER_identifiers\n");
+
     int c;
     DynamicString *id = dyn_str_init();
     dyn_str_add(id, first_char);
@@ -517,6 +524,8 @@ Token HANDLER_identifiers(FILE *file, int first_char) {
  * @return Token of type T_AT_MAIN
  */
 Token HANDLER_main(FILE *file) {
+    fprintf(stderr, "HANDLER_main\n");
+
     // compare to "main"
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
@@ -543,6 +552,8 @@ Token HANDLER_main(FILE *file) {
  * @return Token for the operator
  */
 Token HANDLER_operators(FILE *file, int first_char) {
+    fprintf(stderr, "HANDLER_operators\n");
+
     int second_char = fgetc(file);
     Token token = {NO_TOKEN_FOUND, NULL};
 
@@ -624,6 +635,8 @@ Token HANDLER_operators(FILE *file, int first_char) {
  * @return Token for the matched lexeme
  */
 Token HANDLER_special(TokenType last_token_type, int special_c) {
+    fprintf(stderr, "HANDLER_special\n");
+
     Token token = {NO_TOKEN_FOUND, NULL};
     switch (special_c) {
     case ';':
@@ -666,7 +679,9 @@ Token HANDLER_special(TokenType last_token_type, int special_c) {
  * @return Token of type T_INDENT with indent level, or of type NO_TOKEN_FOUND for discarded
  * whitespace
  */
-Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
+Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c, int *current_indent_target) {
+    fprintf(stderr, "HANDLER_whitespace\n");
+
     Token token = {NO_TOKEN_FOUND, NULL};
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
@@ -682,8 +697,7 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
             return token;
 
         ungetc(c, file);
-        token.type = T_INDENT;
-        token_set_indent_count(&token, spaces);
+        *current_indent_target = spaces;
     } else if (last_token_type == T_NEWLINE) { // no non-space whitespace is allowed after a newline
         throw_lexical_error("Disallowed whitespace after newline - (probably a tab)");
     }
@@ -706,48 +720,71 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
  *
  * @return Matched token
  */
-Token scanner(FILE *file, TokenType last_token_type) {
+Token scanner(FILE *file) {
+
+    static TokenType last_token_type = T_NEWLINE;
+
+    static int indent_depth_current = 0;
+    static int indent_depth_target = 0;
+
+    // todo parentheses depth handling
+
+    Token token = {NO_TOKEN_FOUND, NULL};
+
     int c;
     while ((c = fgetc(file)) != EOF) {
-        if (string_contains(ENTRY_COMMENTS, c)) {
-            Token token;
-            if ((token = FSM_comments(file, last_token_type)).type == NO_TOKEN_FOUND)
-                continue;
+        // send indent/dedent based on previous reads
+        if (indent_depth_current > indent_depth_target) {
+            indent_depth_current -= 1;
+            ungetc(c, file);
+            token.type = T_DEDENT;
+            return token;
+        }
+        if (indent_depth_current < indent_depth_target) {
+            indent_depth_current += 1;
+            ungetc(c, file);
+            token.type = T_INDENT;
             return token;
         }
 
-        if (string_contains(ENTRY_STRINGS, c))
-            return FSM_strings(file);
 
-        if (string_contains(ENTRY_NUMERALS, c))
-            return FSM_numerals(file, c);
+        // choose handler
+        if (string_contains(ENTRY_COMMENTS, c))
+            token = FSM_comments(file, last_token_type);
 
-        if (string_contains(ENTRY_MAIN, c))
-            return HANDLER_main(file);
+        else if (string_contains(ENTRY_STRINGS, c))
+            token = FSM_strings(file);
 
-        if (string_contains(ENTRY_OPERATORS, c))
-            return HANDLER_operators(file, c);
+        else if (string_contains(ENTRY_NUMERALS, c))
+            token = FSM_numerals(file, c);
 
-        if (string_contains(ENTRY_SPECIAL, c)) {
-            Token token;
-            if ((token = HANDLER_special(last_token_type, c)).type == NO_TOKEN_FOUND)
-                continue;
-            return token;
+        else if (string_contains(ENTRY_MAIN, c))
+            token = HANDLER_main(file);
+
+        else if (string_contains(ENTRY_OPERATORS, c))
+            token = HANDLER_operators(file, c);
+
+        else if (string_contains(ENTRY_SPECIAL, c))
+            token = HANDLER_special(last_token_type, c);
+
+        else if (string_contains(ENTRY_WHITESPACE, c))
+            token = HANDLER_whitespace(file, last_token_type, c, &indent_depth_target);
+
+        else if (string_contains(ENTRY_IDENTIFIERS, c))
+            token = HANDLER_identifiers(file, c);
+
+        else {
+            fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
+            throw_lexical_error("scanner() - newest char does not match any token type");
         }
 
-        if (string_contains(ENTRY_WHITESPACE, c)) {
-            Token token;
-            if ((token = HANDLER_whitespace(file, last_token_type, c)).type ==
-                NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
-        if (string_contains(ENTRY_IDENTIFIERS, c))
-            return HANDLER_identifiers(file, c);
+        if (token.type == NO_TOKEN_FOUND)
+            continue;
 
-        fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
-        throw_lexical_error("scanner() - newest char does not match any token type");
+
+        last_token_type = token.type;
+        return token;
     }
-    Token token = {T_EOF, NULL};
+    token.type = T_EOF;
     return token;
 }
