@@ -2,7 +2,7 @@
 // Created by Filip Halaš on 27/10/2026.
 //
 
-#include "stack.h"
+#include "expression_stack.h"
 #include "library.h"
 #include <stdbool.h>
 #include <stdlib.h>

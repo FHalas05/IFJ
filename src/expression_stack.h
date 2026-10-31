@@ -2,8 +2,8 @@
 // Created by Filip Halaš on 27/10/2026.
 //
 
-#ifndef IFJ_STACK_H
-#define IFJ_STACK_H
+#ifndef IFJ_EXPRESSION_STACK_H
+#define IFJ_EXPRESSION_STACK_H
 
 #include <stdbool.h>
 
@@ -28,4 +28,4 @@ void pop(TStack *s);
 void clear_stack(TStack *s);
 
 
-#endif // IFJ_STACK_H
+#endif // IFJ_EXPRESSION_STACK_H
