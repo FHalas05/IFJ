@@ -3,8 +3,10 @@
 #define PARSER_H
 
 #include <stdio.h>
+
 #include "ast.h"
-#include "sym_table.h"
+#include "symtable.h"
+#include "token.h"
 
 typedef struct {
     FILE *src;
