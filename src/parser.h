@@ -6,6 +6,14 @@
 #include "ast.h"
 #include "sym_table.h"
 
+typedef struct {
+    FILE *src;
+    SymTable *symtab;
+
+    Token token;
+    TokenType last_scanned;
+}Parser;
+
 void parse_program(FILE *file, SymTable *table);
 
 #endif
