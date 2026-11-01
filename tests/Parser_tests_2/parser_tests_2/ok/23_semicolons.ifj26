@@ -1,0 +1,10 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1; val b = 2; var c = a + b
+  c = c * 2; print(c)
+  if a < b then
+    print(a); print(b)
+  else
+    print(c); c = 0
+  while c > 0 do
+    c = c - 1; print(c)

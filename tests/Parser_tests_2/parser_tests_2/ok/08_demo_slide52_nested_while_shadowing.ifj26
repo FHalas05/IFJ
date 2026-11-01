@@ -1,0 +1,13 @@
+import ifj26.*
+def fun(n: Int) =
+  var x = n
+  while x > 5 do
+    var y = 10 * x
+    while y < 100 do
+      var x = 5 - y
+      print(x)
+      y = y - 1
+    x = x - 2
+
+@main def main(): Unit =
+  fun(9)

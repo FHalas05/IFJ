@@ -1,0 +1,5 @@
+import ifj26.*
+def foo(x: Double | String): Unit =
+  print(1)
+@main def main(): Unit =
+  print(0)

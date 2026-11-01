@@ -1,0 +1,4 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 2d
+  val b = 2.5D

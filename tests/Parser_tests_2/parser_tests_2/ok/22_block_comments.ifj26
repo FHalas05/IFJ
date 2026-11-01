@@ -1,0 +1,15 @@
+import ifj26.*
+/* blokovy
+   komentar
+   pres vic radku */
+def f(x: Int): Int =
+  val a = /* uvnitr vyrazu */ x + /* dalsi */ 1
+  /* komentar
+na zacatku radku s malym odsazenim */
+  val b = a /* za vyrazem */
+  /* vnoreny /* komentar */ stale komentar */
+  return b
+
+@main def main(): Unit =
+  val r = f(1)
+  print(r)

@@ -1,0 +1,13 @@
+import ifj26.*
+@main def main(): Unit =
+  val x = 1
+  if x > 0 then
+    val x = "retezec"
+    print(x)
+  else
+    val x = 2.5
+    print(x)
+  while x < 0 do
+    val x = 3
+    print(x)
+  print(x)

@@ -1,0 +1,2 @@
+2 3
+# V zakladu chyba, ale s rozsirenim BOOLTHEN je to platny kod. Oficialni testy to v zakladu nekontroluji. Bez BOOLTHEN je 'true' identifikator -> nedefinovana promenna (3), nebo rezervovane slovo (2).

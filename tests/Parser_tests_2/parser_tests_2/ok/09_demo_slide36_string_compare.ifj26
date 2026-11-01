@@ -1,0 +1,8 @@
+import ifj26.*
+@main def main(): Unit =
+  val x = "foo"
+  val z = "brb"
+  if x + "abc" < z then
+    ()
+  else
+    ()

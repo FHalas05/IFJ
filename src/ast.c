@@ -1,4 +1,8 @@
-#include "ast.h "
+#include "ast.h"
+#include <stdio.h>
+#include <stdlib.h>
+
+
 void ast_array_append(ASTNode ***array, size_t *count, size_t *capacity, ASTNode *new_item){
     if (*count == *capacity){
         size_t new_capacity;
@@ -18,5 +22,5 @@ void ast_array_append(ASTNode ***array, size_t *count, size_t *capacity, ASTNode
     }
 
     (*array)[*count] = new_item;
-    (*count)++
+    (*count)++;
 }

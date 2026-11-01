@@ -10,12 +10,58 @@
 
 #define T_DEDENT ((TokenType)(T_EOF + 1))
 
+static void syntax_error(const char *msg) {
+    fprintf(stderr, "Syntax error: %s\n", msg);
+    exit(2);
+}
 
+/* ===== DOCASNY obal: smazat po merge noveho scanneru ===== */
+#define MAX_INDENT 256
+static int  indent_stack[MAX_INDENT] = {0};
+static int  indent_top = 0;
+static int  pending_dedents = 0;
+static bool line_start = true;
+static bool eof_newline_done = false;
+static Token la;
+static bool  has_la = false;
 
-static Token next_token(Parser *p) {
-    Token t = scanner(p->src,p->symtab,p->last_scanned);
+static Token make_token(TokenType type) { Token t = {type, NULL}; return t; }
+
+static Token raw_scan(Parser *p) {
+    if (has_la) { has_la = false; return la; }
+    Token t = scanner(p->src, p->symtab, p->last_scanned);
     p->last_scanned = t.type;
     return t;
+}
+
+static Token next_token(Parser *p) {
+    if (pending_dedents > 0) { pending_dedents--; return make_token(T_DEDENT); }
+    Token t = raw_scan(p);
+    if (!line_start) {
+        if (t.type == T_NEWLINE) {
+            line_start = true;
+        } else if (t.type == T_EOF && !eof_newline_done) {
+            eof_newline_done = true; la = t; has_la = true; line_start = true;
+            return make_token(T_NEWLINE);
+        }
+        return t;
+    }
+    int level = 0;
+    if (t.type == T_INDENT) {
+        level = token_get_indent_count(t);
+        t = raw_scan(p);
+        if (t.type == T_NEWLINE) return next_token(p);
+    }
+    if (t.type == T_EOF) { level = 0; eof_newline_done = true; }
+    line_start = false; la = t; has_la = true;
+    if (level > indent_stack[indent_top]) {
+        if (indent_top + 1 >= MAX_INDENT) exit(99);
+        indent_stack[++indent_top] = level;
+        return make_token(T_INDENT);
+    }
+    while (level < indent_stack[indent_top]) { indent_top--; pending_dedents++; }
+    if (level != indent_stack[indent_top]) syntax_error("inconsistent indentation");
+    return next_token(p);
 }
 
 static void advance(Parser *p) {
@@ -114,7 +160,10 @@ static void parse_prolog(Parser *p){
     switch (p->token.type){
         case T_KW_IMPORT:
             advance(p);
-            expect(p, T_IDENT, "prolog: expected 'ifj26'");
+            if ((p->token.type != T_IDENT) || (strcmp((char*) p->token.data, "ifj26") != 0)){
+                syntax_error("prolog: expected 'ifj26'");
+            }
+            advance(p);
             expect(p, T_DOT, "prolog: expected '.'");
             expect(p, T_OP_MUL, "prolog: expected '*'");
             expect(p, T_NEWLINE,"prolog: expected 'import ifj26.*'");
@@ -388,9 +437,14 @@ static void parse_operand(Parser *p){
             break;
         case T_PAR_L:
             advance(p);
-            parse_operand(p);
-            parse_expr_remaining(p);
-            expect(p, T_PAR_R, "expression: expected ')'");
+            if (p->token.type == T_PAR_R){
+                advance(p);
+            }
+            else{
+                parse_operand(p);
+                parse_expr_remaining(p);
+                expect(p, T_PAR_R, "expression: expected ')'");
+            }
             break;
         case T_INT:
         case T_DOUBLE:
@@ -472,9 +526,14 @@ static void parse_non_ident_expr_start(Parser *p){
             break;
         case T_PAR_L:
             advance(p);
-            parse_operand(p);
-            parse_expr_remaining(p);
-            expect(p, T_PAR_R, "expression: expected ')'");
+            if (p->token.type == T_PAR_R){
+                advance(p);
+            }
+            else{
+                parse_operand(p);
+                parse_expr_remaining(p);
+                expect(p, T_PAR_R, "expression: expected ')'");
+            }
             parse_expr_remaining(p);
             break;
         default:
@@ -648,7 +707,8 @@ static void parse_compound_stmt(Parser *p){
             parse_cond(p);
             expect(p, T_KW_THEN, "if: expected 'then' after condition");
             parse_block(p);
-            parse_else_opt(p);
+            expect(p, T_KW_ELSE, "if: expected 'else'");
+            parse_block(p);
             break;
         case T_KW_WHILE:
             advance(p);
@@ -661,6 +721,7 @@ static void parse_compound_stmt(Parser *p){
     }
 }
 
+/*
 static void parse_else_opt(Parser *p){
     switch (p->token.type){
         case T_KW_ELSE:
@@ -683,7 +744,7 @@ static void parse_else_opt(Parser *p){
         default:
             syntax_error("After if-block: expected 'else', next statement or end of block");
     }
-}
+}*/
 
 static void parse_cond(Parser *p){
     switch (p->token.type){

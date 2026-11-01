@@ -1,0 +1,2 @@
+1 2
+# V zakladu chyba, ale s rozsirenim BOOLTHEN je to platny kod. Oficialni testy to v zakladu nekontroluji. V zakladu '&&' neni lexem -> 1, pokud ho scanner zna -> 2.
