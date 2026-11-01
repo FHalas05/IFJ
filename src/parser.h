@@ -3,6 +3,7 @@
 #define PARSER_H
 
 #include <stdio.h>
+
 #include "ast.h"
 #include "sym_table.h"
 #include "token.h"

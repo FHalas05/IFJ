@@ -5,6 +5,7 @@
 
 #include "scanner.h"
 #include "token.h"
+#include "library.h"
 #include "parser.h"
 #include "ast.h"
 
@@ -69,9 +70,9 @@ static void advance(Parser *p) {
     p->token = next_token(p);                   
 }
 
-static void expect(Parser *p, TokenType type, const char *msg) {
+static void expect(Parser *p, TokenType type, char *msg) {
     if (p->token.type != type)
-        syntax_error(msg);
+        throw_fatal_error(2, msg);
     advance(p);
 }
 
@@ -152,7 +153,7 @@ void parse_program(FILE *file, SymTable *table) {
             expect(&p, T_EOF, "expected end of file after last function");
             break;
         default:
-            syntax_error("Program must start with 'import ifj26.*'");
+            throw_fatal_error(2, "Program must start with 'import ifj26.*'");
     }
 }
 
@@ -169,7 +170,7 @@ static void parse_prolog(Parser *p){
             expect(p, T_NEWLINE,"prolog: expected 'import ifj26.*'");
             break;
         default:
-            syntax_error("Program must start with 'import'");
+            throw_fatal_error(2, "Program must start with 'import'");
     }
 }
 
@@ -183,7 +184,7 @@ static void parse_function_list(Parser *p){
         case T_EOF:
             break;
         default:
-            syntax_error("Expected function definition ('def' or '@main') or end of file");
+            throw_fatal_error(2, "Expected function definition ('def' or '@main') or end of file");
     }   
 }
 
@@ -202,7 +203,7 @@ static void parse_function_def(Parser *p){
             parse_function_body(p);
             break;
         default:
-            syntax_error("Function definition: expected 'def' or '@main'");
+            throw_fatal_error(2, "Function definition: expected 'def' or '@main'");
     }
 }
 
@@ -215,7 +216,7 @@ static void parse_annotation_opt(Parser *p){
         case T_KW_DEF:
             break;
         default:
-            syntax_error("Expected '@main' or 'def'");
+            throw_fatal_error(2, "Expected '@main' or 'def'");
     }
 }
 
@@ -227,7 +228,7 @@ static void parse_annotation_remaining(Parser *p){
         case T_KW_DEF:
             break;
     default:
-        syntax_error("After '@main': expected newline or 'def'");
+        throw_fatal_error(2, "After '@main': expected newline or 'def'");
     }
 }
 
@@ -240,7 +241,7 @@ static void parse_return_type(Parser *p){
         case T_OP_ASSIGN:
             break;
     default:
-        syntax_error("Function header: expected ':' with return type or '='");
+        throw_fatal_error(2, "Function header: expected ':' with return type or '='");
     }
 }
 
@@ -259,7 +260,7 @@ static void parse_type(Parser *p){
             advance(p);
             break;
     default:
-        syntax_error("Expected type (Int, Double, String or Unit)");    
+        throw_fatal_error(2, "Expected type (Int, Double, String or Unit)");    
     }
 }
 
@@ -272,7 +273,7 @@ static void parse_params(Parser *p){
         case T_PAR_R:
             break;
         default:
-            syntax_error("Parameter list: expected parameter name or ')'");
+            throw_fatal_error(2, "Parameter list: expected parameter name or ')'");
     }
 }
 
@@ -284,7 +285,7 @@ static void parse_one_param(Parser *p){
             parse_type(p);
             break;
         default:
-            syntax_error("Parameter: expected parameter name");
+            throw_fatal_error(2, "Parameter: expected parameter name");
     }
 }
 
@@ -298,7 +299,7 @@ static void parse_param_tail(Parser *p){
         case T_PAR_R:
             break;
         default:
-            syntax_error("Parameter list: expected ',' or ')'");
+            throw_fatal_error(2, "Parameter list: expected ',' or ')'");
     } 
 }
 
@@ -317,7 +318,7 @@ static void parse_function_body(Parser *p){
             parse_block(p);
             break;
         default:
-            syntax_error("Function body: expected expression or newline with indented block");   
+            throw_fatal_error(2, "Function body: expected expression or newline with indented block");
     }
 }
 
@@ -335,7 +336,7 @@ static void parse_single_line_body(Parser *p){
             parse_non_ident_expr_start(p);
             break;
         default:
-            syntax_error("Expected expression or function call");
+            throw_fatal_error(2, "Expected expression or function call");
     }
 }
 
@@ -361,7 +362,7 @@ static void parse_ident_suffix(Parser *p){
             parse_expr_remaining(p);
             break;
         default:
-            syntax_error("After identifier: expected '(', operator or end of statement");
+            throw_fatal_error(2, "After identifier: expected '(', operator or end of statement");
     }
 }
 
@@ -376,7 +377,7 @@ static void parse_args(Parser *p){
         case T_PAR_R:
             break;
         default:
-            syntax_error("function call: expected argument or ')'");   
+            throw_fatal_error(2, "function call: expected argument or ')'");
     }
 }
 
@@ -403,7 +404,7 @@ static void parse_expr_remaining(Parser *p){
         case T_KW_DO:
             break;
         default:
-            syntax_error("Expression: expected operator or end of expression");
+            throw_fatal_error(2, "Expression: expected operator or end of expression");
     }
 }
 
@@ -422,7 +423,7 @@ static void parse_binary_op(Parser *p){
             advance(p);
             break;
         default:
-            syntax_error("Expression: expected binary operator");
+            throw_fatal_error(2, "Expression: expected binary operator");
     }
 }
 
@@ -452,7 +453,7 @@ static void parse_operand(Parser *p){
             parse_literal(p);
             break;
         default:
-            syntax_error("Expression: expected operand (identifier, literal, '-' or '(')");
+            throw_fatal_error(2, "Expression: expected operand (identifier, literal, '-' or '(')");
     }
 }
 
@@ -464,7 +465,7 @@ static void parse_literal(Parser *p){
             advance(p);
             break;
         default:
-            syntax_error("Expected literal (integer, double or string)");
+            throw_fatal_error(2, "Expected literal (integer, double or string)");
     }
 }
 
@@ -478,7 +479,7 @@ static void parse_arg_list(Parser *p){
             parse_args_tail(p);
             break;
         default:
-            syntax_error("Function call: expected argument (identifier or literal)");
+            throw_fatal_error(2, "Function call: expected argument (identifier or literal)");
     }
 }
 
@@ -493,7 +494,7 @@ static void parse_term(Parser *p){
             parse_literal(p);
             break;
         default:
-            syntax_error("Function call: argument must be identifier or literal");
+            throw_fatal_error(2, "Function call: argument must be identifier or literal");
     }
 }
 
@@ -507,7 +508,7 @@ static void parse_args_tail(Parser *p){
         case T_PAR_R:
             break;
         default:
-            syntax_error("Function call: expected ',' or ')'");
+            throw_fatal_error(2, "Function call: expected ',' or ')'");
     }
 }
 
@@ -537,7 +538,7 @@ static void parse_non_ident_expr_start(Parser *p){
             parse_expr_remaining(p);
             break;
         default:
-            syntax_error("Expression: expected literal, '-' or '('");
+            throw_fatal_error(2, "Expression: expected literal, '-' or '('");
     }
 }
 
@@ -549,7 +550,7 @@ static void parse_block(Parser *p){
             parse_stmt_list(p);
             break;
         default:
-            syntax_error("Block: expected newline and indented block");
+            throw_fatal_error(2, "Block: expected newline and indented block");
     }
 }
 
@@ -573,7 +574,7 @@ static void parse_stmt_list(Parser *p){
             parse_stmt_list_end(p);
             break;
         default:
-            syntax_error("Block: expected statement");
+            throw_fatal_error(2, "Block: expected statement");
     }
 }
 
@@ -588,7 +589,7 @@ static void parse_simple_end(Parser *p){
             parse_stmt_list_end(p);
             break;
         default:
-            syntax_error("Statement: expected ';' or newline after statement");
+            throw_fatal_error(2, "Statement: expected ';' or newline after statement");
     }
 }
 
@@ -611,7 +612,7 @@ static void parse_stmt_list_end(Parser *p){
             advance(p);
             break;
         default:
-            syntax_error("Block: expected next statement or end of block");
+            throw_fatal_error(2, "Block: expected next statement or end of block");
     }
 }
 
@@ -641,7 +642,7 @@ static void parse_simple_stmt(Parser *p){
             parse_non_ident_expr_start(p);
             break;
         default:
-            syntax_error("Expected statement (val, var, return, assignment, call or expression)");   
+            throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
     }
 }
 
@@ -667,7 +668,7 @@ static void parse_after_ident(Parser *p){
             parse_ident_suffix(p);
             break;
         default:
-            syntax_error("After identifier: expected '=', '(', operator or end of statement");
+            throw_fatal_error(2, "After identifier: expected '=', '(', operator or end of statement");
     }
 }
 
@@ -685,7 +686,7 @@ static void parse_return_val(Parser *p){
         case T_NEWLINE:
             break;
         default:
-            syntax_error("Return: expected expression or end of statement");
+            throw_fatal_error(2, "Return: expected expression or end of statement");
     }
 }
 
@@ -696,7 +697,7 @@ static void parse_def_value(Parser *p){
             advance(p);
             break;
         default:
-            syntax_error("Variable definition: expected 'val' or 'var'");
+            throw_fatal_error(2, "Variable definition: expected 'val' or 'var'");
     }
 }
 
@@ -717,7 +718,7 @@ static void parse_compound_stmt(Parser *p){
             parse_block(p);
             break;
         default:
-            syntax_error("Expected 'if' or 'while'");
+            throw_fatal_error(2, "Expected 'if' or 'while'");
     }
 }
 
@@ -742,7 +743,7 @@ static void parse_else_opt(Parser *p){
         case T_DEDENT:
             break;
         default:
-            syntax_error("After if-block: expected 'else', next statement or end of block");
+            throw_fatal_error(2, "After if-block: expected 'else', next statement or end of block");
     }
 }*/
 
@@ -758,6 +759,6 @@ static void parse_cond(Parser *p){
             parse_expr_remaining(p);
             break;
         default:
-            syntax_error("Condition: expected expression");
+            throw_fatal_error(2, "Condition: expected expression");
     }
 }
