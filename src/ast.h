@@ -6,6 +6,15 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+typedef enum{
+    TYPE_UNKNOWN,
+    TYPE_INT,
+    TYPE_DOUBLE,
+    TYPE_STRING,
+    TYPE_UNIT,
+    TYPE_BOOL
+} DataType;
+
 //Everything that can be in the program
 typedef enum{
     NODE_PROGRAM,                //program
@@ -24,6 +33,7 @@ typedef enum{
     NODE_STRING_LITERAL,         //string
     NODE_BOOL_LITERAL,           //boolean
     NODE_UNIT_LITERAL,           //unit
+    NODE_PARAM                   //parameter
 } NodeType;
 
 //operations for numbers
@@ -36,6 +46,7 @@ typedef enum{
 
 //structures for everything - union = only one structure at a time
 typedef struct ASTNode{
+    DataType data_type;
     NodeType type;
     int line;
     int column;
@@ -57,20 +68,24 @@ typedef struct ASTNode{
             char *name;
             struct ASTNode **parameters;
             size_t param_count;
+            size_t capacity;
             struct ASTNode *body;
             char *return_type;
             bool has_explicit_return_type;
+            bool is_main;
         } function_def;
 
         struct{
             char *name;
-            struct ASTNode **arguments;
             size_t arg_count;
+            size_t arg_capacity;
+            struct ASTNode **arguments;
         } function_call;
 
         struct{
             char *name;
-            bool var;                                   //if not -> val
+            bool var;    
+            DataType type;                              
             struct ASTNode *value;
         } def_var;
 
@@ -82,8 +97,8 @@ typedef struct ASTNode{
 
         struct{
             struct ASTNode *condition;
-            struct ASTNode *then_cond;
-            struct ASTNode *else_cond;
+            struct ASTNode *then_block;
+            struct ASTNode *else_block;
         } if_stmt;
 
         struct{
@@ -119,6 +134,11 @@ typedef struct ASTNode{
         struct {
             bool value;
         } bool_lit;
+
+        struct {
+            char *name;
+            DataType data;
+        } param;
 
     } data;
 
