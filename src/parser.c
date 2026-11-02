@@ -16,7 +16,7 @@ static void syntax_error(const char *msg) {
     exit(2);
 }
 
-/* ===== DOCASNY obal: smazat po merge noveho scanneru ===== */
+
 #define MAX_INDENT 256
 static int  indent_stack[MAX_INDENT] = {0};
 static int  indent_top = 0;
@@ -78,25 +78,25 @@ static void expect(Parser *p, TokenType type, char *msg) {
 
 static void parse_prolog(Parser *p);
 
-static void parse_function_list(Parser *p);
+static void parse_function_list(Parser *p, ASTNode *program);
 
-static void parse_function_def(Parser *p);
+ASTNode *parse_function_def(Parser *p);
 
-static void parse_annotation_opt(Parser *p);
+static bool parse_annotation_opt(Parser *p);
 
 static void parse_annotation_remaining(Parser *p);
 
-static void parse_return_type(Parser *p);
+DataType parse_return_type(Parser *p);
 
-static void parse_type(Parser *p);
+DataType parse_type(Parser *p);
 
-static void parse_params(Parser *p);
+static void parse_params(Parser *p, ASTNode *func);
 
-static void parse_one_param(Parser *p);
+ASTNode *parse_one_param(Parser *p);
 
-static void parse_param_tail(Parser *p);
+static void parse_param_tail(Parser *p, ASTNode *func);
 
-static void parse_function_body(Parser *p);
+ASTNode *parse_function_body(Parser *p);
 
 static void parse_single_line_body(Parser *p);
 
@@ -138,23 +138,27 @@ static void parse_def_value(Parser *p);
 
 static void parse_compound_stmt(Parser *p);
 
-static void parse_else_opt(Parser *p);
-
 static void parse_cond(Parser *p);
 
 
-void parse_program(FILE *file, SymTable *table) {
-    Parser p = { .src = file, .symtab = table, .last_scanned = T_NEWLINE};
-    p.token = next_token(&p);          
+ASTNode *parse_program(FILE *file, SymTable *table) {
+    Parser p = { 
+        .src = file,
+        .symtab = table, 
+        .last_scanned = T_NEWLINE
+    };
+    p.token = next_token(&p);     
+    ASTNode *program = create_node(NODE_PROGRAM);     
     switch (p.token.type){
         case T_KW_IMPORT:
             parse_prolog(&p);
-            parse_function_list(&p);
+            parse_function_list(&p, program);
             expect(&p, T_EOF, "expected end of file after last function");
             break;
         default:
             throw_fatal_error(2, "Program must start with 'import ifj26.*'");
     }
+    return program;
 }
 
 static void parse_prolog(Parser *p){
@@ -174,13 +178,15 @@ static void parse_prolog(Parser *p){
     }
 }
 
-static void parse_function_list(Parser *p){
+static void parse_function_list(Parser *p, ASTNode *program){
     switch (p->token.type){
         case T_AT_MAIN:
-        case T_KW_DEF:
-            parse_function_def(p);
-            parse_function_list(p);
+        case T_KW_DEF:{
+            ASTNode *func = parse_function_def(p);
+            ast_array_append(&program->data.program.functions, &program->data.program.count, &program->data.program.capacity, func);
+            parse_function_list(p, program);
             break;
+        }
         case T_EOF:
             break;
         default:
@@ -188,36 +194,48 @@ static void parse_function_list(Parser *p){
     }   
 }
 
-static void parse_function_def(Parser *p){
+ASTNode *parse_function_def(Parser *p){
+    ASTNode *function_def = create_node(NODE_FUNCTION_DEF);
     switch (p->token.type){
         case T_AT_MAIN:
         case T_KW_DEF:
-            parse_annotation_opt(p);
+            function_def->data.function_def.is_main = parse_annotation_opt(p);
             expect(p, T_KW_DEF, "function definition: expected 'def'");
-            expect(p, T_IDENT, "function definition: expected function name after 'def'");
+
+            if(p->token.type != T_IDENT){
+                throw_fatal_error(2, "function definition: expected function name after 'def'");
+            }
+            function_def->data.function_def.name = p->token.data;
+            p->token.data = NULL;
+            advance(p);
+
             expect(p, T_PAR_L, "function definition: expected '(' after function name");
-            parse_params(p);
+            parse_params(p, function_def);
             expect(p, T_PAR_R, "function definition: expected ')' after parameters");
-            parse_return_type(p);
+
+            function_def->data.function_def.return_type = parse_return_type(p);
+            function_def->data.function_def.has_explicit_return_type = (function_def->data.function_def.return_type != TYPE_UNKNOWN);
             expect(p, T_OP_ASSIGN, "function definition: expected '=' before function body");
-            parse_function_body(p);
+            function_def->data.function_def.body = parse_function_body(p);
             break;
         default:
             throw_fatal_error(2, "Function definition: expected 'def' or '@main'");
     }
+    return function_def;
 }
 
-static void parse_annotation_opt(Parser *p){
+static bool parse_annotation_opt(Parser *p){
     switch (p->token.type){
         case T_AT_MAIN:
             advance(p);
             parse_annotation_remaining(p);
-            break;
+            return true;
         case T_KW_DEF:
-            break;
+            return false;
         default:
             throw_fatal_error(2, "Expected '@main' or 'def'");
     }
+    return false;
 }
 
 static void parse_annotation_remaining(Parser *p){
@@ -232,44 +250,47 @@ static void parse_annotation_remaining(Parser *p){
     }
 }
 
-static void parse_return_type(Parser *p){
+DataType parse_return_type(Parser *p){
     switch (p->token.type){
         case T_COLON:
             advance(p);
-            parse_type(p);
-            break;
+            return parse_type(p);
         case T_OP_ASSIGN:
-            break;
+            return TYPE_UNKNOWN;
     default:
         throw_fatal_error(2, "Function header: expected ':' with return type or '='");
     }
+    return TYPE_UNKNOWN;
 }
 
-static void parse_type(Parser *p){
+DataType parse_type (Parser *p){
     switch (p->token.type){
         case T_KW_INT:
             advance(p);
-            break;
+            return TYPE_INT;
         case T_KW_DOUBLE:
             advance(p);
-            break;
+            return TYPE_DOUBLE;
         case T_KW_STRING:
             advance(p);
-            break;
+            return TYPE_STRING;
         case T_KW_UNIT:
             advance(p);
-            break;
+            return TYPE_UNIT;
     default:
         throw_fatal_error(2, "Expected type (Int, Double, String or Unit)");    
     }
+    return TYPE_UNKNOWN;
 }
 
-static void parse_params(Parser *p){
+static void parse_params(Parser *p, ASTNode *func){
     switch (p->token.type){
-        case T_IDENT:
-            parse_one_param(p);
-            parse_param_tail(p);
+        case T_IDENT:{
+            ASTNode *param = parse_one_param(p);
+            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
+            parse_param_tail(p, func);
             break;
+        }
         case T_PAR_R:
             break;
         default:
@@ -277,25 +298,32 @@ static void parse_params(Parser *p){
     }
 }
 
-static void parse_one_param(Parser *p){
+ASTNode *parse_one_param(Parser *p){
     switch (p->token.type){
-        case T_IDENT:
+        case T_IDENT:{
+            ASTNode *param = create_node(NODE_PARAM);
+            param->data.param.name = p->token.data;
+            p->token.data = NULL;
             advance(p);
             expect(p, T_COLON, "parameter: expected ':' after parameter name");
-            parse_type(p);
-            break;
+            param->data.param.data = parse_type(p);
+            return param;
+        }
         default:
             throw_fatal_error(2, "Parameter: expected parameter name");
     }
+    return NULL;
 }
 
-static void parse_param_tail(Parser *p){
+static void parse_param_tail(Parser *p, ASTNode *func){
     switch (p->token.type){
-        case T_COMMA:
+        case T_COMMA:{
             advance(p);
-            parse_one_param(p);
-            parse_param_tail(p);
+            ASTNode *param = parse_one_param(p);
+            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
+            parse_param_tail(p, func);
             break;
+        }    
         case T_PAR_R:
             break;
         default:
@@ -303,7 +331,7 @@ static void parse_param_tail(Parser *p){
     } 
 }
 
-static void parse_function_body(Parser *p){
+ASTNode *parse_function_body(Parser *p){
     switch (p->token.type){
         case T_IDENT:
         case T_INT:
@@ -320,6 +348,7 @@ static void parse_function_body(Parser *p){
         default:
             throw_fatal_error(2, "Function body: expected expression or newline with indented block");
     }
+    return NULL;
 }
 
 static void parse_single_line_body(Parser *p){
@@ -721,31 +750,6 @@ static void parse_compound_stmt(Parser *p){
             throw_fatal_error(2, "Expected 'if' or 'while'");
     }
 }
-
-/*
-static void parse_else_opt(Parser *p){
-    switch (p->token.type){
-        case T_KW_ELSE:
-            advance(p);
-            parse_block(p);
-            break;
-        case T_KW_VAL:
-        case T_KW_VAR:
-        case T_KW_RETURN:
-        case T_KW_IF:
-        case T_KW_WHILE:
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_PAR_L:
-        case T_DEDENT:
-            break;
-        default:
-            throw_fatal_error(2, "After if-block: expected 'else', next statement or end of block");
-    }
-}*/
 
 static void parse_cond(Parser *p){
     switch (p->token.type){

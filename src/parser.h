@@ -16,6 +16,6 @@ typedef struct {
     TokenType last_scanned;
 }Parser;
 
-void parse_program(FILE *file, SymTable *table);
+ASTNode *parse_program(FILE *file, SymTable *table);
 
 #endif

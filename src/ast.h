@@ -70,7 +70,7 @@ typedef struct ASTNode{
             size_t param_count;
             size_t capacity;
             struct ASTNode *body;
-            char *return_type;
+            DataType return_type;
             bool has_explicit_return_type;
             bool is_main;
         } function_def;

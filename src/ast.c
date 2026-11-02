@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-
+//Add one node to the end of the node array
 void ast_array_append(ASTNode ***array, size_t *count, size_t *capacity, ASTNode *new_item){
     if (*count == *capacity){
         size_t new_capacity;
@@ -25,6 +25,7 @@ void ast_array_append(ASTNode ***array, size_t *count, size_t *capacity, ASTNode
     (*count)++;
 }
 
+//Creates an empty node of given type
 ASTNode* create_node(NodeType type){
     ASTNode* one_node = calloc(1, sizeof(ASTNode));
     if(one_node == NULL){
@@ -36,6 +37,7 @@ ASTNode* create_node(NodeType type){
     return one_node;
 }
 
+//Free whole tree
 void free_ast(ASTNode *node){
     if (node == NULL){
         return;
@@ -102,6 +104,7 @@ void free_ast(ASTNode *node){
             break;
         case NODE_STRING_LITERAL:
             free(node->data.string_lit.value);
+            break;
         case NODE_BOOL_LITERAL:
             break;
         case NODE_PARAM:
