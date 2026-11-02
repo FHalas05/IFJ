@@ -120,15 +120,15 @@ static void parse_args_tail(Parser *p);
 
 static void parse_non_ident_expr_start(Parser *p);
 
-static void parse_block(Parser *p);
+ASTNode *parse_block(Parser *p);
 
-static void parse_stmt_list(Parser *p);
+static void parse_stmt_list(Parser *p, ASTNode *block);
 
-static void parse_simple_end(Parser *p);
+static void parse_simple_end(Parser *p, ASTNode *block);
 
-static void parse_stmt_list_end(Parser *p);
+static void parse_stmt_list_end(Parser *p, ASTNode *block);
 
-static void parse_simple_stmt(Parser *p);
+ASTNode *parse_simple_stmt(Parser *p);
 
 static void parse_after_ident(Parser *p);
 
@@ -136,7 +136,7 @@ static void parse_return_val(Parser *p);
 
 static void parse_def_value(Parser *p);
 
-static void parse_compound_stmt(Parser *p);
+ASTNode *parse_compound_stmt(Parser *p);
 
 static void parse_cond(Parser *p);
 
@@ -338,13 +338,17 @@ ASTNode *parse_function_body(Parser *p){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
-        case T_PAR_L:
+        case T_PAR_L:{
+            ASTNode *block = create_node(NODE_BLOCK);
+            ASTNode *ret = create_node(NODE_RETURN);
             parse_single_line_body(p);
+            ret->data.return_stmt.value = NULL;
+            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, ret);
             expect(p, T_NEWLINE, "function body: expected newline after expression");
-            break;
+            return block;
+        }    
         case T_NEWLINE:
-            parse_block(p);
-            break;
+            return parse_block(p);
         default:
             throw_fatal_error(2, "Function body: expected expression or newline with indented block");
     }
@@ -571,19 +575,22 @@ static void parse_non_ident_expr_start(Parser *p){
     }
 }
 
-static void parse_block(Parser *p){
+ASTNode *parse_block(Parser *p){
     switch (p->token.type){
-        case T_NEWLINE:
+        case T_NEWLINE:{
             advance(p);
             expect(p, T_INDENT, "block: expected indented block");
-            parse_stmt_list(p);
-            break;
+            ASTNode *block = create_node(NODE_BLOCK);
+            parse_stmt_list(p, block);
+            return block;
+        }
         default:
             throw_fatal_error(2, "Block: expected newline and indented block");
     }
+    return NULL;
 }
 
-static void parse_stmt_list(Parser *p){
+static void parse_stmt_list(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_KW_VAL:
         case T_KW_VAR:
@@ -593,36 +600,40 @@ static void parse_stmt_list(Parser *p){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
-        case T_PAR_L:
-            parse_simple_stmt(p);
-            parse_simple_end(p);
+        case T_PAR_L:{   
+            ASTNode *stmt = parse_simple_stmt(p);
+            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, stmt);
+            parse_simple_end(p, block);
             break;
+        }
         case T_KW_IF:
-        case T_KW_WHILE:
-            parse_compound_stmt(p);
-            parse_stmt_list_end(p);
+        case T_KW_WHILE:{
+            ASTNode *stmt = parse_compound_stmt(p);
+            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, stmt);
+            parse_stmt_list_end(p, block);
             break;
+        }
         default:
             throw_fatal_error(2, "Block: expected statement");
     }
 }
 
-static void parse_simple_end(Parser *p){
+static void parse_simple_end(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_SEMICOLON:
             advance(p);
-            parse_stmt_list(p);
+            parse_stmt_list(p, block);
             break;
         case T_NEWLINE:
             advance(p);
-            parse_stmt_list_end(p);
+            parse_stmt_list_end(p, block);
             break;
         default:
             throw_fatal_error(2, "Statement: expected ';' or newline after statement");
     }
 }
 
-static void parse_stmt_list_end(Parser *p){
+static void parse_stmt_list_end(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_KW_VAL:
         case T_KW_VAR:
@@ -635,7 +646,7 @@ static void parse_stmt_list_end(Parser *p){
         case T_STRING:
         case T_OP_MINUS:
         case T_PAR_L:
-            parse_stmt_list(p);
+            parse_stmt_list(p, block);
             break;
         case T_DEDENT:
             advance(p);
@@ -644,8 +655,7 @@ static void parse_stmt_list_end(Parser *p){
             throw_fatal_error(2, "Block: expected next statement or end of block");
     }
 }
-
-static void parse_simple_stmt(Parser *p){
+ASTNode *parse_simple_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
         case T_KW_VAR:
@@ -673,6 +683,7 @@ static void parse_simple_stmt(Parser *p){
         default:
             throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
     }
+    return NULL;
 }
 
 static void parse_after_ident(Parser *p){
@@ -730,7 +741,7 @@ static void parse_def_value(Parser *p){
     }
 }
 
-static void parse_compound_stmt(Parser *p){
+ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:
             advance(p);
@@ -749,6 +760,7 @@ static void parse_compound_stmt(Parser *p){
         default:
             throw_fatal_error(2, "Expected 'if' or 'while'");
     }
+    return NULL;
 }
 
 static void parse_cond(Parser *p){
