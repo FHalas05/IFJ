@@ -51,9 +51,14 @@ PrecTerminal get_precedence_terminal(Token token, bool expected_operand) {
         return P_LPAREN;
     case T_PAR_R:
         return P_RPAREN;
+    case T_KW_THEN:
+    case T_KW_DO:
+    case T_NEWLINE:
+    case T_SEMICOLON:
+    case T_EOF:
+        return P_END;
     default:
-        // error
-        fprintf(stderr, "Error");
+        throw_fatal_error(2, "Unexpected token in expression!");
         return P_END;
     }
 }
@@ -121,7 +126,7 @@ void parse_expression(Parser *parser) {
             ExprStackNode *top = stack.top;
 
             if (top->data.type != EXPR_NONTERMINAL || top->next == NULL ||
-                !is_terminal(&top->next->data, P_END)) {
+                !is_terminal(&top->next->data, P_END) || top->next->next != NULL) {
                 throw_fatal_error(2, "Incomplete expression!");
             }
 
