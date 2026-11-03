@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #include "ast.h"
-#include "sym_table.h"
+#include "symtable.h"
 #include "token.h"
 
 typedef struct {
@@ -17,5 +17,7 @@ typedef struct {
 }Parser;
 
 ASTNode *parse_program(FILE *file, SymTable *table);
+
+void advance(Parser *p);
 
 #endif

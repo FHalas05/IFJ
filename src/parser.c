@@ -65,7 +65,7 @@ static Token next_token(Parser *p) {
     return next_token(p);
 }
 
-static void advance(Parser *p) {
+void advance(Parser *p) {
     token_free_data_if_applicable(p->token);   
     p->token = next_token(p);                   
 }
