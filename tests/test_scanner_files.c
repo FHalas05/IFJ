@@ -118,7 +118,6 @@ static const char *token_type_to_str(TokenType type) {
         case T_OP_BIN_AND:   return "T_OP_BIN_AND";
         case T_OP_BIN_OR:    return "T_OP_BIN_OR";
         case T_EOF:          return "T_EOF";
-        case T_DEDENT:       return "T_DEDENT";
         default:             return "UNKNOWN_TOKEN";
     }
 }
@@ -145,8 +144,19 @@ int main(int argc, char *argv[]) {
         token_free_data_if_applicable(token);
 
         // get new token
-        token = scanner(working_file);
+        token = scanner(working_file, token.type);
         fputs(token_type_to_str(token.type), result_file);
+
+        // print out indent level if applicable
+        if (token.type == T_INDENT) {
+            int spaces = token_get_indent_count(token);
+            char str_spaces[32];
+            snprintf(str_spaces, sizeof(str_spaces), "%d", spaces);
+
+            fputs("(", result_file);
+            fputs(str_spaces, result_file);
+            fputs(")", result_file);
+        }
 
         // if data is in token - print it out too
         char *data;

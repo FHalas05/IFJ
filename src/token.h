@@ -61,9 +61,7 @@ typedef enum {
     T_OP_BIN_AND,
     T_OP_BIN_OR,
 
-    T_EOF,
-
-    T_DEDENT
+    T_EOF
 } TokenType;
 
 
@@ -72,6 +70,10 @@ typedef struct {
     void *data;
 } Token;
 
+// returns the data stored in INDENT
+// Incompatible Token type -> -1
+int token_get_indent_count(Token token);
+int token_set_indent_count(Token *token, int indent_count);
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL
