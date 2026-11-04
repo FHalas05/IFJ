@@ -1,0 +1,13 @@
+import ifj26.*
+def f(a: Int, b: Int, c: Int): Int =
+  return a + b + c
+
+@main def main(): Unit =
+  val r = f(
+    1,
+    2,
+    3
+  )
+  val s = f(1,
+            2, 3)
+  print(r)

@@ -1,0 +1,22 @@
+import ifj26.*
+def _f(_a: Int, a_1: Int): Int =
+  return _a + a_1
+
+@main def main(): Unit =
+  val x = 1
+  val X = 2
+  val __a__ = 3
+  val camelCase = 4
+  val ifx = 5
+  val define = 6
+  val values = 7
+  val whilex = 8
+  val returnValue = 9
+  val Integer = 10
+  val doo = 11
+  val thenx = 12
+  val elsewhere = 13
+  val Unitx = 14
+  val ifj26 = 15
+  val r = _f(x, X)
+  print(r)

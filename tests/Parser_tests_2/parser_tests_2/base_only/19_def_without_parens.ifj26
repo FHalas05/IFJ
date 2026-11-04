@@ -1,0 +1,5 @@
+import ifj26.*
+def answer: Int =
+  return 42
+@main def main(): Unit =
+  print(0)

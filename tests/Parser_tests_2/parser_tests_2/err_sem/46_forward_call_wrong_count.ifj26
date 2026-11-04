@@ -1,0 +1,5 @@
+import ifj26.*
+@main def main(): Unit =
+  val r = later(1, 2, 3)
+def later(a: Int): Int =
+  return a

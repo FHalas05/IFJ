@@ -1,0 +1,20 @@
+import ifj26.*
+def f(a: Int, b: Double, c: String): Unit =
+  print(a)
+  print(b)
+  print(c)
+
+def g(): Double =
+  return 1.5
+
+def h(): String =
+  return "s"
+
+def u(): Unit =
+  ()
+
+@main def main(): Unit =
+  f(1, 2.5, "x")
+  val d = g()
+  val s = h()
+  u()

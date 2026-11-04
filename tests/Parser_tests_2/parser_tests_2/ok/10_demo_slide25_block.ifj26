@@ -1,0 +1,10 @@
+import ifj26.*
+def run(n: Int): Unit =
+  var x = n
+  while x > 0 do
+    print(x)
+    x = x - 1
+  print("konec")
+
+@main def main(): Unit =
+  run(3)

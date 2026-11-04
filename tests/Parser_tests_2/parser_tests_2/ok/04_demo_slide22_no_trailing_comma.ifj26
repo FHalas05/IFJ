@@ -1,0 +1,16 @@
+import ifj26.*
+
+def add(x: Int, y: Int): Int =
+  return x + y
+
+@main def main(): Unit =
+  var x: Int = 3 + 11
+  val y = add(x, 1)
+  x = (x + y)
+  while x > 0 do
+    if (x < 10) then
+      print(x)
+    else
+      print(y)
+    x = x - 1
+  print(x); print(y)

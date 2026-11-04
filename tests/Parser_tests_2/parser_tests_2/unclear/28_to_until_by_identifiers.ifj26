@@ -1,0 +1,6 @@
+import ifj26.*
+@main def main(): Unit =
+  val to = 1
+  val until = 2
+  val by = 3
+  print(to)

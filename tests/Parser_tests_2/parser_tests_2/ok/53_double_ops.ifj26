@@ -1,0 +1,9 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1.5
+  val b = -a
+  val c = a * b / 2.0 - 0.25
+  if c >= 0.0 then
+    print(c)
+  else
+    print(b)

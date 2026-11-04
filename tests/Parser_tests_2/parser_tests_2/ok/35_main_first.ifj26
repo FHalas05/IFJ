@@ -1,0 +1,7 @@
+import ifj26.*
+@main def main(): Unit =
+  val r = helper(1)
+  print(r)
+
+def helper(x: Int): Int =
+  return x + 1
