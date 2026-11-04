@@ -7,6 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 // returns the indent count stored in a INDENT token
 // Incompatible Token type -> -1
