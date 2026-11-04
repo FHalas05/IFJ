@@ -669,6 +669,17 @@ Token HANDLER_special(TokenType last_token_type, int special_c) {
 Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
     Token token = {NO_TOKEN_FOUND, NULL};
 
+    if (c == '\r') {
+        return token;  // just always discard
+    }
+
+    if (c == '\t' && last_token_type == T_NEWLINE) { // if the line starts with a tab
+        while (string_contains(" \t\r\v\f\r", c)){c = fgetc(file);} // skip all whitespace if the line starts with a tab - to find out whether it is empty
+        if (c == EOF) {token.type = T_EOF; return token;}
+        if (c != '\n') {throw_lexical_error("HANDLER_whitespace - tab at the start if an unempty line");}
+        else {return token;}  // discarding line if it starts with tab and is empty
+    }
+
     if (c == ' ' && last_token_type == T_NEWLINE) {
         int spaces = 1;
         while ((c = fgetc(file)) == ' ')
@@ -685,7 +696,7 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
         token.type = T_INDENT;
         token_set_indent_count(&token, spaces);
     } else if (last_token_type == T_NEWLINE) { // no non-space whitespace is allowed after a newline
-        throw_lexical_error("Disallowed whitespace after newline - (probably a tab)");
+        throw_lexical_error("HANDLER_whitespace - Disallowed whitespace after newline - (probably a tab)");
     }
 
     return token;
@@ -701,8 +712,6 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
  * i.e. free(token.data)
  *
  * @param file The program source file
- * @param last_token_type The type of the last token this function has returned (The initial one
- * should be T_NEWLINE)
  *
  * @return Matched token
  */
@@ -750,7 +759,7 @@ Token scanner(FILE *file) {
         last_token_type = token.type;
         return token;
     }
-    
+
     token.type = T_EOF;
     return token;
 }
