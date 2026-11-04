@@ -19,11 +19,9 @@
  * i.e. free(token.data)
  *
  * @param file The program source file
- * @param last_token_type The type of the last token this function has returned (The initial one
- * should be T_NEWLINE)
  *
  * @return Matched token
  */
-Token scanner(FILE *file, TokenType last_token_type);
+Token scanner(FILE *file);
 
 #endif // IFJ_SCANNER_H

@@ -706,48 +706,51 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
  *
  * @return Matched token
  */
-Token scanner(FILE *file, TokenType last_token_type) {
+Token scanner(FILE *file) {
     int c;
-    while ((c = fgetc(file)) != EOF) {
-        if (string_contains(ENTRY_COMMENTS, c)) {
-            Token token;
-            if ((token = FSM_comments(file, last_token_type)).type == NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
 
-        if (string_contains(ENTRY_STRINGS, c))
-            return FSM_strings(file);
+    static TokenType last_token_type = T_NEWLINE;
 
-        if (string_contains(ENTRY_NUMERALS, c))
-            return FSM_numerals(file, c);
-
-        if (string_contains(ENTRY_MAIN, c))
-            return HANDLER_main(file);
-
-        if (string_contains(ENTRY_OPERATORS, c))
-            return HANDLER_operators(file, c);
-
-        if (string_contains(ENTRY_SPECIAL, c)) {
-            Token token;
-            if ((token = HANDLER_special(last_token_type, c)).type == NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
-
-        if (string_contains(ENTRY_WHITESPACE, c)) {
-            Token token;
-            if ((token = HANDLER_whitespace(file, last_token_type, c)).type ==
-                NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
-        if (string_contains(ENTRY_IDENTIFIERS, c))
-            return HANDLER_identifiers(file, c);
-
-        fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
-        throw_lexical_error("scanner() - newest char does not match any token type");
-    }
     Token token = {T_EOF, NULL};
+
+    while ((c = fgetc(file)) != EOF) {
+        if (string_contains(ENTRY_COMMENTS, c))
+            token = FSM_comments(file, last_token_type);
+
+        else if (string_contains(ENTRY_STRINGS, c))
+            token = FSM_strings(file);
+
+        else if (string_contains(ENTRY_NUMERALS, c))
+            token = FSM_numerals(file, c);
+
+        else if (string_contains(ENTRY_MAIN, c))
+            token = HANDLER_main(file);
+
+        else if (string_contains(ENTRY_OPERATORS, c))
+            token = HANDLER_operators(file, c);
+
+        else if (string_contains(ENTRY_SPECIAL, c))
+            token = HANDLER_special(last_token_type, c);
+
+        else if (string_contains(ENTRY_WHITESPACE, c))
+            token = HANDLER_whitespace(file, last_token_type, c);
+
+        else if (string_contains(ENTRY_IDENTIFIERS, c))
+            token = HANDLER_identifiers(file, c);
+
+        else {
+            fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
+            throw_lexical_error("scanner() - newest char does not match any token type");
+        }
+
+
+        if (token.type == NO_TOKEN_FOUND)
+            continue;
+
+        last_token_type = token.type;
+        return token;
+    }
+    
+    token.type = T_EOF;
     return token;
 }

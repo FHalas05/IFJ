@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
         token_free_data_if_applicable(token);
 
         // get new token
-        token = scanner(working_file, token.type);
+        token = scanner(working_file);
         fputs(token_type_to_str(token.type), result_file);
 
         // print out indent level if applicable
