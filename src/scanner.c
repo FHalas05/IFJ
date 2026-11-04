@@ -6,7 +6,7 @@
 #include "dynamic_string.h"
 #include "keywords.h"
 #include "library.h"
-#include "sym_table.h"
+#include "symtable.h"
 #include "token.h"
 
 #include <ctype.h>

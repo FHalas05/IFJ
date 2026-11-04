@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-#include "sym_table.h"
+#include "symtable.h"
 #include "token.h"
 
 /**
