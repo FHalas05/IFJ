@@ -102,7 +102,7 @@ static void parse_single_line_body(Parser *p);
 
 static void parse_ident_suffix(Parser *p);
 
-static void parse_args(Parser *p);
+static void parse_args(Parser *p, ASTNode *call);
 
 static void parse_expr_remaining(Parser *p);
 
@@ -110,13 +110,13 @@ static void parse_binary_op(Parser *p);
 
 static void parse_operand(Parser *p);
 
-static void parse_literal(Parser *p);
+ASTNode *parse_literal(Parser *p);
 
-static void parse_arg_list(Parser *p);
+static void parse_arg_list(Parser *p, ASTNode *call);
 
-static void parse_term(Parser *p);
+ASTNode *parse_term(Parser *p);
 
-static void parse_args_tail(Parser *p);
+static void parse_args_tail(Parser *p, ASTNode *call);
 
 static void parse_non_ident_expr_start(Parser *p);
 
@@ -377,7 +377,7 @@ static void parse_ident_suffix(Parser *p){
     switch (p->token.type){
         case T_PAR_L:
             advance(p);
-            parse_args(p);
+            parse_args(p, NULL);
             expect(p, T_PAR_R, "function call: expected ')' after arguments");
             break;
         case T_OP_PLUS:
@@ -399,13 +399,13 @@ static void parse_ident_suffix(Parser *p){
     }
 }
 
-static void parse_args(Parser *p){
+static void parse_args(Parser *p, ASTNode *call){
     switch (p->token.type){
         case T_IDENT:
         case T_INT:
         case T_DOUBLE:
         case T_STRING:
-            parse_arg_list(p);
+            parse_arg_list(p, call);
             break;
         case T_PAR_R:
             break;
@@ -490,56 +490,91 @@ static void parse_operand(Parser *p){
     }
 }
 
-static void parse_literal(Parser *p){
+ASTNode *parse_literal(Parser *p){
     switch (p->token.type){
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
+        case T_INT:{
+            ASTNode *lit_int = create_node(NODE_INT_LITERAL);
+            lit_int->data.int_lit.value = strtol(p->token.data, NULL, 10);
             advance(p);
-            break;
+            return lit_int;
+        }
+        case T_DOUBLE:{
+            ASTNode *lit_double = create_node(NODE_DOUBLE_LITERAL);
+            lit_double->data.double_lit.value = strtod(p->token.data, NULL);
+            advance(p);
+            return lit_double;
+        }
+        case T_STRING:{
+            ASTNode *lit_string = create_node(NODE_STRING_LITERAL);
+            lit_string->data.string_lit.value = p->token.data;
+            p->token.data = NULL;
+            advance(p);
+            return lit_string;
+        }
         default:
             throw_fatal_error(2, "Expected literal (integer, double or string)");
     }
+    return NULL;
 }
 
-static void parse_arg_list(Parser *p){
+static void parse_arg_list(Parser *p, ASTNode *call){
     switch (p->token.type){
         case T_IDENT:
         case T_INT:
         case T_DOUBLE:
-        case T_STRING:
-            parse_term(p);
-            parse_args_tail(p);
+        case T_STRING:{
+            ASTNode *arg = parse_term(p);
+            if (call != NULL){
+                ast_array_append(&call->data.function_call.arguments, &call->data.function_call.arg_count, &call->data.function_call.arg_capacity, arg);
+            }
+            else{
+                free_ast(arg);
+            }
+            parse_args_tail(p, call);
             break;
+        }
         default:
             throw_fatal_error(2, "Function call: expected argument (identifier or literal)");
     }
 }
 
-static void parse_term(Parser *p){
+ASTNode *parse_term(Parser *p){
     switch (p->token.type){
-        case T_IDENT:
+        case T_IDENT:{
+            ASTNode *term_ident = create_node(NODE_IDENTIFIER);
+            term_ident->data.identifier.name = p->token.data;
+            p->token.data = NULL;
             advance(p);
-            break;
+            return term_ident;
+        }
         case T_INT:
         case T_DOUBLE:
-        case T_STRING:
-            parse_literal(p);
-            break;
-        default:
+        case T_STRING:{
+            return parse_literal(p);
+        }
+            default:
             throw_fatal_error(2, "Function call: argument must be identifier or literal");
     }
+    return NULL;
 }
 
-static void parse_args_tail(Parser *p){
+static void parse_args_tail(Parser *p, ASTNode *call){
     switch (p->token.type){
-        case T_COMMA:
-            advance(p);
-            parse_term(p);
-            parse_args_tail(p);
+        case T_COMMA:{
+            advance(p);     
+            ASTNode *arg = parse_term(p);
+            if (call != NULL){
+                ast_array_append(&call->data.function_call.arguments, &call->data.function_call.arg_count, &call->data.function_call.arg_capacity, arg);
+            }
+            else{
+                free_ast(arg);
+            }
+            parse_args_tail(p, call);
             break;
-        case T_PAR_R:
+        }
+        case T_PAR_R:{
             break;
+        }
         default:
             throw_fatal_error(2, "Function call: expected ',' or ')'");
     }
@@ -713,7 +748,7 @@ ASTNode *parse_after_ident(Parser *p, char *name){
             ASTNode *call = create_node(NODE_FUNCTION_CALL);
             call->data.function_call.name = name;
             advance(p);
-            parse_args(p);
+            parse_args(p, call);
             expect(p, T_PAR_R, "function call: expected ')' after arguments");
             return call;
         }
