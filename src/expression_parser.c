@@ -104,7 +104,7 @@ static bool handle_matches_reduction_rule(ExprHandle *handle) {
     return false;
 }
 
-void parse_function_call(Parser *parser) {
+static void parse_function_call(Parser *parser) {
     expect(parser, T_IDENT, "Expected function name!");
     expect(parser, T_PAR_L, "Expected '(' after function name!");
 
@@ -118,7 +118,7 @@ void parse_function_call(Parser *parser) {
         if (parser->token.type == T_COMMA) {
             advance(parser);
         } else {
-            expect(parser, T_PAR_R, "Error inside of function arguments!");
+            expect(parser, T_PAR_R, "Expected ',' or ')' after argument!");
             return;
         }
     }
