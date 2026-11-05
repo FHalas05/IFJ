@@ -14,10 +14,15 @@ typedef struct {
 
     Token token;
     TokenType last_scanned;
+
+    Token peek_token;
+    bool has_peek;
 }Parser;
 
 ASTNode *parse_program(FILE *file, SymTable *table);
 
 void advance(Parser *p);
+void expect(Parser *p, TokenType type, char *msg);
+TokenType peek_token_type(Parser *p);
 
 #endif

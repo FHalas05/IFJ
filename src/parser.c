@@ -66,14 +66,28 @@ static Token next_token(Parser *p) {
 }
 
 void advance(Parser *p) {
-    token_free_data_if_applicable(p->token);   
-    p->token = next_token(p);                   
+    token_free_data_if_applicable(p->token);
+    if(p->has_peek) {
+        p->token = p->peek_token;
+        p->has_peek = false;
+    } else {
+        p->token = next_token(p);                   
+    }
 }
 
-static void expect(Parser *p, TokenType type, char *msg) {
+void expect(Parser *p, TokenType type, char *msg) {
     if (p->token.type != type)
         throw_fatal_error(2, msg);
     advance(p);
+}
+
+TokenType peek_token_type(Parser *p) {
+    if(!p->has_peek) {
+        p->peek_token = next_token(p);
+        p->has_peek = true;
+    }
+    
+    return p->peek_token.type;
 }
 
 static void parse_prolog(Parser *p);
@@ -145,7 +159,8 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
     Parser p = { 
         .src = file,
         .symtab = table, 
-        .last_scanned = T_NEWLINE
+        .last_scanned = T_NEWLINE,
+        .has_peek = false,
     };
     p.token = next_token(&p);     
     ASTNode *program = create_node(NODE_PROGRAM);     
