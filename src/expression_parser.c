@@ -104,7 +104,27 @@ static bool handle_matches_reduction_rule(ExprHandle *handle) {
     return false;
 }
 
-void parse_expression(Parser *parser) {
+void parse_function_call(Parser *parser) {
+    expect(parser, T_IDENT, "Expected function name!");
+    expect(parser, T_PAR_L, "Expected '(' after function name!");
+
+    if (parser->token.type == T_PAR_R) {
+        advance(parser);
+        return;
+    }
+
+    while (true) {
+        parse_expression(parser, EXPR_ARGUMENT);
+        if (parser->token.type == T_COMMA) {
+            advance(parser);
+        } else {
+            expect(parser, T_PAR_R, "Error inside of function arguments!");
+            return;
+        }
+    }
+}
+
+void parse_expression(Parser *parser, ExprMode mode) {
     ExprStack stack;
     init_expr_stack(&stack);
     bool expected_operand = true;
@@ -118,9 +138,23 @@ void parse_expression(Parser *parser) {
 
     ExprHandle handle;
 
+    size_t paren_depth = 0;
+
     while (true) {
         PrecTerminal top_t = expr_stack_top_terminal(&stack);
-        PrecTerminal input_terminal = get_precedence_terminal(parser->token, expected_operand);
+        PrecTerminal input_terminal;
+
+        bool is_argument_end = mode == EXPR_ARGUMENT && paren_depth == 0 &&
+                               (parser->token.type == T_COMMA || parser->token.type == T_PAR_R);
+
+        if (is_argument_end) {
+            input_terminal = P_END;
+        } else {
+            input_terminal = get_precedence_terminal(parser->token, expected_operand);
+            if (mode == EXPR_ARGUMENT && input_terminal == P_END) {
+                throw_fatal_error(2, "Expected ',' or ')' after argument!");
+            }
+        }
 
         if (top_t == P_END && input_terminal == P_END) {
             ExprStackNode *top = stack.top;
@@ -137,16 +171,36 @@ void parse_expression(Parser *parser) {
         case '<':
             expr_stack_insert_marker(&stack);
         case '=': {
+            bool is_call = parser->token.type == T_IDENT && peek_token_type(parser) == T_PAR_L;
+
             ExprItem input_data = {
                 .type = EXPR_TERMINAL,
                 .terminal = input_terminal,
                 .token = parser->token,
             };
+
+            if (is_call) {
+                parse_function_call(parser);
+            }
+
             expr_stack_push(&stack, input_data);
+
+            if (input_terminal == P_LPAREN) {
+                paren_depth++;
+            } else if (input_terminal == P_RPAREN) {
+                if (paren_depth == 0) {
+                    throw_fatal_error(2, "Unexpected ')' in expression!");
+                }
+                paren_depth--;
+            }
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
             print_stack(&stack);
-            advance(parser);
+
+            if (!is_call) {
+                advance(parser);
+            }
+
             break;
         }
         case '>':

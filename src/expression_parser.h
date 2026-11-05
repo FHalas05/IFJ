@@ -8,6 +8,11 @@
 #include "parser.h"
 
 typedef enum {
+    EXPR_STATEMENT,
+    EXPR_ARGUMENT,
+} ExprMode;
+
+typedef enum {
     P_ADD,          // +, -
     P_MUL,          // *, /
     P_REL,          // <, >, <=, >=
@@ -19,6 +24,6 @@ typedef enum {
     P_END,          // $
 } PrecTerminal;
 
-void parse_expression(Parser *parser);
+void parse_expression(Parser *parser, ExprMode mode);
 
 #endif // IFJ_EXPRESSION_PARSER_H
