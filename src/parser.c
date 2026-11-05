@@ -130,11 +130,11 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block);
 
 ASTNode *parse_simple_stmt(Parser *p);
 
-static void parse_after_ident(Parser *p);
+ASTNode *parse_after_ident(Parser *p, char *name);
 
-static void parse_return_val(Parser *p);
+ASTNode *parse_return_val(Parser *p);
 
-static void parse_def_value(Parser *p);
+static bool parse_def_value(Parser *p);
 
 ASTNode *parse_compound_stmt(Parser *p);
 
@@ -658,40 +658,65 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block){
 ASTNode *parse_simple_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
-        case T_KW_VAR:
-            parse_def_value(p);
-            expect(p, T_IDENT, "variable definition: expected variable name");
-            parse_return_type(p);
+        case T_KW_VAR:{
+            ASTNode *simple_value = create_node(NODE_DEF_VAR);
+            simple_value->data.def_var.var = parse_def_value(p);
+            if(p->token.type != T_IDENT){
+                throw_fatal_error(2,"variable definition: expected variable name");
+            }
+            simple_value->data.def_var.name = p->token.data;
+            p->token.data = NULL;
+            advance(p);
+            simple_value->data.def_var.type = parse_return_type(p);
             expect(p, T_OP_ASSIGN, "variable definition: expected '='");
             parse_single_line_body(p);
-            break;
-        case T_IDENT:
+            simple_value->data.def_var.value = NULL;
+            return simple_value;
+        }
+        case T_IDENT:{   
+            char *name = p->token.data;
+            p->token.data = NULL;
             advance(p);
-            parse_after_ident(p);
-            break;
-        case T_KW_RETURN:
+            return parse_after_ident(p, name);
+        }
+        case T_KW_RETURN:{
             advance(p);
-            parse_return_val(p);
-            break;
+            ASTNode *simple_return = create_node(NODE_RETURN);
+            simple_return->data.return_stmt.value = parse_return_val(p);
+            return simple_return;
+        }
         case T_INT:
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
-        case T_PAR_L:
+        case T_PAR_L:{
             parse_non_ident_expr_start(p);
-            break;
+            return NULL;
+        }
         default:
             throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
     }
     return NULL;
 }
 
-static void parse_after_ident(Parser *p){
+ASTNode *parse_after_ident(Parser *p, char *name){
     switch (p->token.type){
-        case T_OP_ASSIGN:
+        case T_OP_ASSIGN:{
             advance(p);
+            ASTNode *after_assign = create_node(NODE_ASSIGN);
+            after_assign->data.assign.name = name;
             parse_single_line_body(p);
-            break;
+            after_assign->data.assign.value = NULL;
+            return after_assign;
+        }
+        case T_PAR_L:{
+            ASTNode *call = create_node(NODE_FUNCTION_CALL);
+            call->data.function_call.name = name;
+            advance(p);
+            parse_args(p);
+            expect(p, T_PAR_R, "function call: expected ')' after arguments");
+            return call;
+        }
         case T_OP_PLUS:
         case T_OP_MINUS:
         case T_OP_MUL:
@@ -702,17 +727,19 @@ static void parse_after_ident(Parser *p){
         case T_OP_GR_EQ:
         case T_OP_LESS:
         case T_OP_LESS_EQ:
-        case T_PAR_L:
         case T_SEMICOLON:
-        case T_NEWLINE:
+        case T_NEWLINE:{
             parse_ident_suffix(p);
-            break;
+            free(name);
+            return NULL;
+        }
         default:
             throw_fatal_error(2, "After identifier: expected '=', '(', operator or end of statement");
     }
+    return NULL;
 }
 
-static void parse_return_val(Parser *p){
+ASTNode *parse_return_val(Parser *p){
     switch (p->token.type){
         case T_IDENT:
         case T_INT:
@@ -721,42 +748,50 @@ static void parse_return_val(Parser *p){
         case T_OP_MINUS:
         case T_PAR_L:
             parse_single_line_body(p);
-            break;
+            return NULL;
         case T_SEMICOLON:
         case T_NEWLINE:
-            break;
+            return NULL;
         default:
             throw_fatal_error(2, "Return: expected expression or end of statement");
     }
+    return NULL;
 }
 
-static void parse_def_value(Parser *p){
+static bool parse_def_value(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
+            advance(p);
+            return false;
         case T_KW_VAR:
             advance(p);
-            break;
+            return true;
         default:
             throw_fatal_error(2, "Variable definition: expected 'val' or 'var'");
     }
+    return false;
 }
 
 ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:
             advance(p);
+            ASTNode *comp_if = create_node(NODE_IF);
             parse_cond(p);
+            comp_if->data.if_stmt.condition = NULL;
             expect(p, T_KW_THEN, "if: expected 'then' after condition");
-            parse_block(p);
+            comp_if->data.if_stmt.then_block = parse_block(p);
             expect(p, T_KW_ELSE, "if: expected 'else'");
-            parse_block(p);
-            break;
+            comp_if->data.if_stmt.else_block = parse_block(p);
+            return comp_if;
         case T_KW_WHILE:
             advance(p);
+            ASTNode *comp_while = create_node(NODE_WHILE);
             parse_cond(p);
+            comp_while->data.while_loop.condition = NULL;
             expect(p, T_KW_DO, "while: expected 'do' after condition");
-            parse_block(p);
-            break;
+            comp_while->data.while_loop.body = parse_block(p);
+            return comp_while;
         default:
             throw_fatal_error(2, "Expected 'if' or 'while'");
     }
