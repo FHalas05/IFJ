@@ -8,6 +8,8 @@
 #include "library.h"
 #include "parser.h"
 #include "ast.h"
+#include "expression_parser.h"
+#include "expression_stack.h"
 
 #define T_DEDENT ((TokenType)(T_EOF + 1))
 
@@ -112,8 +114,6 @@ static void parse_param_tail(Parser *p, ASTNode *func);
 
 ASTNode *parse_function_body(Parser *p);
 
-static void parse_single_line_body(Parser *p);
-
 static void parse_ident_suffix(Parser *p);
 
 static void parse_args(Parser *p, ASTNode *call);
@@ -131,8 +131,6 @@ static void parse_arg_list(Parser *p, ASTNode *call);
 ASTNode *parse_term(Parser *p);
 
 static void parse_args_tail(Parser *p, ASTNode *call);
-
-static void parse_non_ident_expr_start(Parser *p);
 
 ASTNode *parse_block(Parser *p);
 
@@ -152,7 +150,6 @@ static bool parse_def_value(Parser *p);
 
 ASTNode *parse_compound_stmt(Parser *p);
 
-static void parse_cond(Parser *p);
 
 
 ASTNode *parse_program(FILE *file, SymTable *table) {
@@ -356,7 +353,7 @@ ASTNode *parse_function_body(Parser *p){
         case T_PAR_L:{
             ASTNode *block = create_node(NODE_BLOCK);
             ASTNode *ret = create_node(NODE_RETURN);
-            parse_single_line_body(p);
+            parse_expression(p, EXPR_STATEMENT);
             ret->data.return_stmt.value = NULL;
             ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, ret);
             expect(p, T_NEWLINE, "function body: expected newline after expression");
@@ -368,24 +365,6 @@ ASTNode *parse_function_body(Parser *p){
             throw_fatal_error(2, "Function body: expected expression or newline with indented block");
     }
     return NULL;
-}
-
-static void parse_single_line_body(Parser *p){
-    switch (p->token.type){
-        case T_IDENT:
-            advance(p);
-            parse_ident_suffix(p);
-            break;
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_PAR_L:
-            parse_non_ident_expr_start(p);
-            break;
-        default:
-            throw_fatal_error(2, "Expected expression or function call");
-    }
 }
 
 static void parse_ident_suffix(Parser *p){
@@ -595,36 +574,6 @@ static void parse_args_tail(Parser *p, ASTNode *call){
     }
 }
 
-static void parse_non_ident_expr_start(Parser *p){
-    switch (p->token.type){
-        case T_OP_MINUS:
-            advance(p);
-            parse_operand(p);
-            parse_expr_remaining(p);
-            break;
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-            parse_literal(p);
-            parse_expr_remaining(p);
-            break;
-        case T_PAR_L:
-            advance(p);
-            if (p->token.type == T_PAR_R){
-                advance(p);
-            }
-            else{
-                parse_operand(p);
-                parse_expr_remaining(p);
-                expect(p, T_PAR_R, "expression: expected ')'");
-            }
-            parse_expr_remaining(p);
-            break;
-        default:
-            throw_fatal_error(2, "Expression: expected literal, '-' or '('");
-    }
-}
-
 ASTNode *parse_block(Parser *p){
     switch (p->token.type){
         case T_NEWLINE:{
@@ -705,6 +654,7 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block){
             throw_fatal_error(2, "Block: expected next statement or end of block");
     }
 }
+
 ASTNode *parse_simple_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
@@ -719,7 +669,7 @@ ASTNode *parse_simple_stmt(Parser *p){
             advance(p);
             simple_value->data.def_var.type = parse_return_type(p);
             expect(p, T_OP_ASSIGN, "variable definition: expected '='");
-            parse_single_line_body(p);
+            parse_expression(p, EXPR_STATEMENT);
             simple_value->data.def_var.value = NULL;
             return simple_value;
         }
@@ -740,7 +690,7 @@ ASTNode *parse_simple_stmt(Parser *p){
         case T_STRING:
         case T_OP_MINUS:
         case T_PAR_L:{
-            parse_non_ident_expr_start(p);
+            parse_expression(p, EXPR_STATEMENT);
             return NULL;
         }
         default:
@@ -755,7 +705,7 @@ ASTNode *parse_after_ident(Parser *p, char *name){
             advance(p);
             ASTNode *after_assign = create_node(NODE_ASSIGN);
             after_assign->data.assign.name = name;
-            parse_single_line_body(p);
+            parse_expression(p, EXPR_STATEMENT);
             after_assign->data.assign.value = NULL;
             return after_assign;
         }
@@ -797,7 +747,7 @@ ASTNode *parse_return_val(Parser *p){
         case T_STRING:
         case T_OP_MINUS:
         case T_PAR_L:
-            parse_single_line_body(p);
+            parse_expression(p, EXPR_STATEMENT);
             return NULL;
         case T_SEMICOLON:
         case T_NEWLINE:
@@ -824,42 +774,28 @@ static bool parse_def_value(Parser *p){
 
 ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
-        case T_KW_IF:
+        case T_KW_IF:{
             advance(p);
             ASTNode *comp_if = create_node(NODE_IF);
-            parse_cond(p);
+            parse_expression(p, EXPR_STATEMENT);
             comp_if->data.if_stmt.condition = NULL;
             expect(p, T_KW_THEN, "if: expected 'then' after condition");
             comp_if->data.if_stmt.then_block = parse_block(p);
             expect(p, T_KW_ELSE, "if: expected 'else'");
             comp_if->data.if_stmt.else_block = parse_block(p);
             return comp_if;
-        case T_KW_WHILE:
+        }
+        case T_KW_WHILE:{
             advance(p);
             ASTNode *comp_while = create_node(NODE_WHILE);
-            parse_cond(p);
+            parse_expression(p, EXPR_STATEMENT);
             comp_while->data.while_loop.condition = NULL;
             expect(p, T_KW_DO, "while: expected 'do' after condition");
             comp_while->data.while_loop.body = parse_block(p);
             return comp_while;
+        }
         default:
             throw_fatal_error(2, "Expected 'if' or 'while'");
     }
     return NULL;
-}
-
-static void parse_cond(Parser *p){
-    switch (p->token.type){
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_PAR_L:
-            parse_operand(p);
-            parse_expr_remaining(p);
-            break;
-        default:
-            throw_fatal_error(2, "Condition: expected expression");
-    }
 }
