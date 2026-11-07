@@ -24,6 +24,7 @@ typedef enum{
     NODE_FUNCTION_CALL,          //call function
     NODE_DEF_VAR,                //definition - val, var
     NODE_BINOP,                  //binnary operation
+    NODE_UNOP,                   //unary operation
     NODE_IF,                     //if cycle
     NODE_WHILE,                  //while_cycle
     NODE_ASSIGN,                 //assignment (x=1)
@@ -39,9 +40,9 @@ typedef enum{
 
 //operations for numbers
 typedef enum{
-    OP_ADD, OP_SUBB, OP_MUL, OP_DIV, 
-    OP_LS, OP_LE, OP_GT, OP_GE,
-    OP_EQ, OP_NEQ,
+    OP_ADD, OP_SUB, OP_MUL, OP_DIV, 
+    OP_LESS, OP_LESS_EQ, OP_GR, OP_GR_EQ,
+    OP_EQ, OP_NOT_EQ,
     OP_UNARY_MINUS, OP_UNARY_PLUS
 } Operator;
 
@@ -99,6 +100,11 @@ typedef struct ASTNode{
             struct ASTNode *left;
             struct ASTNode *right;
         } bin_op;
+
+        struct{
+            Operator operation;
+            struct ASTNode *operand;
+        } un_op;
 
         struct{
             struct ASTNode *condition;
