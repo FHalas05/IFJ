@@ -224,7 +224,32 @@ TData *search(SymTable *symtable, TKey k) {
     return NULL;
 }
 
+TData *search_scope(Scope *scope, TKey k) {
+    while (scope != NULL) {
+        TData *data = search(scope->symbols, k);
+
+        if (data != NULL) {
+            return data;
+        }
+
+        scope = scope->parent;
+    }
+
+    return NULL;
+}
+
 void destroy_symtable(SymTable *symtable) {
     destroy_AVL_tree(symtable->root);
     free(symtable);
+}
+
+Scope *create_scope(Scope *parent) {
+    Scope *scope = (Scope *)malloc(sizeof(Scope));
+    if (scope == NULL) {
+        throw_fatal_error(99, "Could not allocate memory!\n");
+    }
+    scope->parent = parent;
+    scope->symbols = create_symtable();
+
+    return scope;
 }

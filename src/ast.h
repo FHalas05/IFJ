@@ -8,6 +8,7 @@
 
 typedef enum{
     TYPE_UNKNOWN,
+    TYPE_ANY,
     TYPE_INT,
     TYPE_DOUBLE,
     TYPE_STRING,
@@ -44,6 +45,8 @@ typedef enum{
     OP_UNARY_MINUS, OP_UNARY_PLUS
 } Operator;
 
+struct Scope;
+
 //structures for everything - union = only one structure at a time
 typedef struct ASTNode{
     DataType data_type;
@@ -60,6 +63,7 @@ typedef struct ASTNode{
 
         struct {
             struct ASTNode **statements;
+            struct Scope *scope;
             size_t count;
             size_t capacity;
         } block;
@@ -87,6 +91,7 @@ typedef struct ASTNode{
             bool var;    
             DataType type;                              
             struct ASTNode *value;
+            size_t variable_id;
         } def_var;
 
         struct{
@@ -109,6 +114,7 @@ typedef struct ASTNode{
         struct{
             char *name;
             struct ASTNode *value;
+            size_t variable_id;
         } assign;
 
         struct{
@@ -117,6 +123,7 @@ typedef struct ASTNode{
 
         struct{
             char *name;
+            size_t variable_id;
         } identifier;
         
         struct{
@@ -138,6 +145,7 @@ typedef struct ASTNode{
         struct {
             char *name;
             DataType data;
+            size_t variable_id;
         } param;
 
     } data;
