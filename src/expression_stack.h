@@ -9,7 +9,6 @@
 #include <stddef.h>
 #include "expression_parser.h"
 #include "token.h"
-#include "ast.h"
 
 #define MAX_EXPR_HANDLE_CAPACITY 3
 
@@ -23,7 +22,6 @@ typedef struct {
     ExprItemType type;
     PrecTerminal terminal;
     Token token;
-    ASTNode *node;
 } ExprItem;
 
 typedef struct {

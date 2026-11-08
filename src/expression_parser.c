@@ -3,14 +3,12 @@
 //
 
 #include "expression_parser.h"
-#include "ast.h"
 #include "expression_stack.h"
 #include "library.h"
 #include "parser.h"
 #include "token.h"
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 #define PREC_TERMINAL_COUNT 9
 
@@ -27,7 +25,7 @@ static const char precedence_table[PREC_TERMINAL_COUNT][PREC_TERMINAL_COUNT] = {
     [P_END] =           {'<', '<', '<', '<', '<', 'x', '<', '<', 'x'},
 };
 
-static PrecTerminal get_precedence_terminal(Token token, bool expected_operand) {
+PrecTerminal get_precedence_terminal(Token token, bool expected_operand) {
     switch (token.type) {
     case T_INT:
     case T_DOUBLE:
@@ -65,74 +63,6 @@ static PrecTerminal get_precedence_terminal(Token token, bool expected_operand) 
     }
 }
 
-static Operator get_binary_operator(TokenType type) {
-    switch (type) {
-    case T_OP_PLUS:
-        return OP_ADD;
-    case T_OP_MINUS:
-        return OP_SUB;
-    case T_OP_MUL:
-        return OP_MUL;
-    case T_OP_DIV:
-        return OP_DIV;
-    case T_OP_LESS:
-        return OP_LESS;
-    case T_OP_LESS_EQ:
-        return OP_LESS_EQ;
-    case T_OP_GR:
-        return OP_GR;
-    case T_OP_GR_EQ:
-        return OP_GR_EQ;
-    case T_OP_EQ:
-        return OP_EQ;
-    case T_OP_NOT_EQ:
-        return OP_NOT_EQ;
-    default:
-        throw_fatal_error(99, "Invalid binary operator!");
-        return OP_ADD;
-    }
-}
-
-static ASTNode *reduce_operand(ExprItem *item) {
-    if (item->node != NULL) {
-        return item->node;
-    }
-
-    ASTNode *node;
-
-    switch (item->token.type) {
-    case T_INT:
-        node = create_node(NODE_INT_LITERAL);
-        node->data_type = TYPE_INT;
-        node->data.int_lit.value = strtol(item->token.data, NULL, 10);
-        break;
-    case T_DOUBLE:
-        node = create_node(NODE_DOUBLE_LITERAL);
-        node->data_type = TYPE_DOUBLE;
-        node->data.double_lit.value = strtod(item->token.data, NULL);
-        break;
-    case T_STRING:
-        node = create_node(NODE_STRING_LITERAL);
-        node->data_type = TYPE_STRING;
-        node->data.string_lit.value = item->token.data;
-        item->token.data = NULL;
-        break;
-    case T_IDENT:
-        node = create_node(NODE_IDENTIFIER);
-        node->data.identifier.name = item->token.data;
-        item->token.data = NULL;
-        break;
-    default:
-        throw_fatal_error(99, "Invalid expresion operand!");
-        break;
-    }
-
-    token_free_data_if_applicable(item->token);
-    item->token.data = NULL;
-
-    return node;
-}
-
 static bool is_terminal(ExprItem *item, PrecTerminal terminal) {
     return (item->type == EXPR_TERMINAL) && (item->terminal == terminal);
 }
@@ -142,11 +72,7 @@ static bool handle_matches_reduction_rule(ExprHandle *handle) {
 
     if (handle->count == 1) {
         // operand
-        if (is_terminal(&items[0], P_OPERAND)) {
-            ASTNode *node;
-        }
-
-        return NULL;
+        return is_terminal(&items[0], P_OPERAND);
     }
 
     if (handle->count == 2) {

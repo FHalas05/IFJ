@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include "parser.h"
+#include "semantic.h"
 
 
 int main(void) {
-    parse_program(stdin, NULL);
+    ASTNode * program = parse_program(stdin, NULL);
+    semantic_analyse(program);  
 
     return 0;
 }
