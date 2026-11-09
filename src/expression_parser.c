@@ -137,27 +137,32 @@ static bool is_terminal(ExprItem *item, PrecTerminal terminal) {
     return (item->type == EXPR_TERMINAL) && (item->terminal == terminal);
 }
 
-static bool handle_matches_reduction_rule(ExprHandle *handle) {
+static ASTNode *reduce_handle(ExprHandle *handle) {
     ExprItem *items = handle->items;
 
     if (handle->count == 1) {
         // operand
         if (is_terminal(&items[0], P_OPERAND)) {
-            ASTNode *node;
+            return reduce_operand(&items[0]);
         }
-
-        return NULL;
     }
 
     if (handle->count == 2) {
         // ~E
         if (is_terminal(&items[0], P_UNARY_MINUS) && items[1].type == EXPR_NONTERMINAL) {
-            return true;
+            ASTNode *node = create_node(NODE_UNOP);
+            node->data.un_op.operation = OP_UNARY_MINUS;
+            node->data.un_op.operand = items[1].node;
+
+            return node;
         }
 
         // ()
         if (is_terminal(&items[0], P_LPAREN) && is_terminal(&items[1], P_RPAREN)) {
-            return true;
+            ASTNode *node = create_node(NODE_UNIT_LITERAL);
+            node->data_type = TYPE_UNIT;
+
+            return node;
         }
     }
 
@@ -165,40 +170,56 @@ static bool handle_matches_reduction_rule(ExprHandle *handle) {
         // (E)
         if (is_terminal(&items[0], P_LPAREN) && items[1].type == EXPR_NONTERMINAL &&
             is_terminal(&items[2], P_RPAREN)) {
-            return true;
+            return items[1].node;
         }
 
         // E operation E
-        if (items[0].type == EXPR_NONTERMINAL && items[2].type == EXPR_NONTERMINAL) {
-            return is_terminal(&items[1], P_ADD) || is_terminal(&items[1], P_MUL) ||
-                   is_terminal(&items[1], P_REL) || is_terminal(&items[1], P_EQ);
+        if (items[0].type == EXPR_NONTERMINAL && items[2].type == EXPR_NONTERMINAL &&
+            (is_terminal(&items[1], P_ADD) || is_terminal(&items[1], P_MUL) ||
+             is_terminal(&items[1], P_REL) || is_terminal(&items[1], P_EQ))) {
+            ASTNode *node = create_node(NODE_BINOP);
+            node->data.bin_op.operation = get_binary_operator(items[1].token.type);
+            node->data.bin_op.left = items[0].node;
+            node->data.bin_op.right = items[2].node;
+
+            return node;
         }
     }
 
-    return false;
+    throw_fatal_error(2, "Invalid expression reduction!");
+    return NULL;
 }
 
-static void parse_function_call(Parser *parser) {
+static ASTNode *parse_function_call(Parser *parser) {
+    ASTNode *node = create_node(NODE_FUNCTION_CALL);
+
+    node->data.function_call.name = parser->token.data;
+    parser->token.data = NULL;
+
     expect(parser, T_IDENT, "Expected function name!");
     expect(parser, T_PAR_L, "Expected '(' after function name!");
 
     if (parser->token.type == T_PAR_R) {
         advance(parser);
-        return;
+        return node;
     }
 
     while (true) {
-        parse_expression(parser, EXPR_ARGUMENT);
+        ASTNode *argument = parse_expression(parser, EXPR_ARGUMENT);
+
+        ast_array_append(&node->data.function_call.arguments, &node->data.function_call.arg_count,
+                         &node->data.function_call.arg_capacity, argument);
+
         if (parser->token.type == T_COMMA) {
             advance(parser);
         } else {
             expect(parser, T_PAR_R, "Expected ',' or ')' after argument!");
-            return;
+            return node;
         }
     }
 }
 
-void parse_expression(Parser *parser, ExprMode mode) {
+ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     ExprStack stack;
     init_expr_stack(&stack);
     bool expected_operand = true;
@@ -250,11 +271,14 @@ void parse_expression(Parser *parser, ExprMode mode) {
             ExprItem input_data = {
                 .type = EXPR_TERMINAL,
                 .terminal = input_terminal,
-                .token = parser->token,
+                .token = {.type = parser->token.type},
             };
 
             if (is_call) {
-                parse_function_call(parser);
+                input_data.node = parse_function_call(parser);
+            } else if (input_data.terminal == P_OPERAND) {
+                input_data.token.data = parser->token.data;
+                parser->token.data = NULL;
             }
 
             expr_stack_push(&stack, input_data);
@@ -278,13 +302,13 @@ void parse_expression(Parser *parser, ExprMode mode) {
             break;
         }
         case '>':
-            if (!expr_stack_get_handle(&stack, &handle) ||
-                !handle_matches_reduction_rule(&handle)) {
+            if (!expr_stack_get_handle(&stack, &handle)) {
                 throw_fatal_error(2, "Invalid expression reduction!");
             }
 
             ExprItem replacement = {
                 .type = EXPR_NONTERMINAL,
+                .node = reduce_handle(&handle),
             };
             expr_stack_replace_handle(&stack, replacement);
             print_stack(&stack);
@@ -295,5 +319,9 @@ void parse_expression(Parser *parser, ExprMode mode) {
         }
     }
 
+    ASTNode *node = expr_stack_top(&stack).node;
+
     clear_expr_stack(&stack);
+
+    return node;
 }

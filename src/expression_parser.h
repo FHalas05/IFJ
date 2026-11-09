@@ -24,6 +24,6 @@ typedef enum {
     P_END,          // $
 } PrecTerminal;
 
-void parse_expression(Parser *parser, ExprMode mode);
+ASTNode *parse_expression(Parser *parser, ExprMode mode);
 
 #endif // IFJ_EXPRESSION_PARSER_H
