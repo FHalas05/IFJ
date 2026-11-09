@@ -6,14 +6,7 @@
 #include "semantic.h"
 #include "symtable.h"
 #include "library.h"
-
-typedef struct{
-    SymTable *functions;
-    Scope *current;
-    size_t next_var_id;
-    ASTNode *current_function;
-}SemContext;
-
+    
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
     DataType *types = NULL;
     if (param_count > 0){
@@ -189,6 +182,23 @@ static void check_function(SemContext *ctx, ASTNode *func){
     destroy_scope(ctx->current);
     ctx->current = NULL;
 }
+
+bool types_compatible(DataType expected, DataType actual){
+    if (actual == TYPE_BOOL){
+        return false;
+    }
+    else if (expected == actual){
+        return true;
+    }
+    else if (expected == TYPE_ANY){
+        return true;
+    }
+    else if ((expected == TYPE_DOUBLE ) && (actual == TYPE_INT)){
+        return  true;
+    }
+    return false;
+}
+
 
 void semantic_analyse (ASTNode *program){
     SemContext ctx = {0};
