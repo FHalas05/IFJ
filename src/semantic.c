@@ -14,6 +14,11 @@ typedef struct{
     ASTNode *current_function;
 }SemContext;
 
+static void destroy_scope(Scope *scope){
+    destroy_symtable(scope->symbols);
+    free(scope);
+}
+
 static void collect_functions(SemContext *ctx, ASTNode *program){
     ctx->functions = create_symtable();
     int main_count = 0;
@@ -72,8 +77,90 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
         }
 }
 
+static void check_statement(SemContext *ctx, ASTNode *stmt);
+
+static void check_block(SemContext *ctx, ASTNode *block){  
+    ctx->current = create_scope (ctx->current);
+    for (size_t i = 0; i < block->data.block.count; i++){
+        ASTNode *stmt = block->data.block.statements[i];
+        check_statement(ctx, stmt);
+    }
+    Scope *parent = ctx->current->parent;
+    destroy_scope(ctx->current);
+    ctx->current = parent;
+}
+
+static void check_statement(SemContext *ctx, ASTNode *stmt){
+    if (stmt == NULL){
+        return;
+    }
+    switch (stmt->type){
+        case NODE_DEF_VAR:{
+            char *name = stmt->data.def_var.name;
+            if (search(ctx->current->symbols, name) != NULL){
+                throw_fatal_error(4, "VAL/VAR is out of range");
+            }
+            TData d = {0};
+            d.kind = SYMBOL_VARIABLE;
+            d.data.variable.type = stmt->data.def_var.type;
+            d.data.variable.is_mutable = stmt->data.def_var.var;
+            d.data.variable.variable_id = ctx->next_var_id++;
+
+            insert(ctx->current->symbols, name, d);
+            break;
+        }
+
+        case NODE_ASSIGN:{
+            char *name = stmt->data.assign.name;
+            TData *var = search_scope(ctx->current, name);
+            if (var == NULL){
+                throw_fatal_error(3, "Undefined variable");
+            }
+            else if (!var->data.variable.is_mutable){
+                throw_fatal_error(7, "Assignment to val / parameter");
+            }
+            break;
+        }
+
+        case NODE_IF:{
+            check_block(ctx, stmt->data.if_stmt.then_block);
+            check_block(ctx, stmt->data.if_stmt.else_block);
+            break;
+        }
+
+        case NODE_WHILE:{
+            check_block(ctx, stmt->data.while_loop.body);
+            break;
+        }
+        default:
+            break;
+
+    }
+}
+
+static void check_function(SemContext *ctx, ASTNode *func){
+    ctx->current_function = func;
+    ctx->current = create_scope(NULL);
+    for (size_t i = 0; i < func->data.function_def.param_count; i++){
+        ASTNode *param = func->data.function_def.parameters[i];
+        TData d = {0};
+        d.kind = SYMBOL_VARIABLE;
+        d.data.variable.type = param->data.param.data;
+        d.data.variable.is_mutable = false;
+        d.data.variable.variable_id = ctx->next_var_id++;
+        insert(ctx->current->symbols, param->data.param.name, d);
+    }
+    check_block(ctx, func->data.function_def.body);
+    destroy_scope(ctx->current);
+    ctx->current = NULL;
+}
+
 void semantic_analyse (ASTNode *program){
     SemContext ctx = {0};
     collect_functions(&ctx, program);
+    for (size_t i = 0; i < program->data.program.count; i++){
+        ASTNode *func = program->data.program.functions[i];
+        check_function(&ctx, func);
+    }
     destroy_symtable(ctx.functions);
 }
