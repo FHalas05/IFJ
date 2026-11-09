@@ -198,6 +198,9 @@ static void destroy_AVL_tree(TAVLNode *root) {
     }
     destroy_AVL_tree(root->right);
     destroy_AVL_tree(root->left);
+    if (root->data.kind == SYMBOL_FUNCTION){
+        free(root->data.data.function.param_types);
+    }
     free(root);
 }
 
@@ -252,4 +255,9 @@ Scope *create_scope(Scope *parent) {
     scope->symbols = create_symtable();
 
     return scope;
+}
+
+void destroy_scope(Scope *scope){
+    destroy_symtable(scope->symbols);
+    free(scope);
 }

@@ -52,5 +52,6 @@ TData *search(SymTable *symtable, TKey k);
 TData *search_scope(Scope *scope, TKey k);
 void destroy_symtable(SymTable *symtable);
 Scope *create_scope(Scope *parent);
+void destroy_scope(Scope *scope);
 
 #endif // IFJ_SYMTABLE_H

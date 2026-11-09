@@ -14,13 +14,39 @@ typedef struct{
     ASTNode *current_function;
 }SemContext;
 
-static void destroy_scope(Scope *scope){
-    destroy_symtable(scope->symbols);
-    free(scope);
+static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
+    DataType *types = NULL;
+    if (param_count > 0){
+        types = malloc (param_count * sizeof(DataType));
+        if (types == NULL){
+            throw_fatal_error(99, "Memory allocation error");
+        }
+        for (size_t i = 0; i < param_count; i++){
+            types[i] = params[i];
+        }
+    }
+    TData d = {0};
+    d.kind = SYMBOL_FUNCTION;
+    d.data.function.return_type = return_type;
+    d.data.function.param_types = types;
+    d.data.function.param_count = param_count;
+    d.data.function.is_builtin = true;
+    d.data.function.definition_node = NULL;
+    insert(ctx->functions, name, d);
 }
 
 static void collect_functions(SemContext *ctx, ASTNode *program){
     ctx->functions = create_symtable();
+    add_builtin(ctx, "print", TYPE_UNIT, 1, (DataType[]){TYPE_ANY});
+    add_builtin(ctx, "readLine", TYPE_STRING, 0, NULL);
+    add_builtin(ctx, "readInt", TYPE_INT, 0, NULL);
+    add_builtin(ctx, "readDouble", TYPE_DOUBLE, 0, NULL);
+    add_builtin(ctx, "toStr", TYPE_STRING, 1, (DataType[]){TYPE_ANY});
+    add_builtin(ctx, "toInt", TYPE_INT, 1, (DataType[]){TYPE_DOUBLE});
+    add_builtin(ctx, "strLength", TYPE_INT, 1, (DataType[]){TYPE_STRING});
+    add_builtin(ctx, "subStr", TYPE_STRING, 3, (DataType[]){TYPE_STRING, TYPE_INT, TYPE_INT});
+    add_builtin(ctx, "ord", TYPE_INT, 2, (DataType[]){TYPE_STRING, TYPE_INT});
+    add_builtin(ctx, "chr", TYPE_STRING, 1,(DataType[]){TYPE_INT});
     int main_count = 0;
     for (size_t i = 0; i < program->data.program.count; i++){
         ASTNode *func = program->data.program.functions[i];
@@ -132,9 +158,18 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             check_block(ctx, stmt->data.while_loop.body);
             break;
         }
+        case NODE_FUNCTION_CALL:{
+            TData *f = search(ctx->functions, stmt->data.function_call.name);
+            if (f == NULL){
+                throw_fatal_error(3, "Undefined function");
+            }
+            else if (f->data.function.param_count != stmt->data.function_call.arg_count){
+                throw_fatal_error(5, "Wrong number of arguments");
+            }
+            break;
+        }
         default:
             break;
-
     }
 }
 
