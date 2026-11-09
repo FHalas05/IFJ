@@ -6,7 +6,7 @@
 #include "semantic.h"
 #include "symtable.h"
 #include "library.h"
-    
+
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
     DataType *types = NULL;
     if (param_count > 0){
@@ -67,6 +67,9 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
             else if (func->data.function_def.param_count > 0){
                 throw_fatal_error(5, "@main must have no parameters");
             }
+            else if ((func->data.function_def.has_explicit_return_type == true) && (func->data.function_def.return_type != TYPE_UNIT)){
+                throw_fatal_error(6, "@main must return Unit");
+            }
         } 
 
         DataType *types = NULL;
@@ -77,9 +80,7 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
             }
             for (size_t j = 0; j < func->data.function_def.param_count; j++){
                 types[j] = func->data.function_def.parameters[j]->data.param.data;
-            }
-
-            
+            }  
         }
 
         TData d = {0};
@@ -159,6 +160,15 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             else if (f->data.function.param_count != stmt->data.function_call.arg_count){
                 throw_fatal_error(5, "Wrong number of arguments");
             }
+            break;
+        }
+        case NODE_RETURN:{
+            if (ctx->current_function->data.function_def.has_explicit_return_type == false){
+                throw_fatal_error(6, "Wrong return type");
+            }  
+            else if ((stmt->data.return_stmt.value == NULL) && (ctx->current_function->data.function_def.return_type != TYPE_UNIT)){
+                throw_fatal_error(6, "Wrong return type");
+            }  
             break;
         }
         default:
