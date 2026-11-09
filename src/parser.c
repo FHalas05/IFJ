@@ -353,8 +353,7 @@ ASTNode *parse_function_body(Parser *p){
         case T_PAR_L:{
             ASTNode *block = create_node(NODE_BLOCK);
             ASTNode *ret = create_node(NODE_RETURN);
-            parse_expression(p, EXPR_STATEMENT);
-            ret->data.return_stmt.value = NULL;
+            ret->data.return_stmt.value = parse_expression(p, EXPR_STATEMENT);
             ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, ret);
             expect(p, T_NEWLINE, "function body: expected newline after expression");
             return block;
@@ -669,8 +668,7 @@ ASTNode *parse_simple_stmt(Parser *p){
             advance(p);
             simple_value->data.def_var.type = parse_return_type(p);
             expect(p, T_OP_ASSIGN, "variable definition: expected '='");
-            parse_expression(p, EXPR_STATEMENT);
-            simple_value->data.def_var.value = NULL;
+            simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
             return simple_value;
         }
         case T_IDENT:{   
@@ -690,8 +688,7 @@ ASTNode *parse_simple_stmt(Parser *p){
         case T_STRING:
         case T_OP_MINUS:
         case T_PAR_L:{
-            parse_expression(p, EXPR_STATEMENT);
-            return NULL;
+            return parse_expression(p, EXPR_STATEMENT);
         }
         default:
             throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
@@ -705,8 +702,7 @@ ASTNode *parse_after_ident(Parser *p, char *name){
             advance(p);
             ASTNode *after_assign = create_node(NODE_ASSIGN);
             after_assign->data.assign.name = name;
-            parse_expression(p, EXPR_STATEMENT);
-            after_assign->data.assign.value = NULL;
+            after_assign->data.assign.value = parse_expression(p, EXPR_STATEMENT);
             return after_assign;
         }
         case T_PAR_L:{
@@ -747,8 +743,7 @@ ASTNode *parse_return_val(Parser *p){
         case T_STRING:
         case T_OP_MINUS:
         case T_PAR_L:
-            parse_expression(p, EXPR_STATEMENT);
-            return NULL;
+            return parse_expression(p, EXPR_STATEMENT);
         case T_SEMICOLON:
         case T_NEWLINE:
             return NULL;
@@ -777,8 +772,7 @@ ASTNode *parse_compound_stmt(Parser *p){
         case T_KW_IF:{
             advance(p);
             ASTNode *comp_if = create_node(NODE_IF);
-            parse_expression(p, EXPR_STATEMENT);
-            comp_if->data.if_stmt.condition = NULL;
+            comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
             expect(p, T_KW_THEN, "if: expected 'then' after condition");
             comp_if->data.if_stmt.then_block = parse_block(p);
             expect(p, T_KW_ELSE, "if: expected 'else'");
@@ -788,8 +782,7 @@ ASTNode *parse_compound_stmt(Parser *p){
         case T_KW_WHILE:{
             advance(p);
             ASTNode *comp_while = create_node(NODE_WHILE);
-            parse_expression(p, EXPR_STATEMENT);
-            comp_while->data.while_loop.condition = NULL;
+            comp_while->data.while_loop.condition = parse_expression(p, EXPR_STATEMENT);
             expect(p, T_KW_DO, "while: expected 'do' after condition");
             comp_while->data.while_loop.body = parse_block(p);
             return comp_while;
