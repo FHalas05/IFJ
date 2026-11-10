@@ -147,18 +147,19 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
                 throw_fatal_error(6, "Value cannot be true/false");
             }
             DataType var_type = stmt->data.def_var.type;
-            if (value_type != TYPE_UNKNOWN){
-                if (var_type == TYPE_UNKNOWN){
-                    var_type = value_type;
+            if (var_type == TYPE_UNKNOWN){
+                if (value_type == TYPE_UNKNOWN){
+                    throw_fatal_error(6, "Cannot infer variable type");
                 }
-                else if(!types_compatible(var_type, value_type)){
-                            throw_fatal_error(6,"value and var are not compatible");
+                var_type = value_type;
                 }
+            else if(!types_compatible(var_type, value_type)){
+                throw_fatal_error(6,"Type mismatch in variable initialization");
             }
             
             char *name = stmt->data.def_var.name;
             if (search(ctx->current->symbols, name) != NULL){
-                throw_fatal_error(4, "VAL/VAR is out of range");
+                throw_fatal_error(4, "Variable redefinition");
             }
             TData d = {0};
             d.kind = SYMBOL_VARIABLE;
@@ -180,7 +181,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
                 throw_fatal_error(7, "Assignment to val / parameter");
             }
             DataType type = check_expression(ctx, stmt->data.assign.value);
-            if ((type != TYPE_UNKNOWN) && (var->data.variable.type != TYPE_UNKNOWN) && (!types_compatible(var->data.variable.type, type))){
+            if ((!types_compatible(var->data.variable.type, type))){
                 throw_fatal_error(6, "Wrong type in assign");
             }
             break;
@@ -188,7 +189,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
 
         case NODE_IF:{
             DataType cond = check_expression(ctx, stmt->data.if_stmt.condition);
-            if ((cond != TYPE_BOOL) && (cond != TYPE_UNKNOWN)){
+            if (cond != TYPE_BOOL){
                 throw_fatal_error(6, "Condition must be Boolean");
             }
             check_block(ctx, stmt->data.if_stmt.then_block);
@@ -198,7 +199,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
 
         case NODE_WHILE:{
             DataType cond = check_expression(ctx, stmt->data.while_loop.condition);
-            if ((cond != TYPE_BOOL) && (cond != TYPE_UNKNOWN)){
+            if (cond != TYPE_BOOL){
                 throw_fatal_error(6, "Condition must be Boolean");
             }
             check_block(ctx, stmt->data.while_loop.body);
@@ -219,7 +220,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             } 
             else if (stmt->data.return_stmt.value != NULL){
                  DataType type = check_expression(ctx, stmt->data.return_stmt.value);
-                if ((ctx->current_function->data.function_def.return_type !=TYPE_UNIT) && (type != TYPE_UNKNOWN) && (!types_compatible(ctx->current_function->data.function_def.return_type, type))){
+                if ((ctx->current_function->data.function_def.return_type != TYPE_UNIT) && (!types_compatible(ctx->current_function->data.function_def.return_type, type))){
                     throw_fatal_error(6, "Wrong type in return");
                 }
             }
@@ -261,7 +262,7 @@ static void check_function(SemContext *ctx, ASTNode *func){
         DataType type = block_result (body);
         DataType ret = func->data.function_def.return_type;
         if (func->data.function_def.has_explicit_return_type){
-            if ((ret != TYPE_UNIT) && (type != TYPE_UNKNOWN) && (!types_compatible(ret, type))){
+            if ((ret != TYPE_UNIT) && (!types_compatible(ret, type))){
                 throw_fatal_error(6, "Implicit return value type mismatch");
             }
         }
@@ -291,8 +292,7 @@ static void check_function(SemContext *ctx, ASTNode *func){
 
     }
 
-
-    if ((func->data.function_def.is_main) && (func->data.function_def.return_type != TYPE_UNIT) && (func->data.function_def.return_type != TYPE_UNKNOWN)){
+    if ((func->data.function_def.is_main) && (func->data.function_def.return_type != TYPE_UNIT)){
         throw_fatal_error(6, "@main must return Unit");
     }
 
@@ -348,10 +348,6 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
         case NODE_BINOP:{
             DataType a = check_expression(ctx, expr->data.bin_op.left);
             DataType b = check_expression(ctx, expr->data.bin_op.right);
-            if ((a == TYPE_UNKNOWN) || (b == TYPE_UNKNOWN)){
-                result = TYPE_UNKNOWN;
-                break;
-            }
             switch(expr->data.bin_op.operation){
                 case OP_ADD:
                     if ((is_numeric(a)) && (is_numeric(b))){
@@ -415,11 +411,7 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
 
         case NODE_UNOP:{
             DataType t = check_expression(ctx, expr->data.un_op.operand);
-            if (t == TYPE_UNKNOWN){
-                result = TYPE_UNKNOWN;
-                break;
-            }
-            else if (is_numeric(t)){
+            if (is_numeric(t)){
                 result = t;
             }
             else{
@@ -454,7 +446,7 @@ static DataType check_call(SemContext *ctx, ASTNode *call){
     }    
     for (size_t i = 0; i < call->data.function_call.arg_count; i++){
         DataType type = check_expression(ctx, call->data.function_call.arguments[i]);
-        if ((type != TYPE_UNKNOWN) && (!types_compatible (func->data.function.param_types[i], type))){
+        if (!types_compatible (func->data.function.param_types[i], type)){
             throw_fatal_error(5, "Wrong argument type");
         }
     }
