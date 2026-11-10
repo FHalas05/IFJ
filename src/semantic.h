@@ -14,7 +14,7 @@ typedef struct{
     ASTNode *current_function;
 }SemContext;
 
-void semantic_analyse(ASTNode *program);
+void semantic_analyze(ASTNode *program);
 
 bool types_compatible(DataType expected, DataType actual);
 
