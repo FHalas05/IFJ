@@ -174,15 +174,24 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
         }
 
         case NODE_IF:{
+            DataType cond = check_expression(ctx, stmt->data.if_stmt.condition);
+            if ((cond != TYPE_BOOL) && (cond != TYPE_UNKNOWN)){
+                throw_fatal_error(6, "Condition must be Boolean");
+            }
             check_block(ctx, stmt->data.if_stmt.then_block);
             check_block(ctx, stmt->data.if_stmt.else_block);
             break;
         }
 
         case NODE_WHILE:{
+            DataType cond = check_expression(ctx, stmt->data.while_loop.condition);
+            if ((cond != TYPE_BOOL) && (cond != TYPE_UNKNOWN)){
+                throw_fatal_error(6, "Condition must be Boolean");
+            }
             check_block(ctx, stmt->data.while_loop.body);
             break;
         }
+
         case NODE_FUNCTION_CALL:{
             TData *f = search(ctx->functions, stmt->data.function_call.name);
             if (f == NULL){
@@ -194,6 +203,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             stmt->data.function_call.is_builtin = f->data.function.is_builtin;
             break;
         }
+
         case NODE_RETURN:{
             if (ctx->current_function->data.function_def.has_explicit_return_type == false){
                 throw_fatal_error(6, "Wrong return type");
@@ -203,6 +213,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             }  
             break;
         }
+
         default:
             break;
     }
@@ -271,6 +282,7 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
             result = var->data.variable.type;
             break;
         }
+
         case NODE_BINOP:{
             DataType a = check_expression(ctx, expr->data.bin_op.left);
             DataType b = check_expression(ctx, expr->data.bin_op.right);
@@ -335,6 +347,21 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
                     break;
                 default:
                     break;
+            }
+            break;
+        }
+
+        case NODE_UNOP:{
+            DataType t = check_expression(ctx, expr->data.un_op.operand);
+            if (t == TYPE_UNKNOWN){
+                result = TYPE_UNKNOWN;
+                break;
+            }
+            else if (is_numeric(t)){
+                result = t;
+            }
+            else{
+                throw_fatal_error(6, "Unary minus requires a numeric operand");
             }
             break;
         }
