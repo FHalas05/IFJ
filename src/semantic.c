@@ -179,6 +179,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
 static void check_function(SemContext *ctx, ASTNode *func){
     ctx->current_function = func;
     ctx->current = create_scope(NULL);
+    
     for (size_t i = 0; i < func->data.function_def.param_count; i++){
         ASTNode *param = func->data.function_def.parameters[i];
         TData d = {0};
@@ -188,7 +189,10 @@ static void check_function(SemContext *ctx, ASTNode *func){
         d.data.variable.variable_id = ctx->next_var_id++;
         insert(ctx->current->symbols, param->data.param.name, d);
     }
-    check_block(ctx, func->data.function_def.body);
+    ASTNode *body = func->data.function_def.body;
+    for (size_t i = 0; i < body->data.block.count ; i++){
+        check_statement(ctx, body->data.block.statements[i]);
+    }
     destroy_scope(ctx->current);
     ctx->current = NULL;
 }
