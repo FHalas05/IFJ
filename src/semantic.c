@@ -27,6 +27,10 @@ static DataType check_call(SemContext *ctx, ASTNode *call);
 
 static DataType block_result(ASTNode *block);
 
+static bool ends_with_return(ASTNode *block);
+
+static bool all_branches_unit(ASTNode *block);
+
 void semantic_analyze (ASTNode *program);
 
 
@@ -267,6 +271,27 @@ static void check_function(SemContext *ctx, ASTNode *func){
             }
         }
     }
+    DataType ret = func->data.function_def.return_type;
+    if ((last != NULL) && (last->type == NODE_IF)){
+        if((func->data.function_def.has_explicit_return_type) && (ret == TYPE_UNIT)){
+        }
+        else if(ends_with_return(func->data.function_def.body)){
+        }
+        else if((!func->data.function_def.has_explicit_return_type) &&(all_branches_unit(func->data.function_def.body))){
+            func->data.function_def.return_type = TYPE_UNIT;
+            search(ctx->functions, func->data.function_def.name)->data.function.return_type = TYPE_UNIT;
+        }
+        else{
+            throw_fatal_error(6, "If at end of function body must end with return in all branches");
+        }
+
+    }
+
+
+    if ((func->data.function_def.is_main) && (func->data.function_def.return_type != TYPE_UNIT) && (func->data.function_def.return_type != TYPE_UNKNOWN)){
+        throw_fatal_error(6, "@main must return Unit");
+    }
+
     destroy_scope(ctx->current);
     ctx->current = NULL;
 }
@@ -442,6 +467,31 @@ static DataType block_result(ASTNode *block){
     else{
         return last->data_type;
     }
+}
+
+static bool ends_with_return(ASTNode *block){
+    if ((block == NULL) || (block->data.block.count == 0)){
+        return false;
+    }
+    ASTNode *last = block->data.block.statements[block->data.block.count - 1];
+    if (last->type == NODE_RETURN){
+        return true;
+    }
+    else if (last->type == NODE_IF){
+        return ends_with_return(last->data.if_stmt.then_block) && ends_with_return (last->data.if_stmt.else_block);
+    }
+    return false;
+}
+
+static bool all_branches_unit(ASTNode *block){
+    if ((block == NULL) || (block->data.block.count == 0)){
+        return true;
+    }
+    ASTNode *last = block->data.block.statements[block->data.block.count - 1];
+    if (last->type == NODE_IF){
+        return all_branches_unit(last->data.if_stmt.then_block) && all_branches_unit(last->data.if_stmt.else_block);
+    }
+    return block_result(block) == TYPE_UNIT;
 }
 
 void semantic_analyze (ASTNode *program){

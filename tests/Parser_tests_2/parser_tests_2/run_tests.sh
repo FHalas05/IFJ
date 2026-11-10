@@ -131,6 +131,7 @@ run_dir err_syntax
 run_dir err_sem
 [ "$SKIP_EXT" -eq 0 ] && run_dir base_only
 run_dir ext_funexp
+run_dir sem_rules
 run_dir unclear
 
 printf "${B}Celkem: ${G}%d PASS${N}${B}, ${R}%d FAIL${N}\n" "$total_pass" "$total_fail"

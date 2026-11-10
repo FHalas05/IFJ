@@ -1,0 +1,4 @@
+import ifj26.*
+def f(): Double = 1
+@main def main(): Unit =
+  print(0)

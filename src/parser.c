@@ -669,11 +669,14 @@ ASTNode *parse_simple_stmt(Parser *p){
             simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
             return simple_value;
         }
-        case T_IDENT:{   
-            char *name = p->token.data;
-            p->token.data = NULL;
-            advance(p);
-            return parse_after_ident(p, name);
+        case T_IDENT:{ 
+            if(peek_token_type(p) == T_OP_ASSIGN){
+                char *name = p->token.data;
+                p->token.data = NULL;
+                advance(p);
+                return parse_after_ident(p, name);
+            }  
+            return parse_expression(p, EXPR_STATEMENT);
         }
         case T_KW_RETURN:{
             advance(p);
