@@ -1,0 +1,7 @@
+// @main<NL*> def - novy radek (i vic) mezi @main a def je povolen
+import ifj26.*
+
+@main
+
+def main(): Unit =
+  print("hello")

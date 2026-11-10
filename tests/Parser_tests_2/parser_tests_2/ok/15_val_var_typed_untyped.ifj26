@@ -1,0 +1,12 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1
+  val b: Int = 2
+  var c = 3.0
+  var d: Double = 4.5
+  val e = "e"
+  var f: String = "f"
+  c = d
+  f = e
+  val sum = a + b
+  print(sum)

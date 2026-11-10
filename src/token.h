@@ -2,6 +2,8 @@
 // Created by Filip on 04/10/2026.
 //
 
+#include <stdbool.h>
+
 #ifndef IFJ_TOKEN_H
 #define IFJ_TOKEN_H
 

@@ -1,0 +1,13 @@
+// identifikatory zacinajici jako klicova slova nebo s podtrzitkem
+import ifj26.*
+def doIt(_x: Int, x_1: Int): Int =
+  return _x + x_1
+@main def main(): Unit =
+  var ifx = 1
+  var values = 2
+  var whileLoop = 3
+  var returnValue = 4
+  var defined = 5
+  var Int2 = 6
+  var camelCase = doIt(ifx, values)
+  print(camelCase)

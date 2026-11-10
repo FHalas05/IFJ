@@ -1,0 +1,12 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 0
+  val b = 1_000_000
+  val c = 3.14
+  val d = 0.5
+  val e = 1e10
+  val f = 2.5E-3
+  val g = 1.0e+2
+  val h = 12_345
+  val i = 1_0
+  print(a)

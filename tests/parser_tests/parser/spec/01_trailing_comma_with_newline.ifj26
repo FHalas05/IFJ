@@ -1,0 +1,8 @@
+// OCEKAVANO: 0 podle slajdu 22 (",<NL+>)" je povoleno)
+import ifj26.*
+def add(x: Int, y: Int): Int =
+  return x + y
+@main def main(): Unit =
+  val y = add(1, 2,
+    )
+  print(y)

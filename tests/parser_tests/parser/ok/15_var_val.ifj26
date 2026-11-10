@@ -1,0 +1,12 @@
+import ifj26.*
+@main def main(): Unit =
+  var a: Int = 1
+  val b: Double = 2.5
+  var c: String = "hi"
+  val d = a
+  var e = 3 * (a + 4)
+  val f: Int = a
+  var g = "string with spaces"
+  a = 5
+  c = "changed"
+  e = d

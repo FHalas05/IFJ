@@ -7,7 +7,6 @@
 
 #include <stdio.h>
 
-#include "sym_table.h"
 #include "token.h"
 
 /**
@@ -20,12 +19,9 @@
  * i.e. free(token.data)
  *
  * @param file The program source file
- * @param sym_table The table of symbols of compiler
- * @param last_token_type The type of the last token this function has returned (The initial one
- * should be T_NEWLINE)
  *
  * @return Matched token
  */
-Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type);
+Token scanner(FILE *file);
 
 #endif // IFJ_SCANNER_H

@@ -1,0 +1,25 @@
+import ifj26.*
+def a(x: Int): Int =
+  return x
+
+def b(x: Int): Int =
+  return (x + 1) * 2
+
+def c(): String =
+  return "s"
+
+def d(x: Int): Int =
+  var i = x
+  while i > 0 do
+    if i == 5 then
+      return i
+    else
+      i = i - 1
+  return 0
+
+def e(x: Int): Int =
+  return -x
+
+@main def main(): Unit =
+  val r = d(10)
+  print(r)

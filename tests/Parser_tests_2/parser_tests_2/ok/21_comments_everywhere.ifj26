@@ -1,0 +1,21 @@
+// komentar pred prologem
+import ifj26.* // komentar za prologem
+// komentar mezi
+def f(x: Int): Int = // za hlavickou
+  // komentar na zacatku bloku
+  var y = x // za prikazem
+// komentar uplne vlevo uvnitr bloku
+          // komentar hodne vpravo uvnitr bloku
+  while y > 0 do // za do
+    // v cyklu
+    y = y - 1
+  // po cyklu, odsazeni bloku
+    // po cyklu, vic odsazeny
+  return y
+// konec funkce
+
+@main // za anotaci
+def main(): Unit =
+  val r = f(2)
+  print(r)
+// komentar na konci bez noveho radku

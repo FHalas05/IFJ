@@ -1,0 +1,6 @@
+// OCEKAVANO: 2 v zakladu, 0 s rozsirenim PARAMLISTS (netestuje se)
+import ifj26.*
+def answer: Int =
+  return 42
+@main def main(): Unit =
+  print(1)

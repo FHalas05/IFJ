@@ -1,0 +1,4 @@
+import ifj26.*
+type Scalar = Int | Double
+@main def main(): Unit =
+  print(0)

@@ -1,0 +1,8 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1
+  /* viceradkovy
+     komentar mezi prikazy */
+  val b = 2
+  /**/
+  print(b)

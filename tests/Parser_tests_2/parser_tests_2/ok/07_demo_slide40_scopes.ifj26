@@ -1,0 +1,18 @@
+import ifj26.*
+def fun(x: Int): Unit =
+  // val x = 0 // redefinice
+  // x = 1 // parametr je val
+  var y = 1
+  while y > 0 do
+    var x = 20 // prekryti lze
+    x = x - 1
+    y = y - 1
+  if x < 2 then
+    var x = 10 // dalsi scope
+    x = x + 1
+  else
+    ()
+  print(x) // puvodni parametr
+
+@main def main(): Unit =
+  fun(1)

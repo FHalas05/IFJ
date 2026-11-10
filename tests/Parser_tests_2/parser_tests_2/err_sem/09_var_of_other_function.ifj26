@@ -1,0 +1,6 @@
+import ifj26.*
+def f(): Unit =
+  val loc = 1
+  print(loc)
+@main def main(): Unit =
+  print(loc)

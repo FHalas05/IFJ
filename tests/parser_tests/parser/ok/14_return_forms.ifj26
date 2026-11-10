@@ -1,0 +1,16 @@
+import ifj26.*
+def u(): Unit =
+  return
+def v(x: Int): Int =
+  return x * 2 + 1
+def z(x: Int): Int =
+  if x > 0 then
+    return 1
+  else
+    return 0
+@main def main(): Unit =
+  u()
+  val a = v(2)
+  val b = z(a)
+  print(b)
+  return

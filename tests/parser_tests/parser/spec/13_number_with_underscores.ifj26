@@ -1,0 +1,5 @@
+// OCEKAVANO: ? - podtrzitka v ciselnych literalech, viz forum
+import ifj26.*
+@main def main(): Unit =
+  var x = 1_000_000
+  print(x)

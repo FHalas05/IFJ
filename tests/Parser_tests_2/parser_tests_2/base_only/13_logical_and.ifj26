@@ -1,0 +1,7 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1
+  if a < 1 && a > 0 then
+    print(1)
+  else
+    print(2)

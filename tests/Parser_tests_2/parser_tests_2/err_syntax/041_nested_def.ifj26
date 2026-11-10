@@ -1,0 +1,5 @@
+import ifj26.*
+@main def main(): Unit =
+  def inner(): Unit =
+    print(1)
+  print(2)

@@ -1,0 +1,12 @@
+// funkce bez navratoveho typu + implicitni navrat posledniho vyrazu (slajdy 6, 37, 52)
+import ifj26.*
+def foo(x: Int): Int =
+  var a = bar(x)
+  a
+
+def bar(y: Int) =
+  y * 10
+
+@main def main(): Unit =
+  val r = foo(4)
+  print(r)

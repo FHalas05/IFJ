@@ -1,0 +1,3 @@
+import ifj26.*
+def @main main(): Unit =
+  print(1)

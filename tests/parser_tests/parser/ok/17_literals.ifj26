@@ -1,0 +1,11 @@
+import ifj26.*
+@main def main(): Unit =
+  val s1 = "escape \n \t \\ \" end"
+  val s2 = ""
+  val d1 = 0.5
+  val d2 = 1e3
+  val d3 = 2.5E-3
+  val d4 = 10.0
+  val i0 = 0
+  val i1 = 1234567
+  print(s1)
