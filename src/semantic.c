@@ -21,9 +21,12 @@ bool types_compatible(DataType expected, DataType actual);
 
 static DataType check_expression(SemContext *ctx, ASTNode *expr);
 
+static bool is_numeric(DataType t);
+
+static DataType check_call(SemContext *ctx, ASTNode *call);
+
 void semantic_analyze (ASTNode *program);
 
-static bool is_numeric(DataType t);
 
 
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
@@ -170,6 +173,10 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             else if (!var->data.variable.is_mutable){
                 throw_fatal_error(7, "Assignment to val / parameter");
             }
+            DataType type = check_expression(ctx, stmt->data.assign.value);
+            if ((type != TYPE_UNKNOWN) && (var->data.variable.type != TYPE_UNKNOWN) && (!types_compatible(var->data.variable.type, type))){
+                throw_fatal_error(6, "Wrong type in assign");
+            }
             break;
         }
 
@@ -193,14 +200,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
         }
 
         case NODE_FUNCTION_CALL:{
-            TData *f = search(ctx->functions, stmt->data.function_call.name);
-            if (f == NULL){
-                throw_fatal_error(3, "Undefined function");
-            }
-            else if (f->data.function.param_count != stmt->data.function_call.arg_count){
-                throw_fatal_error(5, "Wrong number of arguments");
-            }
-            stmt->data.function_call.is_builtin = f->data.function.is_builtin;
+            check_call(ctx, stmt);
             break;
         }
 
@@ -210,10 +210,16 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             }  
             else if ((stmt->data.return_stmt.value == NULL) && (ctx->current_function->data.function_def.return_type != TYPE_UNIT)){
                 throw_fatal_error(6, "Wrong return type");
-            }  
+            } 
+            else if (stmt->data.return_stmt.value != NULL){
+                 DataType type = check_expression(ctx, stmt->data.return_stmt.value);
+                if ((ctx->current_function->data.function_def.return_type !=TYPE_UNIT) && (type != TYPE_UNKNOWN) && (!types_compatible(ctx->current_function->data.function_def.return_type, type))){
+                    throw_fatal_error(6, "Wrong type in return");
+                }
+            }
+           
             break;
         }
-
         default:
             break;
     }
@@ -365,6 +371,9 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
             }
             break;
         }
+        case NODE_FUNCTION_CALL:
+            result = check_call (ctx, expr);
+            break;
         default:
             break;
     }
@@ -379,6 +388,23 @@ static bool is_numeric(DataType t){
     return false;
 }
 
+static DataType check_call(SemContext *ctx, ASTNode *call){
+    TData *func = search(ctx->functions, call->data.function_call.name);
+    if (func == NULL){
+        throw_fatal_error(3, "Undefined function");
+    }
+    else if (func->data.function.param_count != call->data.function_call.arg_count){
+        throw_fatal_error(5, "Wrong count of parameters");
+    }    
+    for (size_t i = 0; i < call->data.function_call.arg_count; i++){
+        DataType type = check_expression(ctx, call->data.function_call.arguments[i]);
+        if ((type != TYPE_UNKNOWN) && (!types_compatible (func->data.function.param_types[i], type))){
+            throw_fatal_error(5, "Wrong argument type");
+        }
+    }
+    call->data.function_call.is_builtin = func->data.function.is_builtin;
+    return func->data.function.return_type;
+}
 
 
 void semantic_analyze (ASTNode *program){
