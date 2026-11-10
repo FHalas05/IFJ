@@ -3,6 +3,7 @@
 //
 
 #include "keywords.h"
+#include "library.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -25,9 +26,7 @@ static const KeyWordItem keywords[] = {
 
 Token get_token_for_KEYWORD_or_IDENT(DynamicString *string) {
     if (!strcmp(string->string, "_")) {  // using string->string here makes sense because control of it is not passed elsewhere
-        Token token = {NO_TOKEN_FOUND, NULL};
-        dyn_str_free(string);
-        return token;
+        throw_fatal_error(1, "HANDLER_identifiers/keywords.c - '_' is not a valid identifier");
     }
     for (size_t i = 0; i < KEYWORDS_COUNT; i++) {
         if (strcmp(string->string, keywords[i].keyword) == 0) {  // using string->string here makes sense because control of it is not passed elsewhere
