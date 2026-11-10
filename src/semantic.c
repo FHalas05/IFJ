@@ -7,6 +7,23 @@
 #include "symtable.h"
 #include "library.h"
 
+static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params);
+
+static void collect_functions(SemContext *ctx, ASTNode *program);
+
+static void check_block(SemContext *ctx, ASTNode *block);
+
+static void check_statement(SemContext *ctx, ASTNode *stmt);
+
+static void check_function(SemContext *ctx, ASTNode *func);
+
+bool types_compatible(DataType expected, DataType actual);
+
+static DataType check_expression(SemContext *ctx, ASTNode *expr);
+
+void semantic_analyse (ASTNode *program);
+
+
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
     DataType *types = NULL;
     if (param_count > 0){
@@ -97,8 +114,6 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
         }
 }
 
-static void check_statement(SemContext *ctx, ASTNode *stmt);
-
 static void check_block(SemContext *ctx, ASTNode *block){  
     ctx->current = create_scope (ctx->current);
     for (size_t i = 0; i < block->data.block.count; i++){
@@ -116,13 +131,27 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
     }
     switch (stmt->type){
         case NODE_DEF_VAR:{
+            DataType value_type = check_expression(ctx, stmt->data.def_var.value);
+            if (value_type == TYPE_BOOL){
+                throw_fatal_error(6, "Value cannot be true/false");
+            }
+            DataType var_type = stmt->data.def_var.type;
+            if (value_type != TYPE_UNKNOWN){
+                if (var_type == TYPE_UNKNOWN){
+                    var_type = value_type;
+                }
+                else if(!types_compatible(var_type, value_type)){
+                            throw_fatal_error(6,"value and var are not compatible");
+                }
+            }
+            
             char *name = stmt->data.def_var.name;
             if (search(ctx->current->symbols, name) != NULL){
                 throw_fatal_error(4, "VAL/VAR is out of range");
             }
             TData d = {0};
             d.kind = SYMBOL_VARIABLE;
-            d.data.variable.type = stmt->data.def_var.type;
+            d.data.variable.type = var_type;
             d.data.variable.is_mutable = stmt->data.def_var.var;
             d.data.variable.variable_id = ctx->next_var_id++;
 
@@ -213,6 +242,38 @@ bool types_compatible(DataType expected, DataType actual){
     return false;
 }
 
+static DataType check_expression(SemContext *ctx, ASTNode *expr){
+    if (expr == NULL){
+        return TYPE_UNIT;
+    }
+    DataType result = TYPE_UNKNOWN;
+    switch (expr->type){
+        case NODE_INT_LITERAL:
+            result = TYPE_INT;
+            break;
+        case NODE_DOUBLE_LITERAL:
+            result = TYPE_DOUBLE;
+            break;
+        case NODE_STRING_LITERAL:
+            result = TYPE_STRING;
+            break;  
+        case NODE_UNIT_LITERAL:
+            result = TYPE_UNIT;
+            break;
+        case NODE_IDENTIFIER:{
+            TData *var = search_scope(ctx->current, expr->data.identifier.name);
+            if (var == NULL){
+                throw_fatal_error(3, "Undefined variable");
+            }  
+            result = var->data.variable.type;
+            break;
+        }
+        default:
+            break;
+    }
+    expr->data_type = result;
+        return result;
+}
 
 void semantic_analyse (ASTNode *program){
     SemContext ctx = {0};
