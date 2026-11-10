@@ -25,6 +25,8 @@ static bool is_numeric(DataType t);
 
 static DataType check_call(SemContext *ctx, ASTNode *call);
 
+static DataType block_result(ASTNode *block);
+
 void semantic_analyze (ASTNode *program);
 
 
@@ -200,7 +202,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
         }
 
         case NODE_FUNCTION_CALL:{
-            check_call(ctx, stmt);
+            stmt ->data_type = check_call(ctx, stmt);
             break;
         }
 
@@ -221,6 +223,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             break;
         }
         default:
+            check_expression(ctx, stmt);
             break;
     }
 }
@@ -241,6 +244,28 @@ static void check_function(SemContext *ctx, ASTNode *func){
     ASTNode *body = func->data.function_def.body;
     for (size_t i = 0; i < body->data.block.count ; i++){
         check_statement(ctx, body->data.block.statements[i]);
+    }
+    ASTNode *last = NULL;
+    if (body->data.block.count > 0){
+        last = body->data.block.statements[body->data.block.count -1];
+    }
+    if ((last != NULL) && (last->type != NODE_RETURN) && (last->type != NODE_IF)){
+        DataType type = block_result (body);
+        DataType ret = func->data.function_def.return_type;
+        if (func->data.function_def.has_explicit_return_type){
+            if ((ret != TYPE_UNIT) && (type != TYPE_UNKNOWN) && (!types_compatible(ret, type))){
+                throw_fatal_error(6, "Implicit return value type mismatch");
+            }
+        }
+        else{
+            if (type == TYPE_BOOL){
+                throw_fatal_error(6, "Cannot return Boolean value");
+            }
+            else{
+                func->data.function_def.return_type = type;
+                search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
+            }
+        }
     }
     destroy_scope(ctx->current);
     ctx->current = NULL;
@@ -406,6 +431,18 @@ static DataType check_call(SemContext *ctx, ASTNode *call){
     return func->data.function.return_type;
 }
 
+static DataType block_result(ASTNode *block){
+    if (block->data.block.count == 0){
+        return TYPE_UNIT;
+    }
+    ASTNode *last = block->data.block.statements[block->data.block.count - 1];
+    if ((last->type == NODE_DEF_VAR) || (last->type == NODE_ASSIGN) || (last->type == NODE_WHILE)){
+        return TYPE_UNIT;
+    }
+    else{
+        return last->data_type;
+    }
+}
 
 void semantic_analyze (ASTNode *program){
     SemContext ctx = {0};
