@@ -78,6 +78,8 @@ typedef struct ASTNode{
             DataType return_type;
             bool has_explicit_return_type;
             bool is_main;
+            int check_state;
+            struct ASTNode *caller;
         } function_def;
 
         struct{

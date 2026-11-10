@@ -233,6 +233,10 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
 }
 
 static void check_function(SemContext *ctx, ASTNode *func){
+    Scope *saved_scope = ctx->current;
+    ASTNode *saved_func = ctx->current_function;
+    func->data.function_def.check_state = 1;
+    func->data.function_def.caller = saved_func;
     ctx->current_function = func;
     ctx->current = create_scope(NULL);
     
@@ -293,7 +297,9 @@ static void check_function(SemContext *ctx, ASTNode *func){
     }
 
     destroy_scope(ctx->current);
-    ctx->current = NULL;
+    func->data.function_def.check_state = 2;
+    ctx->current = saved_scope;
+    ctx->current_function = saved_func;
 }
 
 bool types_compatible(DataType expected, DataType actual){
@@ -453,6 +459,24 @@ static DataType check_call(SemContext *ctx, ASTNode *call){
         }
     }
     call->data.function_call.is_builtin = func->data.function.is_builtin;
+    if (!func->data.function.is_builtin){
+        ASTNode *def = func->data.function.definition_node;
+        if (def->data.function_def.check_state == 0){
+            check_function(ctx, def);
+        }
+        else if (def->data.function_def.check_state == 1){
+            ASTNode *a = ctx->current_function;
+            while(a != NULL){
+                if (!a->data.function_def.has_explicit_return_type){
+                    throw_fatal_error(6, "Recursive function must have explicit return type");
+                }
+                if (a == def){
+                    break;
+                }
+                a = a->data.function_def.caller;
+            }
+        }
+    }
     return func->data.function.return_type;
 }
 
@@ -499,7 +523,9 @@ void semantic_analyze (ASTNode *program){
     collect_functions(&ctx, program);
     for (size_t i = 0; i < program->data.program.count; i++){
         ASTNode *func = program->data.program.functions[i];
-        check_function(&ctx, func);
+        if (program->data.program.functions[i]->data.function_def.check_state == 0){
+            check_function(&ctx, func);
+        }
     }
     destroy_symtable(ctx.functions);
 }
