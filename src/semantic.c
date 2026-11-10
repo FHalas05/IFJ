@@ -23,6 +23,8 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr);
 
 void semantic_analyze (ASTNode *program);
 
+static bool is_numeric(DataType t);
+
 
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
     DataType *types = NULL;
@@ -269,12 +271,88 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
             result = var->data.variable.type;
             break;
         }
+        case NODE_BINOP:{
+            DataType a = check_expression(ctx, expr->data.bin_op.left);
+            DataType b = check_expression(ctx, expr->data.bin_op.right);
+            if ((a == TYPE_UNKNOWN) || (b == TYPE_UNKNOWN)){
+                result = TYPE_UNKNOWN;
+                break;
+            }
+            switch(expr->data.bin_op.operation){
+                case OP_ADD:
+                    if ((is_numeric(a)) && (is_numeric(b))){
+                        if ((a == TYPE_INT) && (b == TYPE_INT)){
+                            result = TYPE_INT;
+                        }
+                        else{
+                            result = TYPE_DOUBLE;
+                        }
+                    }
+                    else if((a == TYPE_STRING) && (b == TYPE_STRING)){
+                        result = TYPE_STRING;
+                    }
+                    else{
+                        throw_fatal_error(6, "Operator '+' requires two numbers or two strings");
+                    }
+                    break;
+                case OP_SUB:
+                case OP_MUL:
+                case OP_DIV:
+                    if ((is_numeric(a)) && (is_numeric(b))){
+                        if ((a == TYPE_INT) && (b == TYPE_INT)){
+                            result = TYPE_INT;
+                        }
+                        else{
+                            result = TYPE_DOUBLE;
+                        }
+                    }
+                    else{
+                        throw_fatal_error(6, "Arithmetic operator requires numeric operands");
+                    }
+                    break;
+                case OP_GR:
+                case OP_GR_EQ:
+                case OP_LESS:
+                case OP_LESS_EQ:
+                    if (((is_numeric(a)) && (is_numeric(b))) || ((a == TYPE_STRING) && (b == TYPE_STRING))){
+                        result = TYPE_BOOL;
+                    }
+                    else{
+                        throw_fatal_error(6, "Relational operator requires two numbers or two strings");
+                    }
+                    break;
+                case OP_EQ:
+                case OP_NOT_EQ:
+                    if ((is_numeric(a)) && (is_numeric(b))){
+                        result = TYPE_BOOL;
+                    }
+                    else if ((a == b) && (a != TYPE_BOOL)){
+                        result = TYPE_BOOL;
+                    }
+                    else{
+                        throw_fatal_error(6, "Equality operator requires compatible operands");
+                    }
+                    break;
+                default:
+                    break;
+            }
+            break;
+        }
         default:
             break;
     }
     expr->data_type = result;
         return result;
 }
+
+static bool is_numeric(DataType t){
+    if ((t == TYPE_INT ) || (t == TYPE_DOUBLE)){
+        return true;
+    }
+    return false;
+}
+
+
 
 void semantic_analyze (ASTNode *program){
     SemContext ctx = {0};
