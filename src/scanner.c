@@ -6,7 +6,6 @@
 #include "dynamic_string.h"
 #include "keywords.h"
 #include "library.h"
-#include "symtable.h"
 #include "token.h"
 
 #include <ctype.h>
@@ -32,12 +31,11 @@
  * This FSM handles tokens for division ('/') , one line comments and block comments
  *
  * @param file The program source file
- * @param sym_table The table of symbols of compiler
  * @param last_token_type The type of the last token passed to caller (parser)
  *
  * @return Token for '/' , one line comments and block comments
  */
-Token FSM_comments(FILE *file, SymTable *sym_table, TokenType last_token_type) {
+Token FSM_comments(FILE *file, TokenType last_token_type) {
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
 
     State state = F1;
@@ -152,11 +150,10 @@ Token FSM_comments(FILE *file, SymTable *sym_table, TokenType last_token_type) {
  * This FSM handles tokens for one-line string and multiple-line strings
  *
  * @param file The program source file
- * @param sym_table The symbols table of compiler
  *
  * @return Token for one-line string or multiple-line strings
  */
-Token FSM_strings(FILE *file, SymTable *sym_table) {
+Token FSM_strings(FILE *file) {
     typedef enum { F1, F2, F3, F4, F5, F6 } State;
 
     State state = F1;
@@ -271,12 +268,11 @@ Token FSM_strings(FILE *file, SymTable *sym_table) {
  * This FSM handles all numeral types and the dot operator
  *
  * @param file The program source file
- * @param sym_table The table of symbols of compiler
  * @param first_char The first char of the supposed numeral
  *
  * @return Token of numeral with its content
  */
-Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
+Token FSM_numerals(FILE *file, int first_char) {
     typedef enum { F1, F2, F3, F4, F5, F6, F7, F8, F9, F10 } State;
 
     State state = first_char == '.'
@@ -493,12 +489,11 @@ Token FSM_numerals(FILE *file, SymTable *sym_table, int first_char) {
  * Handles storing the identifier a check whether it is a keyword
  *
  * @param file The program source file
- * @param sym_table The symbols table of compiler
  * @param first_char The first character of identifier or keyword
  *
  * @return Token for either identifier or keyword
  */
-Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
+Token HANDLER_identifiers(FILE *file, int first_char) {
     int c;
     DynamicString *id = dyn_str_init();
     dyn_str_add(id, first_char);
@@ -518,11 +513,10 @@ Token HANDLER_identifiers(FILE *file, SymTable *sym_table, int first_char) {
  * @brief Handler for the (at)main annotation
  *
  * @param file The program source file
- * @param sym_table The symbols table of compiler
  *
  * @return Token of type T_AT_MAIN
  */
-Token HANDLER_main(FILE *file, SymTable *sym_table) {
+Token HANDLER_main(FILE *file) {
     // compare to "main"
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
@@ -544,12 +538,11 @@ Token HANDLER_main(FILE *file, SymTable *sym_table) {
  * Handles identifying operators and returning the correct Token
  *
  * @param file The program source file
- * @param sym_table The symbols table of compiler
  * @param first_char The first character of the operator
  *
  * @return Token for the operator
  */
-Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
+Token HANDLER_operators(FILE *file, int first_char) {
     int second_char = fgetc(file);
     Token token = {NO_TOKEN_FOUND, NULL};
 
@@ -625,13 +618,12 @@ Token HANDLER_operators(FILE *file, SymTable *sym_table, int first_char) {
 /**
  * @brief Handler for other/special tokens
  *
- * @param sym_table The symbols table of compiler
  * @param last_token_type The type of the last token passed to caller (parser)
  * @param special_c The special character
  *
  * @return Token for the matched lexeme
  */
-Token HANDLER_special(SymTable *sym_table, TokenType last_token_type, int special_c) {
+Token HANDLER_special(TokenType last_token_type, int special_c) {
     Token token = {NO_TOKEN_FOUND, NULL};
     switch (special_c) {
     case ';':
@@ -668,15 +660,25 @@ Token HANDLER_special(SymTable *sym_table, TokenType last_token_type, int specia
  * Handles removing unneeded whitespace and determines the indentation level after a NEWLINE
  *
  * @param file The program source file
- * @param sym_table The symbols table of compiler
  * @param last_token_type The type of the last token passed to caller (parser)
  * @param c The supposed whitespace char
  *
  * @return Token of type T_INDENT with indent level, or of type NO_TOKEN_FOUND for discarded
  * whitespace
  */
-Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_type, int c) {
+Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
     Token token = {NO_TOKEN_FOUND, NULL};
+
+    if (c == '\r') {
+        return token;  // just always discard
+    }
+
+    if (c == '\t' && last_token_type == T_NEWLINE) { // if the line starts with a tab
+        while (string_contains(" \t\r\v\f\r", c)){c = fgetc(file);} // skip all whitespace if the line starts with a tab - to find out whether it is empty
+        if (c == EOF) {token.type = T_EOF; return token;}
+        if (c != '\n') {throw_lexical_error("HANDLER_whitespace - tab at the start if an unempty line");}
+        else {return token;}  // discarding line if it starts with tab and is empty
+    }
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
         int spaces = 1;
@@ -694,7 +696,7 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
         token.type = T_INDENT;
         token_set_indent_count(&token, spaces);
     } else if (last_token_type == T_NEWLINE) { // no non-space whitespace is allowed after a newline
-        throw_lexical_error("Disallowed whitespace after newline - (probably a tab)");
+        throw_lexical_error("HANDLER_whitespace - Disallowed whitespace after newline - (probably a tab)");
     }
 
     return token;
@@ -710,54 +712,54 @@ Token HANDLER_whitespace(FILE *file, SymTable *sym_table, TokenType last_token_t
  * i.e. free(token.data)
  *
  * @param file The program source file
- * @param sym_table The table of symbols of compiler
- * @param last_token_type The type of the last token this function has returned (The initial one
- * should be T_NEWLINE)
  *
  * @return Matched token
  */
-Token scanner(FILE *file, SymTable *sym_table, TokenType last_token_type) {
+Token scanner(FILE *file) {
     int c;
-    while ((c = fgetc(file)) != EOF) {
-        if (string_contains(ENTRY_COMMENTS, c)) {
-            Token token;
-            if ((token = FSM_comments(file, sym_table, last_token_type)).type == NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
 
-        if (string_contains(ENTRY_STRINGS, c))
-            return FSM_strings(file, sym_table);
+    static TokenType last_token_type = T_NEWLINE;
 
-        if (string_contains(ENTRY_NUMERALS, c))
-            return FSM_numerals(file, sym_table, c);
-
-        if (string_contains(ENTRY_MAIN, c))
-            return HANDLER_main(file, sym_table);
-
-        if (string_contains(ENTRY_OPERATORS, c))
-            return HANDLER_operators(file, sym_table, c);
-
-        if (string_contains(ENTRY_SPECIAL, c)) {
-            Token token;
-            if ((token = HANDLER_special(sym_table, last_token_type, c)).type == NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
-
-        if (string_contains(ENTRY_WHITESPACE, c)) {
-            Token token;
-            if ((token = HANDLER_whitespace(file, sym_table, last_token_type, c)).type ==
-                NO_TOKEN_FOUND)
-                continue;
-            return token;
-        }
-        if (string_contains(ENTRY_IDENTIFIERS, c))
-            return HANDLER_identifiers(file, sym_table, c);
-
-        fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
-        throw_lexical_error("scanner() - newest char does not match any token type");
-    }
     Token token = {T_EOF, NULL};
+
+    while ((c = fgetc(file)) != EOF) {
+        if (string_contains(ENTRY_COMMENTS, c))
+            token = FSM_comments(file, last_token_type);
+
+        else if (string_contains(ENTRY_STRINGS, c))
+            token = FSM_strings(file);
+
+        else if (string_contains(ENTRY_NUMERALS, c))
+            token = FSM_numerals(file, c);
+
+        else if (string_contains(ENTRY_MAIN, c))
+            token = HANDLER_main(file);
+
+        else if (string_contains(ENTRY_OPERATORS, c))
+            token = HANDLER_operators(file, c);
+
+        else if (string_contains(ENTRY_SPECIAL, c))
+            token = HANDLER_special(last_token_type, c);
+
+        else if (string_contains(ENTRY_WHITESPACE, c))
+            token = HANDLER_whitespace(file, last_token_type, c);
+
+        else if (string_contains(ENTRY_IDENTIFIERS, c))
+            token = HANDLER_identifiers(file, c);
+
+        else {
+            fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
+            throw_lexical_error("scanner() - newest char does not match any token type");
+        }
+
+
+        if (token.type == NO_TOKEN_FOUND)
+            continue;
+
+        last_token_type = token.type;
+        return token;
+    }
+
+    token.type = T_EOF;
     return token;
 }

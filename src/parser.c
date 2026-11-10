@@ -32,7 +32,7 @@ static Token make_token(TokenType type) { Token t = {type, NULL}; return t; }
 
 static Token raw_scan(Parser *p) {
     if (has_la) { has_la = false; return la; }
-    Token t = scanner(p->src, p->symtab, p->last_scanned);
+    Token t = scanner(p->src);
     p->last_scanned = t.type;
     return t;
 }
