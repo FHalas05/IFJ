@@ -2,8 +2,11 @@
 // Created by Šimon on 3/11/2026
 //
 #include "ast.h"
+#include "dynamic_string.h"
 #include <stdio.h>
 #include <string.h>
+// Maximum number of characters in a number
+#define INT_CHAR_COUNT 21
 
 /**
  * @brief Prints formatted line of code for zero-operand instructions
@@ -47,25 +50,58 @@ static void print_formatted_3(const char *instruction, const char *op1, const ch
 }
 
 /**
- * @brief Formats label for printing
+ * @brief Formats function label for printing
  *
- * @param fun_name name of the function from AST
  * @param label formatted label ($<fun_name>)
- * @param label_size size of the ouput buffer
+ * @param fun_name name of the function from AST
  */
-static void label_formatter(const char *fun_name, char *label, size_t label_size) {
-    snprintf(label, label_size, "$%s", fun_name);
+static void fun_label_formatter(DynamicString *label, const char *fun_name) {
+    dyn_str_add(label, '$');
+    dyn_str_add_string(label, fun_name);
+}
+
+/**
+ * @brief Formats condition label for printing
+ * 
+ * @param label formatted label ($<label_count>$<node_type>$<label_type>)
+ * @param cond_type type of condition if/while
+ * @param label_count dynamic number of labels in a program
+ * @param label_type purpose specifying suffix
+ */
+static void cond_label_formatter(DynamicString *label, NodeType cond_type, size_t label_count, const char *label_type) {
+    char label_count_buffer[INT_CHAR_COUNT];
+    snprintf(label_count_buffer, sizeof(label_count_buffer),"%zu", label_count);
+    dyn_str_add(label, '$');
+    dyn_str_add_string(label, label_count_buffer);
+    dyn_str_add(label, '$');
+    if (cond_type == NODE_IF) {
+        dyn_str_add_string(label, "if");
+        dyn_str_add(label, '$');
+        dyn_str_add_string(label, label_type);
+    } else {
+        dyn_str_add_string(label, "while");
+    }
 }
 
 /**
  * @brief Formats variable for printing
  *
- * @param var_name name of the function from AST
  * @param variable formatted variable (LF@<var_name>)
- * @param var_size size of the ouput buffer
+ * @param var_name name of the function from AST
  */
-static void variable_formatter(const char *var_name, char *variable, size_t var_size) {
-    snprintf(variable, var_size, "LF@%s", var_name);
+static void variable_formatter(DynamicString *variable, const char *var_name) {
+    dyn_str_add_string(variable, "LF@");
+    dyn_str_add_string(variable, var_name);
+}
+
+/**
+ * @brief calculates the label counter within the program
+ * 
+ * @return current number of labels
+ */
+static size_t label_counter(void) {
+    static size_t label_count = 1;
+    return label_count++;
 }
 
 /**
@@ -87,9 +123,9 @@ static void var_seeker(ASTNode *body) {
         }
         break;
     case NODE_DEF_VAR: {
-        char variable[128];
-        variable_formatter(body->data.def_var.name, variable, sizeof(variable));
-        print_formatted_1("DEFVAR", variable);
+        DynamicString *variable = dyn_str_init();
+        variable_formatter(variable, body->data.def_var.name);
+        print_formatted_1("DEFVAR", variable->string);
         break;
     }
     case NODE_IF:
@@ -179,9 +215,10 @@ static void instruction_gen(ASTNode *body) {
         for (size_t i = body->data.function_call.arg_count; i > 0; i--) {
             instruction_gen(body->data.function_call.arguments[i - 1]);
         }
-        char label[128];
-        label_formatter(body->data.function_call.name, label, sizeof(label));
-        print_formatted_1("CALL", label);
+        DynamicString *label = dyn_str_init();
+        fun_label_formatter(label, body->data.function_call.name);
+        print_formatted_1("CALL", label->string);
+        dyn_str_free(label);
         break;
     }
     case NODE_BINOP:
@@ -189,7 +226,38 @@ static void instruction_gen(ASTNode *body) {
         instruction_gen(body->data.bin_op.right);
         operation_formatter(body->data.bin_op.operation);
         break;
-    default:
+    case NODE_ASSIGN: {
+        instruction_gen(body->data.assign.value);
+        DynamicString *variable = dyn_str_init();
+        variable_formatter(variable, body->data.assign.name);
+        print_formatted_1("POPS", variable);
+        break;
+    }
+    case NODE_RETURN:
+        if (body->data.return_stmt.value != NULL) {
+            instruction_gen(body->data.return_stmt.value);
+        }
+        print_formatted_0("POPFRAME");
+        print_formatted_0("RETURN");
+        break;
+    case NODE_IF: 
+        instruction_gen(body->data.if_stmt.condition);
+        DynamicString *label = dyn_str_init();
+        size_t label_count = label_counter();
+        cond_label_formatter(label, NODE_IF, label_count, "else");
+        print_formatted_1("PUSHS", "bool@false");
+        print_formatted_1("JUMPIFEQS", label->string);
+        instruction_gen(body->data.if_stmt.then_block);
+        DynamicString *label_end = dyn_str_init();
+        cond_label_formatter(label_end, NODE_IF,label_count, "end");
+        print_formatted_1("JUMP", label_end->string);
+        print_formatted_1("LABEL", label->string);
+        dyn_str_free(label);
+        if (body->data.if_stmt.else_block != NULL) {
+            instruction_gen(body->data.if_stmt.else_block);
+        }
+        print_formatted_1("LABEL", label_end->string);
+        dyn_str_free(label_end);
         break;
     }
 }
@@ -202,33 +270,36 @@ int generator(ASTNode *ast) {
         ASTNode *cur_fun = ast->data.program.functions[i];
         if (cur_fun->data.function_def.is_main) {
             main_found = true;
-            char label[128];
-            label_formatter(cur_fun->data.function_def.name, label, sizeof(label));
-            print_formatted_1("JUMP", label);
+            DynamicString *label = dyn_str_init(); 
+            fun_label_formatter(label, cur_fun->data.function_def.name);
+            print_formatted_1("JUMP", label->string);
+            dyn_str_free(label);
             break;
         }
     }
     // main loop for generating. one cycle for one function
     for (size_t i = 0; i < ast->data.program.count; i++) {
         ASTNode *cur_fun = ast->data.program.functions[i];
-        char label[128];
-        label_formatter(cur_fun->data.function_def.name, label, sizeof(label));
-        print_formatted_1("LABEL", label);
+        DynamicString *label = dyn_str_init();
+        fun_label_formatter(label, cur_fun->data.function_def.name);
+        print_formatted_1("LABEL", label->string);
         print_formatted_0("CREATEFRAME");
         print_formatted_0("PUSHFRAME");
-        // defines variables and fills then with values, for every parameter
-        for (size_t i = 0; i < cur_fun->data.function_def.param_count; i++) {
-            ASTNode *param = cur_fun->data.function_def.parameters[i];
-            char variable[128];
-            variable_formatter(param->data.param.name, variable, sizeof(variable));
-            print_formatted_1("DEFVAR", variable);
-            print_formatted_1("POPS", variable);
+        //defines variables and fills then with values, for every parameter
+        for (size_t x = 0; i < cur_fun->data.function_def.param_count; x++) {
+            ASTNode *param = cur_fun->data.function_def.parameters[x];
+            DynamicString *variable = dyn_str_init();
+            variable_formatter(variable, param->data.param.name);
+            print_formatted_1("DEFVAR", variable->string);
+            print_formatted_1("POPS", variable->string);
+            dyn_str_free(variable);
         }
         ASTNode *body = cur_fun->data.function_def.body;
         var_seeker(body);
         instruction_gen(body);
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
+        dyn_str_free(label);
     }
     return 0;
 }
