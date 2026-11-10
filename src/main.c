@@ -5,7 +5,9 @@
 
 int main(void) {
     ASTNode * program = parse_program(stdin, NULL);
-    semantic_analyse(program);  
+    semantic_analyze(program);
+
+    free_ast(program);
 
     return 0;
 }

@@ -23,7 +23,7 @@ typedef enum{
     NODE_FUNCTION_DEF,           //function definition
     NODE_FUNCTION_CALL,          //call function
     NODE_DEF_VAR,                //definition - val, var
-    NODE_BINOP,                  //binnary operation
+    NODE_BINOP,                  //binary operation
     NODE_UNOP,                   //unary operation
     NODE_IF,                     //if cycle
     NODE_WHILE,                  //while_cycle

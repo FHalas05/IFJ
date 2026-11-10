@@ -22,7 +22,7 @@ static void syntax_error(const char *msg) {
 #define MAX_INDENT 256
 static int  indent_stack[MAX_INDENT] = {0};
 static int  indent_top = 0;
-static int  pending_dedents = 0;
+static int  pending_dedent = 0;
 static bool line_start = true;
 static bool eof_newline_done = false;
 static Token la;
@@ -38,7 +38,7 @@ static Token raw_scan(Parser *p) {
 }
 
 static Token next_token(Parser *p) {
-    if (pending_dedents > 0) { pending_dedents--; return make_token(T_DEDENT); }
+    if (pending_dedent > 0) { pending_dedent--; return make_token(T_DEDENT); }
     Token t = raw_scan(p);
     if (!line_start) {
         if (t.type == T_NEWLINE) {
@@ -62,7 +62,7 @@ static Token next_token(Parser *p) {
         indent_stack[++indent_top] = level;
         return make_token(T_INDENT);
     }
-    while (level < indent_stack[indent_top]) { indent_top--; pending_dedents++; }
+    while (level < indent_stack[indent_top]) { indent_top--; pending_dedent++; }
     if (level != indent_stack[indent_top]) syntax_error("inconsistent indentation");
     return next_token(p);
 }
@@ -352,9 +352,7 @@ ASTNode *parse_function_body(Parser *p){
         case T_OP_MINUS:
         case T_PAR_L:{
             ASTNode *block = create_node(NODE_BLOCK);
-            ASTNode *ret = create_node(NODE_RETURN);
-            ret->data.return_stmt.value = parse_expression(p, EXPR_STATEMENT);
-            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, ret);
+            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
             expect(p, T_NEWLINE, "function body: expected newline after expression");
             return block;
         }    

@@ -21,7 +21,7 @@ bool types_compatible(DataType expected, DataType actual);
 
 static DataType check_expression(SemContext *ctx, ASTNode *expr);
 
-void semantic_analyse (ASTNode *program);
+void semantic_analyze (ASTNode *program);
 
 
 static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_t param_count, DataType *params){
@@ -275,7 +275,7 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
         return result;
 }
 
-void semantic_analyse (ASTNode *program){
+void semantic_analyze (ASTNode *program){
     SemContext ctx = {0};
     collect_functions(&ctx, program);
     for (size_t i = 0; i < program->data.program.count; i++){
