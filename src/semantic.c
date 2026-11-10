@@ -189,6 +189,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             else if (f->data.function.param_count != stmt->data.function_call.arg_count){
                 throw_fatal_error(5, "Wrong number of arguments");
             }
+            stmt->data.function_call.is_builtin = f->data.function.is_builtin;
             break;
         }
         case NODE_RETURN:{

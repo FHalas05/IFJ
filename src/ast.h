@@ -85,6 +85,7 @@ typedef struct ASTNode{
             size_t arg_count;
             size_t arg_capacity;
             struct ASTNode **arguments;
+            bool is_builtin;
         } function_call;
 
         struct{
