@@ -335,6 +335,26 @@ static void instruction_gen(ASTNode *body) {
         break;
     }
 }
+/**
+ * @brief outputs body of builtin function print()
+ */
+void buildin_print() {
+    print_formatted_1("LABEL", "$print");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@var");
+    print_formatted_1("POPS", "LF@var");
+    print_formatted_1("DEFVAR", "LF@isnil");
+    print_formatted_2("TYPE", "LF@isnil",  "LF@var");
+    print_formatted_3("JUMPIFEQ", "$nil", "string@nil", "LF@isnil");
+    print_formatted_1("WRITE", "LF@var");
+    print_formatted_1("JUMP", "$end");
+    print_formatted_1("LABEL", "$nil");
+    print_formatted_1("WRITE", "string@()");
+    print_formatted_1("LABEL", "$end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
 
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
@@ -374,6 +394,7 @@ int generator(ASTNode *ast) {
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
         dyn_str_free(label);
+        buildin_print();
     }
     return 0;
 }
