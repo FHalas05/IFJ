@@ -338,7 +338,7 @@ static void instruction_gen(ASTNode *body) {
 /**
  * @brief outputs body of builtin function print()
  */
-void buildin_print() {
+void builtin_print() {
     print_formatted_1("LABEL", "$print");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -346,12 +346,23 @@ void buildin_print() {
     print_formatted_1("POPS", "LF@var");
     print_formatted_1("DEFVAR", "LF@isnil");
     print_formatted_2("TYPE", "LF@isnil",  "LF@var");
-    print_formatted_3("JUMPIFEQ", "$nil", "string@nil", "LF@isnil");
+    print_formatted_3("JUMPIFEQ", "$print_nil", "string@nil", "LF@isnil");
     print_formatted_1("WRITE", "LF@var");
-    print_formatted_1("JUMP", "$end");
-    print_formatted_1("LABEL", "$nil");
+    print_formatted_1("JUMP", "$print_end");
+    print_formatted_1("LABEL", "$print_nil");
     print_formatted_1("WRITE", "string@()");
-    print_formatted_1("LABEL", "$end");
+    print_formatted_1("LABEL", "$print_end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
+void builtin_readline() {
+    print_formatted_1("LABEL", "$readline");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@read_string");
+    print_formatted_2("READ", "LF@read_string", "string");
+    print_formatted_1("PUSHS", "LF@read_string");
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
 }
