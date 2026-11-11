@@ -521,8 +521,10 @@ Token HANDLER_main(FILE *file) {
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
         int c = fgetc(file);
-        if (string_contains(" \t\n\v\f\r", c)) {
-            ungetc(c, file);
+        if(c == EOF || c == '/' || string_contains(" \t\n\v\f\r", c)) {
+            if(c != EOF) {
+                ungetc(c, file);
+            }
             Token token = {T_AT_MAIN, NULL};
             return token;
         }
