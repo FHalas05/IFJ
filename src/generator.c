@@ -76,11 +76,11 @@ static void cond_label_formatter(DynamicString *label, NodeType cond_type, size_
     dyn_str_add(label, '$');
     if (cond_type == NODE_IF) {
         dyn_str_add_string(label, "if");
-        dyn_str_add(label, '$');
-        dyn_str_add_string(label, label_type);
     } else {
         dyn_str_add_string(label, "while");
     }
+    dyn_str_add(label, '$');
+    dyn_str_add_string(label, label_type);
 }
 
 /**
@@ -126,6 +126,7 @@ static void var_seeker(ASTNode *body) {
         DynamicString *variable = dyn_str_init();
         variable_formatter(variable, body->data.def_var.name);
         print_formatted_1("DEFVAR", variable->string);
+        dyn_str_free(variable);
         break;
     }
     case NODE_IF:
@@ -230,7 +231,8 @@ static void instruction_gen(ASTNode *body) {
         instruction_gen(body->data.assign.value);
         DynamicString *variable = dyn_str_init();
         variable_formatter(variable, body->data.assign.name);
-        print_formatted_1("POPS", variable);
+        print_formatted_1("POPS", variable->string);
+        dyn_str_free(variable);
         break;
     }
     case NODE_RETURN:
@@ -240,7 +242,7 @@ static void instruction_gen(ASTNode *body) {
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
         break;
-    case NODE_IF: 
+    case NODE_IF: {
         instruction_gen(body->data.if_stmt.condition);
         DynamicString *label = dyn_str_init();
         size_t label_count = label_counter();
@@ -259,6 +261,24 @@ static void instruction_gen(ASTNode *body) {
         print_formatted_1("LABEL", label_end->string);
         dyn_str_free(label_end);
         break;
+    }
+    case NODE_WHILE: {
+        DynamicString *label_start = dyn_str_init();
+        size_t label_count = label_counter();
+        cond_label_formatter(label_start, NODE_WHILE, label_count, "start");
+        print_formatted_1("LABEL", label_start->string);
+        instruction_gen(body->data.while_loop.condition);
+        print_formatted_1("PUSHS", "bool@false");
+        DynamicString *label_end = dyn_str_init();
+        cond_label_formatter(label_end, NODE_WHILE, label_count, "end");
+        print_formatted_1("JUMPIFEQS", label_end->string);
+        instruction_gen(body->data.while_loop.body);
+        print_formatted_1("JUMP", label_start->string);
+        print_formatted_1("LABEL", label_end->string);
+        dyn_str_free(label_start);
+        dyn_str_free(label_end);
+        break;
+    }                                                                                                                                                                                                                                           
     }
 }
 
@@ -286,7 +306,7 @@ int generator(ASTNode *ast) {
         print_formatted_0("CREATEFRAME");
         print_formatted_0("PUSHFRAME");
         //defines variables and fills then with values, for every parameter
-        for (size_t x = 0; i < cur_fun->data.function_def.param_count; x++) {
+        for (size_t x = 0; x < cur_fun->data.function_def.param_count; x++) {
             ASTNode *param = cur_fun->data.function_def.parameters[x];
             DynamicString *variable = dyn_str_init();
             variable_formatter(variable, param->data.param.name);
