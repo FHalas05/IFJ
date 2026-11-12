@@ -99,6 +99,12 @@ static void variable_formatter(DynamicString *variable, const char *var_name) {
     dyn_str_add_string(variable, var_name);
 }
 
+/**
+ * @brief formats string for printing
+ * 
+ * @param final_string formatted string (string@<string_lit_value)
+ * @param string_lit_value string value from AST
+ */
 static void string_formatter(DynamicString *final_string, const char *string_lit_value) {
     dyn_str_add_string(final_string, "string@");
     for (size_t i = 0; string_lit_value[i] != '\0'; i++) {
@@ -356,6 +362,9 @@ void builtin_print() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of builtin function readLine()
+ */
 void builtin_readline() {
     print_formatted_1("LABEL", "$readLine");
     print_formatted_0("CREATEFRAME");
@@ -374,6 +383,9 @@ void builtin_readline() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of builtin function readInt()
+ */
 void builtin_readint() {
     print_formatted_1("LABEL", "$readInt");
     print_formatted_0("CREATEFRAME");
@@ -392,6 +404,9 @@ void builtin_readint() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of builtin function readDouble()
+ */
 void builtin_readdouble() {
     print_formatted_1("LABEL", "$readDouble");
     print_formatted_0("CREATEFRAME");
@@ -449,6 +464,9 @@ int generator(ASTNode *ast) {
         print_formatted_0("RETURN");
         dyn_str_free(label);
         buildin_print();
+        builtin_readline();
+        builtin_readint();
+        builtin_readdouble();
     }
     return 0;
 }
