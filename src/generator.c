@@ -392,6 +392,24 @@ void builtin_readint() {
     print_formatted_0("RETURN");
 }
 
+void builtin_readdouble() {
+    print_formatted_1("LABEL", "$readDouble");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@read_double");
+    print_formatted_1("DEFVAR", "LF@isnil");
+    print_formatted_2("READ", "LF@read_double", "double");
+    print_formatted_2("TYPE", "LF@isnil", "LF@read_double");
+    print_formatted_3("JUMPIFEQ", "$read_double_nil", "string@nil", "LF@isnil");
+    print_formatted_1("PUSHS", "LF@read_double");
+    print_formatted_1("JUMP", "$read_double_end");
+    print_formatted_1("LABEL", "$read_double_nil");
+    print_formatted_1("PUSHS", "float@0x0p+0");
+    print_formatted_1("LABEL", "$read_double_end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
     bool main_found = false;
