@@ -357,12 +357,37 @@ void builtin_print() {
 }
 
 void builtin_readline() {
-    print_formatted_1("LABEL", "$readline");
+    print_formatted_1("LABEL", "$readLine");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
     print_formatted_1("DEFVAR", "LF@read_string");
+    print_formatted_1("DEFVAR", "LF@isnil");
     print_formatted_2("READ", "LF@read_string", "string");
+    print_formatted_2("TYPE", "LF@isnil", "LF@read_string");
+    print_formatted_3("JUMPIFEQ", "$read_string_nil", "string@nil", "LF@isnil");
     print_formatted_1("PUSHS", "LF@read_string");
+    print_formatted_1("JUMP", "$read_string_end");
+    print_formatted_1("LABEL", "$read_string_nil");
+    print_formatted_1("PUSHS", "string@");
+    print_formatted_1("LABEL", "$read_string_end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
+void builtin_readint() {
+    print_formatted_1("LABEL", "$readInt");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@read_int");
+    print_formatted_1("DEFVAR", "LF@isnil");
+    print_formatted_2("READ", "LF@read_int", "int");
+    print_formatted_2("TYPE", "LF@isnil", "LF@read_int");
+    print_formatted_3("JUMPIFEQ", "$read_int_nil", "string@nil", "LF@isnil");
+    print_formatted_1("PUSHS", "LF@read_int");
+    print_formatted_1("JUMP", "$read_int_end");
+    print_formatted_1("LABEL", "$read_int_nil");
+    print_formatted_1("PUSHS", "int@0");
+    print_formatted_1("LABEL", "$read_int_end");
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
 }
