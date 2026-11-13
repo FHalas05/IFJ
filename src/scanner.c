@@ -564,7 +564,7 @@ Token HANDLER_operators(FILE *file, int first_char) {
             token.type = T_OP_NOT_EQ;
         else {
             ungetc(second_char, file);
-            token.type = T_OP_BIN_NOT;
+            token.type = T_OP_NOT;
         }
         return token;
     case '>':
