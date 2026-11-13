@@ -425,6 +425,46 @@ void builtin_readdouble() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of builtin function toStr()
+ */
+void builtin_tostr() {
+    print_formatted_1("LABEL", "$toStr");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@value");
+    print_formatted_1("POPS", "LF@value");
+    print_formatted_1("DEFVAR", "LF@type_check");
+    print_formatted_1("DEFVAR", "LF@fin_string");
+    print_formatted_2("TYPE", "LF@type_check", "LF@value");
+    print_formatted_3("JUMPIFEQ", "$tostr_int","string@int", "LF@type_check");
+    print_formatted_3("JUMPIFEQ", "$tostr_float", "string@float", "LF@type_check");
+    print_formatted_3("JUMPIFEQ", "$tostr_bool", "string@bool", "LF@type_check");
+    print_formatted_3("JUMPIFEQ", "$tostr_nil", "string@nil", "LF@type_check");
+    print_formatted_2("MOVE", "LF@fin_string", "LF@value");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_int"); // int
+    print_formatted_2("INT2STR", "LF@fin_string", "LF@value");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_float"); // float
+    print_formatted_2("FLOAT2STR", "LF@fin_string", "LF@value");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_bool"); // bool
+    print_formatted_3("JUMPIFEQ", "$tostr_false", "bool@false", "LF@value");
+    print_formatted_2("MOVE", "LF@fin_string", "string@true");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_false");
+    print_formatted_2("MOVE", "LF@fin_string", "string@false");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_nil"); // nil
+    print_formatted_2("MOVE", "LF@fin_string", "string@()");
+    print_formatted_1("JUMP", "$tostr_end");
+    print_formatted_1("LABEL", "$tostr_end");
+    print_formatted_1("PUSHS", "LF@fin_string");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
     bool main_found = false;
