@@ -15,6 +15,7 @@ typedef enum {
     T_NEWLINE,
     T_AT_MAIN,
     T_INDENT,
+    T_DEDENT,
 
     T_INT,
     T_DOUBLE,

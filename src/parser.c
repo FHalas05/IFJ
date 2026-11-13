@@ -9,47 +9,82 @@
 #include "parser.h"
 #include "ast.h"
 #include "expression_parser.h"
-#include "expression_stack.h"
-
-#define T_DEDENT ((TokenType)(T_EOF + 1))
 
 static void syntax_error(const char *msg) {
     fprintf(stderr, "Syntax error: %s\n", msg);
     exit(2);
 }
 
+static void init_parser(Parser *p, FILE *file, SymTable *table) {
+    p->src = file;
+    p->symtab = table;
+    p->has_peek = false;
+    p->has_pending_token = false;
+    p->indent_capacity = 16;
+    p->indent_count = 0;
+    p->pending_dedent = 0;
+    p->line_start = true;
+    p->eof_newline_done = false;
+    p->paren_depth = 0;
+    p->logical_indent = 0;
+    p->pending_lf = false;
 
-#define MAX_INDENT 256
-static int  indent_stack[MAX_INDENT] = {0};
-static int  indent_top = 0;
-static int  pending_dedent = 0;
-static bool line_start = true;
-static bool eof_newline_done = false;
-static Token la;
-static bool  has_la = false;
+    p->indent_stack = (int *)malloc(p->indent_capacity * sizeof(int));
+    if(p->indent_stack == NULL) {
+        throw_fatal_error(99, "Could not allocate memory!");
+    }
 
-static Token make_token(TokenType type) { Token t = {type, NULL}; return t; }
+    p->indent_stack[p->indent_count++] = 0;
+}
+
+static void push_indent(Parser *p, int level) {
+    if(p->indent_count == p->indent_capacity) {
+        size_t new_capacity = p->indent_capacity * 2;
+        int *new_stack = realloc(p->indent_stack, new_capacity * sizeof(int));
+        if(new_stack == NULL) {
+            throw_fatal_error(99, "Could not allocate memory!");
+        }
+        p->indent_stack = new_stack;
+        p->indent_capacity = new_capacity;
+    }
+
+    p->indent_stack[p->indent_count++] = level;
+}
+
+static Token make_token(TokenType type) { 
+    Token t = {type, NULL}; 
+    return t; 
+}
 
 static Token raw_scan(Parser *p) {
-    if (has_la) { has_la = false; return la; }
+    if (p->has_pending_token) { 
+        p->has_pending_token = false;
+        return p->pending_token; 
+    }
     Token t = scanner(p->src);
     return t;
 }
 
 static Token next_token(Parser *p) {
-    if (pending_dedent > 0) { pending_dedent--; return make_token(T_DEDENT); }
+    if (p->pending_dedent > 0) { 
+        p->pending_dedent--; 
+        return make_token(T_DEDENT); 
+    }
     Token t = raw_scan(p);
 
-    if (!line_start) {
+    if (!p->line_start) {
         if (t.type == T_NEWLINE) {
-            line_start = true;
+            p->line_start = true;
 
             if(p->paren_depth > 0) {
                 p->pending_lf = true;
                 return next_token(p);
             }
-        } else if (t.type == T_EOF && !eof_newline_done) {
-            eof_newline_done = true; la = t; has_la = true; line_start = true;
+        } else if (t.type == T_EOF && !p->eof_newline_done) {
+            p->eof_newline_done = true; 
+            p->pending_token = t; 
+            p->has_pending_token = true; 
+            p->line_start = true;
             return make_token(T_NEWLINE);
         }
 
@@ -79,9 +114,9 @@ static Token next_token(Parser *p) {
 
     if (p->paren_depth > 0) {
         if(level > p->logical_indent) {
-            line_start = false;
-            la = t;
-            has_la = true;
+            p->line_start = false;
+            p->pending_token = t;
+            p->has_pending_token = true;
             return next_token(p);
         }
         throw_fatal_error(2, "Wrong indentation inside brackets!");
@@ -95,15 +130,29 @@ static Token next_token(Parser *p) {
 
     p->logical_indent = level;
 
-    if (t.type == T_EOF) { level = 0; eof_newline_done = true; }
-    line_start = false; la = t; has_la = true;
-    if (level > indent_stack[indent_top]) {
-        if (indent_top + 1 >= MAX_INDENT) exit(99);
-        indent_stack[++indent_top] = level;
+    if (t.type == T_EOF) { 
+        level = 0; 
+        p->eof_newline_done = true; 
+    }
+
+    p->line_start = false; 
+    p->pending_token = t; 
+    p->has_pending_token = true;
+
+    if (level > p->indent_stack[p->indent_count - 1]) {
+        push_indent(p, level);
         return make_token(T_INDENT);
     }
-    while (level < indent_stack[indent_top]) { indent_top--; pending_dedent++; }
-    if (level != indent_stack[indent_top]) syntax_error("inconsistent indentation");
+
+    // Keep the base indentation 0 on the stack when removing levels
+    while (p->indent_count > 1 && level < p->indent_stack[p->indent_count - 1]) { 
+        p->indent_count--; 
+        p->pending_dedent++; 
+    }
+
+    if (level != p->indent_stack[p->indent_count - 1]) {
+        syntax_error("Inconsistent indentation");
+    }
 
     return next_token(p);
 }
@@ -194,14 +243,9 @@ ASTNode *parse_compound_stmt(Parser *p);
 
 
 ASTNode *parse_program(FILE *file, SymTable *table) {
-    Parser p = { 
-        .src = file,
-        .symtab = table,
-        .has_peek = false,
-        .paren_depth = 0,
-        .logical_indent = 0,
-        .pending_lf = false,
-    };
+    Parser p;
+    init_parser(&p, file, table);
+
     p.token = next_token(&p);     
     ASTNode *program = create_node(NODE_PROGRAM);     
     switch (p.token.type){
@@ -213,6 +257,8 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
         default:
             throw_fatal_error(2, "Program must start with 'import ifj26.*'");
     }
+
+    free(p.indent_stack);
     return program;
 }
 

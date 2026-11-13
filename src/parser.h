@@ -18,6 +18,17 @@ typedef struct {
     Token peek_token;
     bool has_peek;
 
+    Token pending_token;
+    bool has_pending_token;
+
+    int *indent_stack;
+    size_t indent_count;
+    size_t indent_capacity;
+
+    size_t  pending_dedent;
+    bool line_start;
+    bool eof_newline_done;
+
     size_t paren_depth;
     size_t logical_indent;
     bool pending_lf;
