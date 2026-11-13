@@ -72,7 +72,7 @@ static Token next_token(Parser *p) {
         if (t.type == T_NEWLINE) return next_token(p);
     }
 
-    if (line_start && p->paren_depth > 0) {
+    if (p->paren_depth > 0) {
         if(level > p->logical_indent) {
             line_start = false;
             la = t;
@@ -80,6 +80,12 @@ static Token next_token(Parser *p) {
             return next_token(p);
         }
         throw_fatal_error(2, "Wrong indentation inside brackets!");
+    }
+
+    // Other operators are already rejected as statement starters
+    // '-' need this check because it can start a valid unary expression
+    if (t.type == T_OP_MINUS) {
+        throw_fatal_error(2, "Logical line cannot start with an operator!");
     }
 
     p->logical_indent = level;
