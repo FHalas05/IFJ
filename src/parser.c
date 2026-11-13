@@ -69,8 +69,13 @@ static Token next_token(Parser *p) {
     if (t.type == T_INDENT) {
         level = token_get_indent_count(t);
         t = raw_scan(p);
-        if (t.type == T_NEWLINE) return next_token(p);
     }
+
+    // Skip empty lines and comments, even if they have no indentation
+    if (t.type == T_NEWLINE) {
+        return next_token(p);
+    }
+        
 
     if (p->paren_depth > 0) {
         if(level > p->logical_indent) {
