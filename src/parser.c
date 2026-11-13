@@ -33,7 +33,6 @@ static Token make_token(TokenType type) { Token t = {type, NULL}; return t; }
 static Token raw_scan(Parser *p) {
     if (has_la) { has_la = false; return la; }
     Token t = scanner(p->src);
-    p->last_scanned = t.type;
     return t;
 }
 
@@ -186,8 +185,7 @@ ASTNode *parse_compound_stmt(Parser *p);
 ASTNode *parse_program(FILE *file, SymTable *table) {
     Parser p = { 
         .src = file,
-        .symtab = table, 
-        .last_scanned = T_NEWLINE,
+        .symtab = table,
         .has_peek = false,
         .paren_depth = 0,
         .logical_indent = 0,

@@ -14,7 +14,6 @@ typedef struct {
     SymTable *symtab;
 
     Token token;
-    TokenType last_scanned;
 
     Token peek_token;
     bool has_peek;
