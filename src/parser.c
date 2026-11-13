@@ -122,9 +122,10 @@ static Token next_token(Parser *p) {
         throw_fatal_error(2, "Wrong indentation inside brackets!");
     }
 
+    // A logical line cannot start with a operator
     // Other operators are already rejected as statement starters
-    // '-' need this check because it can start a valid unary expression
-    if (t.type == T_OP_MINUS) {
+    // '-' or '!' need this check because it can start a valid unary expression
+    if (t.type == T_OP_MINUS || t.type == T_OP_NOT) {
         throw_fatal_error(2, "Logical line cannot start with an operator!");
     }
 
@@ -378,8 +379,11 @@ DataType parse_type (Parser *p){
         case T_KW_UNIT:
             advance(p);
             return TYPE_UNIT;
+        case T_KW_BOOLEAN:
+            advance(p);
+            return TYPE_BOOL;
     default:
-        throw_fatal_error(2, "Expected type (Int, Double, String or Unit)");    
+        throw_fatal_error(2, "Expected type (Int, Double, String, Unit or Boolean)");    
     }
     return TYPE_UNKNOWN;
 }
@@ -449,6 +453,9 @@ ASTNode *parse_function_body(Parser *p){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
         case T_PAR_L:{
             ASTNode *block = create_node(NODE_BLOCK);
             ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
@@ -695,6 +702,9 @@ static void parse_stmt_list(Parser *p, ASTNode *block){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
         case T_PAR_L:{   
             ASTNode *stmt = parse_simple_stmt(p);
             ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, stmt);
@@ -740,6 +750,9 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
         case T_PAR_L:
             parse_stmt_list(p, block);
             break;
@@ -787,6 +800,9 @@ ASTNode *parse_simple_stmt(Parser *p){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
         case T_PAR_L:{
             return parse_expression(p, EXPR_STATEMENT);
         }
@@ -842,6 +858,9 @@ ASTNode *parse_return_val(Parser *p){
         case T_DOUBLE:
         case T_STRING:
         case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
         case T_PAR_L:
             return parse_expression(p, EXPR_STATEMENT);
         case T_SEMICOLON:
