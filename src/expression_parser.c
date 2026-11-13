@@ -242,13 +242,13 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
 
     ExprHandle handle;
 
-    size_t paren_depth = 0;
+    size_t expr_paren_depth = 0;
 
     while (true) {
         PrecTerminal top_t = expr_stack_top_terminal(&stack);
         PrecTerminal input_terminal;
 
-        bool is_argument_end = mode == EXPR_ARGUMENT && paren_depth == 0 &&
+        bool is_argument_end = mode == EXPR_ARGUMENT && expr_paren_depth == 0 &&
                                (parser->token.type == T_COMMA || parser->token.type == T_PAR_R);
 
         if (is_argument_end) {
@@ -293,12 +293,12 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
             expr_stack_push(&stack, input_data);
 
             if (input_terminal == P_LPAREN) {
-                paren_depth++;
+                expr_paren_depth++;
             } else if (input_terminal == P_RPAREN) {
-                if (paren_depth == 0) {
+                if (expr_paren_depth == 0) {
                     throw_fatal_error(2, "Unexpected ')' in expression!");
                 }
-                paren_depth--;
+                expr_paren_depth--;
             }
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
