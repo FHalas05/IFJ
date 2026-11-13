@@ -890,12 +890,27 @@ ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:{
             advance(p);
+
             ASTNode *comp_if = create_node(NODE_IF);
             comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
+
             expect(p, T_KW_THEN, "if: expected 'then' after condition");
             comp_if->data.if_stmt.then_block = parse_block(p);
-            expect(p, T_KW_ELSE, "if: expected 'else'");
-            comp_if->data.if_stmt.else_block = parse_block(p);
+
+            if(p->token.type == T_KW_ELSE) {
+                advance(p);
+                if(p->token.type == T_KW_IF) {
+                    ASTNode *else_block = create_node(NODE_BLOCK);
+                    ASTNode *else_if = parse_compound_stmt(p);
+
+                    ast_array_append(&else_block->data.block.statements, &else_block->data.block.count, &else_block->data.block.capacity, else_if);
+
+                    comp_if->data.if_stmt.else_block = else_block;
+                } else {
+                    comp_if->data.if_stmt.else_block = parse_block(p);
+                }
+            }
+
             return comp_if;
         }
         case T_KW_WHILE:{
