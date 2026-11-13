@@ -465,6 +465,38 @@ void builtin_tostr() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of builtin function toInt()
+ */
+void builtin_toint() {
+    print_formatted_1("LABEL", "$toInt");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@double");
+    print_formatted_1("POPS", "LF@double");
+    print_formatted_1("DEFVAR", "LF@int");
+    print_formatted_2("FLOAT2INT", "LF@int", "LF@double");
+    print_formatted_1("PUSHS", "LF@int");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
+/**
+ * @brief outputs body of builtin function strLength()
+ */
+void builtin_strlength() {
+    print_formatted_1("LABEL", "$strLength");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@mes_string");
+    print_formatted_1("POPS", "LF@mes_string");
+    print_formatted_1("DEFVAR", "LF@ln_string");
+    print_formatted_2("STRLEN", "LF@ln_string", "LF@mes_string");
+    print_formatted_1("PUSHS", "LF@ln_string");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
     bool main_found = false;
