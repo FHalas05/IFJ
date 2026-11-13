@@ -43,7 +43,7 @@ typedef enum{
     OP_ADD, OP_SUB, OP_MUL, OP_DIV, 
     OP_LESS, OP_LESS_EQ, OP_GR, OP_GR_EQ,
     OP_EQ, OP_NOT_EQ,
-    OP_UNARY_MINUS, OP_UNARY_PLUS
+    OP_UNARY_MINUS, OP_NOT, OP_AND, OP_OR,
 } Operator;
 
 struct Scope;
