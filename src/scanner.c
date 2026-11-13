@@ -684,15 +684,30 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
         int spaces = 1;
+        bool has_tab = false;
         while ((c = fgetc(file)) == ' ')
             spaces++;
 
-        while (string_contains("\t\v\f\r", c))
+        // skip remaining whitespaces and remember if it contains a tab
+        while (string_contains(" \t\v\f\r", c)) {
+            if(c == '\t')
+                has_tab = true;
+
             c = fgetc(file);
+        }
 
         // if theres newline right after indent and or other whitespace, the whole line can be discarded
         if (c == '\n')
             return token;
+        
+        if(c == EOF) {
+            token.type = T_EOF;
+            return token;
+        }
+
+        if(has_tab) {
+            throw_lexical_error("Tab in indentation of a nonempty line");
+        }
 
         ungetc(c, file);
         token.type = T_INDENT;
