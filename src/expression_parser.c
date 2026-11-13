@@ -11,19 +11,21 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-#define PREC_TERMINAL_COUNT 9
+#define PREC_TERMINAL_COUNT (P_END + 1)
 
 static const char precedence_table[PREC_TERMINAL_COUNT][PREC_TERMINAL_COUNT] = {
-    //                  +    *    <   ==    (    )    ~    i    $
-    [P_ADD] =           {'>', '<', '>', '>', '<', '>', '<', '<', '>'},
-    [P_MUL] =           {'>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_REL] =           {'<', '<', 'x', '>', '<', '>', '<', '<', '>'},
-    [P_EQ] =            {'<', '<', '<', 'x', '<', '>', '<', '<', '>'},
-    [P_LPAREN] =        {'<', '<', '<', '<', '<', '=', '<', '<', 'x'},
-    [P_RPAREN] =        {'>', '>', '>', '>', 'x', '>', 'x', 'x', '>'},
-    [P_UNARY_MINUS] =   {'>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_OPERAND] =       {'>', '>', '>', '>', 'x', '>', 'x', 'x', '>'},
-    [P_END] =           {'<', '<', '<', '<', '<', 'x', '<', '<', 'x'},
+    //                +    *    <   ==   &&   ||    (    )    ~    i    $
+    [P_ADD] =       {'>', '<', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_MUL] =       {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_REL] =       {'<', '<', ' ', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_EQ] =        {'<', '<', '<', ' ', '>', '>', '<', '>', '<', '<', '>'},
+    [P_AND] =       {'<', '<', '<', '<', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OR] =        {'<', '<', '<', '<', '<', '>', '<', '>', '<', '<', '>'},
+    [P_LPAREN] =    {'<', '<', '<', '<', '<', '<', '<', '=', '<', '<', ' '},
+    [P_RPAREN] =    {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_UNARY] =     {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OPERAND] =   {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_END] =       {'<', '<', '<', '<', '<', '<', '<', ' ', '<', '<', ' '},
 };
 
 static PrecTerminal get_precedence_terminal(Token token, bool expected_operand) {
@@ -32,11 +34,15 @@ static PrecTerminal get_precedence_terminal(Token token, bool expected_operand) 
     case T_DOUBLE:
     case T_STRING:
     case T_IDENT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
         return P_OPERAND;
     case T_OP_PLUS:
         return P_ADD;
     case T_OP_MINUS:
-        return expected_operand ? P_UNARY_MINUS : P_ADD;
+        return expected_operand ? P_UNARY : P_ADD;
+    case T_OP_NOT:
+        return P_UNARY;
     case T_OP_MUL:
     case T_OP_DIV:
         return P_MUL;
@@ -48,6 +54,10 @@ static PrecTerminal get_precedence_terminal(Token token, bool expected_operand) 
     case T_OP_EQ:
     case T_OP_NOT_EQ:
         return P_EQ;
+    case T_OP_BIN_AND:
+        return P_AND;
+    case T_OP_BIN_OR:
+        return P_OR;
     case T_PAR_L:
         return P_LPAREN;
     case T_PAR_R:
@@ -86,6 +96,10 @@ static Operator get_binary_operator(TokenType type) {
         return OP_EQ;
     case T_OP_NOT_EQ:
         return OP_NOT_EQ;
+    case T_OP_BIN_AND:
+        return OP_AND;
+    case T_OP_BIN_OR:
+        return OP_OR;
     default:
         throw_fatal_error(99, "Invalid binary operator!");
         return OP_ADD;
@@ -115,6 +129,12 @@ static ASTNode *reduce_operand(ExprItem *item) {
         node->data_type = TYPE_STRING;
         node->data.string_lit.value = item->token.data;
         item->token.data = NULL;
+        break;
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+        node = create_node(NODE_BOOL_LITERAL);
+        node->data_type = TYPE_BOOL;
+        node->data.bool_lit.value = item->token.type == T_KW_TRUE ? true : false;
         break;
     case T_IDENT:
         node = create_node(NODE_IDENTIFIER);
@@ -147,12 +167,17 @@ static ASTNode *reduce_handle(ExprHandle *handle) {
     }
 
     if (handle->count == 2) {
-        // ~E
-        if (is_terminal(&items[0], P_UNARY_MINUS) && items[1].type == EXPR_NONTERMINAL) {
+        // unary operation E
+        if (is_terminal(&items[0], P_UNARY) && items[1].type == EXPR_NONTERMINAL) {
             ASTNode *node = create_node(NODE_UNOP);
-            node->data.un_op.operation = OP_UNARY_MINUS;
-            node->data.un_op.operand = items[1].node;
 
+            if (items[0].token.type == T_OP_MINUS) {
+                node->data.un_op.operation = OP_UNARY_MINUS;
+            } else {
+                node->data.un_op.operation = OP_NOT;
+            }
+
+            node->data.un_op.operand = items[1].node;
             return node;
         }
 
@@ -175,7 +200,8 @@ static ASTNode *reduce_handle(ExprHandle *handle) {
         // E operation E
         if (items[0].type == EXPR_NONTERMINAL && items[2].type == EXPR_NONTERMINAL &&
             (is_terminal(&items[1], P_ADD) || is_terminal(&items[1], P_MUL) ||
-             is_terminal(&items[1], P_REL) || is_terminal(&items[1], P_EQ))) {
+             is_terminal(&items[1], P_REL) || is_terminal(&items[1], P_EQ) ||
+             is_terminal(&items[1], P_AND) || is_terminal(&items[1], P_OR))) {
             ASTNode *node = create_node(NODE_BINOP);
             node->data.bin_op.operation = get_binary_operator(items[1].token.type);
             node->data.bin_op.left = items[0].node;
@@ -213,8 +239,8 @@ static ASTNode *parse_function_call(Parser *parser) {
             parser->pending_lf = false;
             advance(parser);
 
-            if(parser->token.type == T_PAR_R) {
-                if(!parser->pending_lf) {
+            if (parser->token.type == T_PAR_R) {
+                if (!parser->pending_lf) {
                     throw_fatal_error(2, "After last comma, ')' must be on a new line!");
                 }
                 advance(parser);

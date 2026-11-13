@@ -17,9 +17,11 @@ typedef enum {
     P_MUL,          // *, /
     P_REL,          // <, >, <=, >=
     P_EQ,           // ==, !=
+    P_AND,          // &&
+    P_OR,           // ||
     P_LPAREN,       // (
     P_RPAREN,       // )
-    P_UNARY_MINUS,  // ~ (unary minus)
+    P_UNARY,        // ~ (unary minus), !
     P_OPERAND,      // i
     P_END,          // $
 } PrecTerminal;
