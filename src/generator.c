@@ -520,9 +520,9 @@ static void builtin_substr() {
     print_formatted_3("GT", "LF@check", "LF@end", "int@-1");
     print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@start", "LF@end");
-    print_formatted_3("JUMPIFEQ", "$substr_err", "LF@check", "bool@true");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("LT", "LF@check", "LF@start", "LF@str_length");
-    print_formatted_3("JUMPIFNEQ", "$substr_err", "LF@check", "bool@true");
+    print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@end", "LF@str_length");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_1("DEFVAR", "LF@fin_string");
@@ -540,6 +540,45 @@ static void builtin_substr() {
     print_formatted_0("RETURN");
     print_formatted_1("LABEL", "$substr_err");
     print_formatted_1("EXIT", "int@40");
+}
+
+/**
+ * @brief outputs body of builtin function ord()
+ */
+static void builtin_ord() {
+    print_formatted_1("LABEL", "$ord");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@value");
+    print_formatted_1("POPS", "LF@value");
+    print_formatted_1("DEFVAR", "LF@index");
+    print_formatted_1("POPS", "LF@index");
+    print_formatted_1("PUSHS", "LF@value");
+    print_formatted_1("CALL", "$strLength");
+    print_formatted_1("DEFVAR", "LF@str_length");
+    print_formatted_1("POPS", "LF@str_length");
+    print_formatted_1("DEFVAR", "LF@check");
+    print_formatted_3("EQ", "LF@check", "LF@str_length", "int@0");
+    print_formatted_3("JUMPIFEQ", "$ord_ln_pass", "bool@false", "LF@check");
+    print_formatted_1("PUSHS", "int@-1");
+    print_formatted_1("JUMP", "$ord_failed_end");
+    print_formatted_1("LABEL", "$ord_ln_pass");
+    print_formatted_3("LT", "LF@check", "LF@index", "LF@str_length");
+    print_formatted_3("JUMPIFEQ", "$ord_idx_pass", "bool@true", "LF@check");
+    print_formatted_1("PUSHS", "int@-1");
+    print_formatted_1("JUMP", "$ord_failed_end");
+    print_formatted_1("LABEL", "$ord_idx_pass");
+    print_formatted_3("LT", "LF@check", "LF@index", "int@0");
+    print_formatted_3("JUMPIFEQ", "$ord_null_pass", "bool@false", "LF@check");
+    print_formatted_1("PUSHS", "int@-1");
+    print_formatted_1("JUMP", "$ord_failed_end");
+    print_formatted_1("LABEL", "$ord_null_pass");
+    print_formatted_1("DEFVAR", "LF@ord_int");
+    print_formatted_3("STRI2INT", "LF@ord_int", "LF@value", "LF@index");
+    print_formatted_1("PUSHS", "LF@ord_int");
+    print_formatted_1("LABEL", "$ord_failed_end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
 }
 
 int generator(ASTNode *ast) {
