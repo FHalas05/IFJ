@@ -580,6 +580,21 @@ static void builtin_ord() {
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
 }
+/**
+ * @brief outputs body of builtin function chr()
+ */
+static void builtin_chr() {
+    print_formatted_1("LABEL", "$chr");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@code");
+    print_formatted_1("POPS", "LF@code");
+    print_formatted_1("DEFVAR", "LF@fin_char");
+    print_formatted_2("INT2CHAR", "LF@fin_char", "LF@code");
+    print_formatted_1("PUSHS", "LF@fin_char");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
 
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
