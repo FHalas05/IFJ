@@ -248,11 +248,19 @@ static void instruction_gen(ASTNode *body) {
         dyn_str_free(label);
         break;
     }
-    case NODE_BINOP:
-        instruction_gen(body->data.bin_op.left);
-        instruction_gen(body->data.bin_op.right);
-        operation_formatter(body->data.bin_op.operation);
+    case NODE_BINOP: {
+        ASTNode *left = body->data.bin_op.left;
+        ASTNode *right = body->data.bin_op.right;
+        Operator op = body->data.bin_op.operation;
+        instruction_gen(left);
+        instruction_gen(right);
+        if (left->data_type == TYPE_STRING && right->data_type == TYPE_STRING && op == OP_ADD) {
+            print_formatted_1("CALL", "$helpConcat");     
+        } else {
+        operation_formatter(op);
+        }
         break;
+    }
     case NODE_ASSIGN: {
         instruction_gen(body->data.assign.value);
         DynamicString *variable = dyn_str_init();
@@ -339,8 +347,30 @@ static void instruction_gen(ASTNode *body) {
             print_formatted_1("PUSHS", "bool@true");
         }
         break;
+    
+    case NODE_UNIT_LITERAL: 
+        print_formatted_1("PUSHS", "nil@nil");
+        break;
     }
 }
+/**
+ * @brief performs concatenation on the strings at the top of data stack
+ */
+static void help_concat() {
+    print_formatted_1("LABEL", "$helpConcat");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@right");
+    print_formatted_1("POPS", "LF@right");
+    print_formatted_1("DEFVAR", "LF@left");
+    print_formatted_1("POPS", "LF@left");
+    print_formatted_1("DEFVAR", "LF@con_string");
+    print_formatted_3("CONCAT", "LF@con_string", "LF@left", "LF@right");
+    print_formatted_1("PUSHS", "LF@con_string");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 /**
  * @brief outputs body of builtin function print()
  */
@@ -413,7 +443,7 @@ static void builtin_readdouble() {
     print_formatted_0("PUSHFRAME");
     print_formatted_1("DEFVAR", "LF@read_double");
     print_formatted_1("DEFVAR", "LF@isnil");
-    print_formatted_2("READ", "LF@read_double", "double");
+    print_formatted_2("READ", "LF@read_double", "float");
     print_formatted_2("TYPE", "LF@isnil", "LF@read_double");
     print_formatted_3("JUMPIFEQ", "$read_double_nil", "string@nil", "LF@isnil");
     print_formatted_1("PUSHS", "LF@read_double");
@@ -634,10 +664,17 @@ int generator(ASTNode *ast) {
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
         dyn_str_free(label);
-        buildin_print();
-        builtin_readline();
-        builtin_readint();
-        builtin_readdouble();
     }
+    help_concat();
+    builtin_print();
+    builtin_readline();
+    builtin_readint();
+    builtin_readdouble();
+    builtin_tostr();
+    builtin_toint();
+    builtin_strlength();
+    builtin_substr();
+    builtin_ord();
+    builtin_chr();   
     return 0;
 }
