@@ -9,7 +9,6 @@
 #include "parser.h"
 #include "token.h"
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 #define PREC_TERMINAL_COUNT 9
@@ -302,7 +301,6 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
             }
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
-            print_stack(&stack);
 
             if (!is_call) {
                 advance(parser);
@@ -320,7 +318,6 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
                 .node = reduce_handle(&handle),
             };
             expr_stack_replace_handle(&stack, replacement);
-            print_stack(&stack);
             break;
         default:
             throw_fatal_error(2, "Invalid operator or operand order in expression!");

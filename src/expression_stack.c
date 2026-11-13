@@ -7,7 +7,6 @@
 #include "library.h"
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 void init_expr_stack(ExprStack *s) { s->top = NULL; }
@@ -45,92 +44,6 @@ void clear_expr_stack(ExprStack *s) {
     while (!expr_stack_is_empty(s)) {
         expr_stack_pop(s);
     }
-}
-
-// helpful function for testing
-static const char *terminal_label(const ExprItem *data) {
-    if (data->terminal == P_END) {
-        return "$";
-    }
-    if (data->terminal == P_UNARY_MINUS) {
-        return "~";
-    }
-
-    // Prefer the original operator over its shared precedence category.
-    switch (data->token.type) {
-    case T_OP_PLUS:
-        return "+";
-    case T_OP_MINUS:
-        return "-";
-    case T_OP_MUL:
-        return "*";
-    case T_OP_DIV:
-        return "/";
-    case T_OP_LESS:
-        return "<";
-    case T_OP_LESS_EQ:
-        return "<=";
-    case T_OP_GR:
-        return ">";
-    case T_OP_GR_EQ:
-        return ">=";
-    case T_OP_EQ:
-        return "==";
-    case T_OP_NOT_EQ:
-        return "!=";
-    default:
-        break;
-    }
-
-    // Also support stack items constructed without an original token.
-    switch (data->terminal) {
-    case P_ADD:
-        return "+/-";
-    case P_MUL:
-        return "*/";
-    case P_REL:
-        return "REL";
-    case P_EQ:
-        return "EQ";
-    case P_LPAREN:
-        return "(";
-    case P_RPAREN:
-        return ")";
-    case P_OPERAND:
-        return "i";
-    default:
-        return "?terminal";
-    }
-}
-// helpful function for testing
-void print_stack(const ExprStack *s) {
-    if (s == NULL) {
-        fputs("STACK: (null)\n", stderr);
-        return;
-    }
-
-    fputs("STACK top", stderr);
-
-    for (const ExprStackNode *elem = s->top; elem != NULL; elem = elem->next) {
-        fputs(" -> ", stderr);
-
-        switch (elem->data.type) {
-        case EXPR_TERMINAL:
-            fputs(terminal_label(&elem->data), stderr);
-            break;
-        case EXPR_NONTERMINAL:
-            fputs("E", stderr);
-            break;
-        case EXPR_MARKER:
-            fputs("MARK(<)", stderr);
-            break;
-        default:
-            fputs("?item", stderr);
-            break;
-        }
-    }
-
-    fputs(s->top == NULL ? " -> (empty)\n" : " -> bottom\n", stderr);
 }
 
 static ExprStackNode *find_top_terminal_node(ExprStack *s) {

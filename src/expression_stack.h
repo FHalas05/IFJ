@@ -49,6 +49,4 @@ PrecTerminal expr_stack_top_terminal(ExprStack *s);
 bool expr_stack_get_handle(ExprStack *stack, ExprHandle *handle);
 void expr_stack_replace_handle(ExprStack *stack, ExprItem item);
 
-void print_stack(const ExprStack *s);
-
 #endif // IFJ_EXPRESSION_STACK_H
