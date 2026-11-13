@@ -40,21 +40,51 @@ static Token raw_scan(Parser *p) {
 static Token next_token(Parser *p) {
     if (pending_dedent > 0) { pending_dedent--; return make_token(T_DEDENT); }
     Token t = raw_scan(p);
+
     if (!line_start) {
         if (t.type == T_NEWLINE) {
             line_start = true;
+
+            if(p->paren_depth > 0) {
+                p->pending_lf = true;
+                return next_token(p);
+            }
         } else if (t.type == T_EOF && !eof_newline_done) {
             eof_newline_done = true; la = t; has_la = true; line_start = true;
             return make_token(T_NEWLINE);
         }
+
+        if (t.type == T_PAR_L) {
+            p->paren_depth++;
+        } else if (t.type == T_PAR_R) {
+            if(p->paren_depth == 0) {
+                throw_fatal_error(2, "Unexpected ')'!");
+            }
+            p->paren_depth--;
+        }
+        
         return t;
     }
+
     int level = 0;
     if (t.type == T_INDENT) {
         level = token_get_indent_count(t);
         t = raw_scan(p);
         if (t.type == T_NEWLINE) return next_token(p);
     }
+
+    if (line_start && p->paren_depth > 0) {
+        if(level > p->logical_indent) {
+            line_start = false;
+            la = t;
+            has_la = true;
+            return next_token(p);
+        }
+        throw_fatal_error(2, "Wrong indentation inside brackets!");
+    }
+
+    p->logical_indent = level;
+
     if (t.type == T_EOF) { level = 0; eof_newline_done = true; }
     line_start = false; la = t; has_la = true;
     if (level > indent_stack[indent_top]) {
@@ -64,6 +94,7 @@ static Token next_token(Parser *p) {
     }
     while (level < indent_stack[indent_top]) { indent_top--; pending_dedent++; }
     if (level != indent_stack[indent_top]) syntax_error("inconsistent indentation");
+
     return next_token(p);
 }
 
@@ -158,6 +189,9 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
         .symtab = table, 
         .last_scanned = T_NEWLINE,
         .has_peek = false,
+        .paren_depth = 0,
+        .logical_indent = 0,
+        .pending_lf = false,
     };
     p.token = next_token(&p);     
     ASTNode *program = create_node(NODE_PROGRAM);     
@@ -330,7 +364,17 @@ ASTNode *parse_one_param(Parser *p){
 static void parse_param_tail(Parser *p, ASTNode *func){
     switch (p->token.type){
         case T_COMMA:{
+            p->pending_lf = false;
             advance(p);
+
+            if(p->token.type == T_PAR_R) {
+                if(!p->pending_lf) {
+                    throw_fatal_error(2, "After last comma, ')' must be on a new line!");
+                }
+
+                return;
+            }
+
             ASTNode *param = parse_one_param(p);
             ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
             parse_param_tail(p, func);

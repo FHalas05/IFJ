@@ -2,6 +2,7 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stddef.h>
 #include <stdio.h>
 
 #include "ast.h"
@@ -17,6 +18,10 @@ typedef struct {
 
     Token peek_token;
     bool has_peek;
+
+    size_t paren_depth;
+    size_t logical_indent;
+    bool pending_lf;
 }Parser;
 
 ASTNode *parse_program(FILE *file, SymTable *table);

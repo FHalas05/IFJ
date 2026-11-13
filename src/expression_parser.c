@@ -211,7 +211,16 @@ static ASTNode *parse_function_call(Parser *parser) {
                          &node->data.function_call.arg_capacity, argument);
 
         if (parser->token.type == T_COMMA) {
+            parser->pending_lf = false;
             advance(parser);
+
+            if(parser->token.type == T_PAR_R) {
+                if(!parser->pending_lf) {
+                    throw_fatal_error(2, "After last comma, ')' must be on a new line!");
+                }
+                advance(parser);
+                return node;
+            }
         } else {
             expect(parser, T_PAR_R, "Expected ',' or ')' after argument!");
             return node;
