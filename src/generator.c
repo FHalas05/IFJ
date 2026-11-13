@@ -344,7 +344,7 @@ static void instruction_gen(ASTNode *body) {
 /**
  * @brief outputs body of builtin function print()
  */
-void builtin_print() {
+static void builtin_print() {
     print_formatted_1("LABEL", "$print");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -365,7 +365,7 @@ void builtin_print() {
 /**
  * @brief outputs body of builtin function readLine()
  */
-void builtin_readline() {
+static void builtin_readline() {
     print_formatted_1("LABEL", "$readLine");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -386,7 +386,7 @@ void builtin_readline() {
 /**
  * @brief outputs body of builtin function readInt()
  */
-void builtin_readint() {
+static void builtin_readint() {
     print_formatted_1("LABEL", "$readInt");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -407,7 +407,7 @@ void builtin_readint() {
 /**
  * @brief outputs body of builtin function readDouble()
  */
-void builtin_readdouble() {
+static void builtin_readdouble() {
     print_formatted_1("LABEL", "$readDouble");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -428,7 +428,7 @@ void builtin_readdouble() {
 /**
  * @brief outputs body of builtin function toStr()
  */
-void builtin_tostr() {
+static void builtin_tostr() {
     print_formatted_1("LABEL", "$toStr");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -468,7 +468,7 @@ void builtin_tostr() {
 /**
  * @brief outputs body of builtin function toInt()
  */
-void builtin_toint() {
+static void builtin_toint() {
     print_formatted_1("LABEL", "$toInt");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -484,7 +484,7 @@ void builtin_toint() {
 /**
  * @brief outputs body of builtin function strLength()
  */
-void builtin_strlength() {
+static void builtin_strlength() {
     print_formatted_1("LABEL", "$strLength");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
@@ -495,6 +495,51 @@ void builtin_strlength() {
     print_formatted_1("PUSHS", "LF@ln_string");
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
+}
+
+/**
+ * @brief outputs body of builtin function subStr()
+ */
+static void builtin_substr() {
+    print_formatted_1("LABEL", "$subStr");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@or_string");
+    print_formatted_1("POPS", "LF@or_string");
+    print_formatted_1("DEFVAR", "LF@start");
+    print_formatted_1("POPS", "LF@start");
+    print_formatted_1("DEFVAR", "LF@end");
+    print_formatted_1("POPS", "LF@end");
+    print_formatted_1("DEFVAR", "LF@check");
+    print_formatted_1("PUSHS", "LF@or_string");
+    print_formatted_1("CALL", "$strLength");
+    print_formatted_1("DEFVAR", "LF@str_length");
+    print_formatted_1("POPS", "LF@str_length");
+    print_formatted_3("GT", "LF@check", "LF@start", "int@-1");
+    print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_3("GT", "LF@check", "LF@end", "int@-1");
+    print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_3("GT", "LF@check", "LF@start", "LF@end");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "LF@check", "bool@true");
+    print_formatted_3("LT", "LF@check", "LF@start", "LF@str_length");
+    print_formatted_3("JUMPIFNEQ", "$substr_err", "LF@check", "bool@true");
+    print_formatted_3("GT", "LF@check", "LF@end", "LF@str_length");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_1("DEFVAR", "LF@fin_string");
+    print_formatted_1("DEFVAR", "LF@char");
+    print_formatted_2("MOVE", "LF@fin_string", "string@");
+    print_formatted_1("LABEL", "$substr_concat");
+    print_formatted_3("JUMPIFEQ", "$substr_end", "LF@start", "LF@end");
+    print_formatted_3("GETCHAR", "LF@char", "LF@or_string", "LF@start");
+    print_formatted_3("CONCAT", "LF@fin_string", "LF@fin_string", "LF@char");
+    print_formatted_3("ADD", "LF@start", "LF@start", "int@1");
+    print_formatted_1("JUMP", "$substr_concat");
+    print_formatted_1("LABEL", "$substr_end");
+    print_formatted_1("PUSHS", "LF@fin_string");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+    print_formatted_1("LABEL", "$substr_err");
+    print_formatted_1("EXIT", "int@40");
 }
 
 int generator(ASTNode *ast) {
