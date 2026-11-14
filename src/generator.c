@@ -303,6 +303,8 @@ static void instruction_gen(ASTNode *body) {
     case NODE_RETURN:
         if (body->data.return_stmt.value != NULL) {
             instruction_gen(body->data.return_stmt.value);
+        } else {
+            print_formatted_1("PUSHS", "nil@nil");
         }
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
@@ -693,8 +695,11 @@ int generator(ASTNode *ast) {
         ASTNode *body = cur_fun->data.function_def.body;
         var_seeker(body);
         instruction_gen(body);
-            print_formatted_0("POPFRAME");
-            print_formatted_0("RETURN");
+        if (cur_fun->data.function_def.return_type == NODE_UNIT_LITERAL) {
+            print_formatted_1("PUSHS", "nil@nil");
+        }
+        print_formatted_0("POPFRAME");
+        print_formatted_0("RETURN");
         dyn_str_free(label);
     }
     help_concat();
