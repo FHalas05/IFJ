@@ -6,9 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 // Maximum number of characters in a number
-#define INT_CHAR_COUNT 21        // maximum number of characters in int literal
-#define INT_CHAR_PREFIX_COUNT 26 // maximum number of characters in int literal with IFJcode26
-                                 // prefix
+#define INT_CHAR_COUNT 21 // maximum number of characters in int literal
+#define INT_CHAR_PREFIX_COUNT                                                                      \
+    26 // maximum number of characters in int literal with IFJcode26
+       // prefix
 #define DOUBLE_CHAR_PREFIX_COUNT                                                                   \
     32 // maximum number of characters in double literal with IFJcode26 prefix
 
@@ -101,7 +102,7 @@ static void variable_formatter(DynamicString *variable, const char *var_name) {
 
 /**
  * @brief formats string for printing
- * 
+ *
  * @param final_string formatted string (string@<string_lit_value)
  * @param string_lit_value string value from AST
  */
@@ -178,9 +179,6 @@ static void operation_formatter(Operator operation) {
     case OP_ADD:
         print_formatted_0("ADDS");
         break;
-    case OP_DIV: // type control DIV/IDIV
-        print_formatted_0("DIVS");
-        break;
     case OP_EQ:
         print_formatted_0("EQS");
         break;
@@ -207,13 +205,6 @@ static void operation_formatter(Operator operation) {
     case OP_NEQ:
         print_formatted_0("EQS");
         print_formatted_0("NOTS");
-        break;
-    case OP_UNARY_MINUS: // TODO - type control regarding type of operand vs -1
-        print_formatted_1("PUSHS", "int@-1");
-        print_formatted_0("MULS");
-        break;
-
-    case OP_UNARY_PLUS:
         break;
     default:
         break;
@@ -249,15 +240,55 @@ static void instruction_gen(ASTNode *body) {
         break;
     }
     case NODE_BINOP: {
-        ASTNode *left = body->data.bin_op.left;
-        ASTNode *right = body->data.bin_op.right;
         Operator op = body->data.bin_op.operation;
-        instruction_gen(left);
-        instruction_gen(right);
-        if (left->data_type == TYPE_STRING && right->data_type == TYPE_STRING && op == OP_ADD) {
-            print_formatted_1("CALL", "$helpConcat");     
+        if (body->data.bin_op.left == NULL) {
+            ASTNode *right = body->data.bin_op.right;
+            instruction_gen(right);
+            if (op == OP_UNARY_MINUS && right->data_type == TYPE_DOUBLE) {
+                print_formatted_1("PUSHS", "float@-0x1p+0");
+                print_formatted_0("MULS");
+            } else if (op == OP_UNARY_MINUS && right->data_type == TYPE_INT) {
+                print_formatted_1("PUSHS", "int@-1");
+                print_formatted_0("MULS");
+            }
+            break;
+        } else if (body->data.bin_op.right == NULL) {
+            ASTNode *left = body->data.bin_op.left;
+            instruction_gen(left);
+            if (op == OP_UNARY_MINUS && left->data_type == TYPE_DOUBLE) {
+                print_formatted_1("PUSHS", "float@-0x1p+0");
+                print_formatted_0("MULS");
+            } else if (op == OP_UNARY_MINUS && left->data_type == TYPE_INT) {
+                print_formatted_1("PUSHS", "int@-1");
+                print_formatted_0("MULS");
+                break;
+            }
+            break;
         } else {
-        operation_formatter(op);
+            ASTNode *right = body->data.bin_op.right;
+            ASTNode *left = body->data.bin_op.left;
+            instruction_gen(left);
+            if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
+                print_formatted_0("INT2FLOATS");
+            }
+            instruction_gen(right);
+            if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
+                print_formatted_0("INT2FLOATS");
+            }
+            if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
+                print_formatted_1("CALL", "$helpConcat");
+                break;
+            }
+            if (op == OP_DIV &&
+                (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
+                print_formatted_0("DIVS");
+                break;
+            }
+            if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
+                print_formatted_0("IDIVS");
+                break;
+            }
+            operation_formatter(op);
         }
         break;
     }
@@ -347,8 +378,8 @@ static void instruction_gen(ASTNode *body) {
             print_formatted_1("PUSHS", "bool@true");
         }
         break;
-    
-    case NODE_UNIT_LITERAL: 
+
+    case NODE_UNIT_LITERAL:
         print_formatted_1("PUSHS", "nil@nil");
         break;
     }
@@ -381,7 +412,7 @@ static void builtin_print() {
     print_formatted_1("DEFVAR", "LF@var");
     print_formatted_1("POPS", "LF@var");
     print_formatted_1("DEFVAR", "LF@isnil");
-    print_formatted_2("TYPE", "LF@isnil",  "LF@var");
+    print_formatted_2("TYPE", "LF@isnil", "LF@var");
     print_formatted_3("JUMPIFEQ", "$print_nil", "string@nil", "LF@isnil");
     print_formatted_1("WRITE", "LF@var");
     print_formatted_1("JUMP", "$print_end");
@@ -467,7 +498,7 @@ static void builtin_tostr() {
     print_formatted_1("DEFVAR", "LF@type_check");
     print_formatted_1("DEFVAR", "LF@fin_string");
     print_formatted_2("TYPE", "LF@type_check", "LF@value");
-    print_formatted_3("JUMPIFEQ", "$tostr_int","string@int", "LF@type_check");
+    print_formatted_3("JUMPIFEQ", "$tostr_int", "string@int", "LF@type_check");
     print_formatted_3("JUMPIFEQ", "$tostr_float", "string@float", "LF@type_check");
     print_formatted_3("JUMPIFEQ", "$tostr_bool", "string@bool", "LF@type_check");
     print_formatted_3("JUMPIFEQ", "$tostr_nil", "string@nil", "LF@type_check");
@@ -661,8 +692,12 @@ int generator(ASTNode *ast) {
         ASTNode *body = cur_fun->data.function_def.body;
         var_seeker(body);
         instruction_gen(body);
-        print_formatted_0("POPFRAME");
-        print_formatted_0("RETURN");
+        if (cur_fun->data.function_def.is_main == true) {
+            print_formatted_1("EXIT", "int@0");
+        } else {
+            print_formatted_0("POPFRAME");
+            print_formatted_0("RETURN");
+        }
         dyn_str_free(label);
     }
     help_concat();
@@ -675,6 +710,6 @@ int generator(ASTNode *ast) {
     builtin_strlength();
     builtin_substr();
     builtin_ord();
-    builtin_chr();   
+    builtin_chr();
     return 0;
 }
