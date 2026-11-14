@@ -337,10 +337,7 @@ Token FSM_numerals(FILE *file, int first_char) {
 
         // . in double / double entry point
         case F3:
-            if (isdigit(c) &&
-                !(result->string[0] == '0' &&  // using string->string here makes sense because control of it is not passed elsewhere
-                  result->len >= 3)) { // >=3 to disallow numbers like 0x.xxx or 0xxx.xx - but it
-                                       // leaves 0.xxx, as that is allowed
+            if (isdigit(c)) {
                 // process to the mantissa loop
                 state = F4;
                 dyn_str_add(result, c);
