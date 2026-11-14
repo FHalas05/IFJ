@@ -8,12 +8,12 @@ import ifj26.*
     x
     *
     y
-  )
+    )
   if (
     x
     <
     10
-  ) then
+    ) then
     print(x)
   else
     print(y)

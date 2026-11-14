@@ -6,5 +6,5 @@ def f(a: Int, b: Int): Int =
   val r = f(
     1,
     2,
-  )
+    )
   print(r)

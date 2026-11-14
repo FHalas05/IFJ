@@ -126,6 +126,9 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
 }
 
 static void check_block(SemContext *ctx, ASTNode *block){  
+    if (block == NULL){
+        return;
+    }
     ctx->current = create_scope (ctx->current);
     for (size_t i = 0; i < block->data.block.count; i++){
         ASTNode *stmt = block->data.block.statements[i];
