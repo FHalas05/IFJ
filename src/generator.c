@@ -660,18 +660,19 @@ static void builtin_chr() {
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
     bool main_found = false;
-    // selects main function and outputs jump to designated function
+    // selects main function and outputs call of designated function
     for (size_t i = 0; i < ast->data.program.count; i++) {
         ASTNode *cur_fun = ast->data.program.functions[i];
         if (cur_fun->data.function_def.is_main) {
             main_found = true;
             DynamicString *label = dyn_str_init();
             fun_label_formatter(label, cur_fun->data.function_def.name);
-            print_formatted_1("JUMP", label->string);
+            print_formatted_1("CALL", label->string);
             dyn_str_free(label);
             break;
         }
     }
+    print_formatted_1("EXIT", "int@0");
     // main loop for generating. one cycle for one function
     for (size_t i = 0; i < ast->data.program.count; i++) {
         ASTNode *cur_fun = ast->data.program.functions[i];
@@ -692,12 +693,8 @@ int generator(ASTNode *ast) {
         ASTNode *body = cur_fun->data.function_def.body;
         var_seeker(body);
         instruction_gen(body);
-        if (cur_fun->data.function_def.is_main == true) {
-            print_formatted_1("EXIT", "int@0");
-        } else {
             print_formatted_0("POPFRAME");
             print_formatted_0("RETURN");
-        }
         dyn_str_free(label);
     }
     help_concat();
