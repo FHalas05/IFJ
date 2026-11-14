@@ -521,8 +521,10 @@ Token HANDLER_main(FILE *file) {
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
         int c = fgetc(file);
-        if (string_contains(" \t\n\v\f\r", c)) {
-            ungetc(c, file);
+        if(c == EOF || c == '/' || string_contains(" \t\n\v\f\r", c)) {
+            if(c != EOF) {
+                ungetc(c, file);
+            }
             Token token = {T_AT_MAIN, NULL};
             return token;
         }
@@ -562,7 +564,7 @@ Token HANDLER_operators(FILE *file, int first_char) {
             token.type = T_OP_NOT_EQ;
         else {
             ungetc(second_char, file);
-            token.type = T_OP_BIN_NOT;
+            token.type = T_OP_NOT;
         }
         return token;
     case '>':
@@ -682,15 +684,30 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
         int spaces = 1;
+        bool has_tab = false;
         while ((c = fgetc(file)) == ' ')
             spaces++;
 
-        while (string_contains("\t\v\f\r", c))
+        // skip remaining whitespaces and remember if it contains a tab
+        while (string_contains(" \t\v\f\r", c)) {
+            if(c == '\t')
+                has_tab = true;
+
             c = fgetc(file);
+        }
 
         // if theres newline right after indent and or other whitespace, the whole line can be discarded
         if (c == '\n')
             return token;
+        
+        if(c == EOF) {
+            token.type = T_EOF;
+            return token;
+        }
+
+        if(has_tab) {
+            throw_lexical_error("Tab in indentation of a nonempty line");
+        }
 
         ungetc(c, file);
         token.type = T_INDENT;

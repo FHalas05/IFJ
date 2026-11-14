@@ -60,7 +60,7 @@ typedef enum {
     T_OP_LESS_EQ,
     T_OP_PLUS_PLUS,
     T_OP_ROCKET,
-    T_OP_BIN_NOT,
+    T_OP_NOT,
     T_OP_BIN_AND,
     T_OP_BIN_OR,
 

@@ -6,6 +6,7 @@
 #include "scanner.h"
 #include "token.h"
 #include "library.h"
+#include "symtable.h"
 #include "parser.h"
 #include "ast.h"
 #include "expression_parser.h"

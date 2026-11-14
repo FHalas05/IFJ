@@ -114,7 +114,7 @@ static const char *token_type_to_str(TokenType type) {
         case T_OP_LESS_EQ:   return "T_OP_LESS_EQ";
         case T_OP_PLUS_PLUS: return "T_OP_PLUS_PLUS";
         case T_OP_ROCKET:    return "T_OP_ROCKET";
-        case T_OP_BIN_NOT:   return "T_OP_BIN_NOT";
+        case T_OP_NOT:       return "T_OP_NOT";
         case T_OP_BIN_AND:   return "T_OP_BIN_AND";
         case T_OP_BIN_OR:    return "T_OP_BIN_OR";
         case T_EOF:          return "T_EOF";

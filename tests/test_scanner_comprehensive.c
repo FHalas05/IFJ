@@ -236,7 +236,7 @@ TestCase tests[] = {
     { .name = "op_less_eq",         .input = "<=",                  .expected_out_token_type = T_OP_LESS_EQ,    .expected_out_data = NULL },
     { .name = "op_plus_plus",       .input = "++",                  .expected_out_token_type = T_OP_PLUS_PLUS,  .expected_out_data = NULL },
     { .name = "op_rocket",          .input = "=>",                  .expected_out_token_type = T_OP_ROCKET,     .expected_out_data = NULL },
-    { .name = "op_bin_not",         .input = "!",                   .expected_out_token_type = T_OP_BIN_NOT,    .expected_out_data = NULL },
+    { .name = "op_not",         .input = "!",                       .expected_out_token_type = T_OP_NOT,        .expected_out_data = NULL },
     { .name = "op_bin_and",         .input = "&&",                  .expected_out_token_type = T_OP_BIN_AND,    .expected_out_data = NULL },
     { .name = "op_bin_or",          .input = "||",                  .expected_out_token_type = T_OP_BIN_OR,     .expected_out_data = NULL },
 
@@ -338,7 +338,7 @@ static const char *token_type_to_str(TokenType type) {
         case T_OP_LESS_EQ:   return "T_OP_LESS_EQ";
         case T_OP_PLUS_PLUS: return "T_OP_PLUS_PLUS";
         case T_OP_ROCKET:    return "T_OP_ROCKET";
-        case T_OP_BIN_NOT:   return "T_OP_BIN_NOT";
+        case T_OP_NOT:       return "T_OP_NOT";
         case T_OP_BIN_AND:   return "T_OP_BIN_AND";
         case T_OP_BIN_OR:    return "T_OP_BIN_OR";
         case T_EOF:          return "T_EOF";
