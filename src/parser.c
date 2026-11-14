@@ -204,6 +204,8 @@ ASTNode *parse_one_param(Parser *p);
 
 static void parse_param_tail(Parser *p, ASTNode *func);
 
+static void parse_next_param(Parser *p, ASTNode *func);
+
 ASTNode *parse_function_body(Parser *p);
 
 ASTNode *parse_block(Parser *p);
@@ -223,6 +225,12 @@ ASTNode *parse_return_val(Parser *p);
 static bool parse_def_value(Parser *p);
 
 ASTNode *parse_compound_stmt(Parser *p);
+
+ASTNode *parse_if_stmt(Parser *p);
+
+static void parse_else_stmt(Parser *p, ASTNode *if_node);
+
+ASTNode *parse_else_body(Parser *p);
 
 
 
@@ -408,18 +416,7 @@ static void parse_param_tail(Parser *p, ASTNode *func){
         case T_COMMA:{
             p->pending_lf = false;
             advance(p);
-
-            if(p->token.type == T_PAR_R) {
-                if(!p->pending_lf) {
-                    throw_fatal_error(2, "After last comma, ')' must be on a new line!");
-                }
-
-                return;
-            }
-
-            ASTNode *param = parse_one_param(p);
-            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
-            parse_param_tail(p, func);
+            parse_next_param(p, func);
             break;
         }    
         case T_PAR_R:
@@ -427,6 +424,25 @@ static void parse_param_tail(Parser *p, ASTNode *func){
         default:
             throw_fatal_error(2, "Parameter list: expected ',' or ')'");
     } 
+}
+
+static void parse_next_param(Parser *p, ASTNode *func){
+    switch (p->token.type){
+        case T_IDENT:{
+            ASTNode *param = parse_one_param(p);
+            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
+            parse_param_tail(p, func);
+            break;
+        }
+        case T_PAR_R:{
+            if(!p->pending_lf){
+                throw_fatal_error(2, "After last comma, ')' must be on a new line!");
+            }
+            break;
+        }
+        default:
+            throw_fatal_error(2, "Parameter list: expected parameter name or ')' after ','");
+    }
 }
 
 ASTNode *parse_function_body(Parser *p){
@@ -641,29 +657,7 @@ static bool parse_def_value(Parser *p){
 ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:{
-            advance(p);
-
-            ASTNode *comp_if = create_node(NODE_IF);
-            comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
-
-            expect(p, T_KW_THEN, "if: expected 'then' after condition");
-            comp_if->data.if_stmt.then_block = parse_block(p);
-
-            if(p->token.type == T_KW_ELSE) {
-                advance(p);
-                if(p->token.type == T_KW_IF) {
-                    ASTNode *else_block = create_node(NODE_BLOCK);
-                    ASTNode *else_if = parse_compound_stmt(p);
-
-                    ast_array_append(&else_block->data.block.statements, &else_block->data.block.count, &else_block->data.block.capacity, else_if);
-
-                    comp_if->data.if_stmt.else_block = else_block;
-                } else {
-                    comp_if->data.if_stmt.else_block = parse_block(p);
-                }
-            }
-
-            return comp_if;
+            return parse_if_stmt(p);
         }
         case T_KW_WHILE:{
             advance(p);
@@ -677,4 +671,68 @@ ASTNode *parse_compound_stmt(Parser *p){
             throw_fatal_error(2, "Expected 'if' or 'while'");
     }
     return NULL;
+}
+
+ASTNode *parse_if_stmt(Parser *p){
+    switch (p->token.type){
+        case T_KW_IF:{
+            advance(p);
+
+            ASTNode *comp_if = create_node(NODE_IF);
+            comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
+
+            expect(p, T_KW_THEN, "if: expected 'then' after condition");
+            comp_if->data.if_stmt.then_block = parse_block(p);
+            parse_else_stmt(p, comp_if);
+            return comp_if;
+        }
+        default:
+            throw_fatal_error(2, "Expected 'if'");
+    }
+    return NULL;
+}
+
+static void parse_else_stmt(Parser *p, ASTNode *if_node){
+     switch (p->token.type){
+        case T_KW_ELSE:{
+            advance(p);
+            if_node->data.if_stmt.else_block = parse_else_body(p);
+            break;
+        }
+        case T_KW_VAL:
+        case T_KW_VAR:
+        case T_KW_RETURN:
+        case T_KW_IF:
+        case T_KW_WHILE:
+        case T_IDENT:
+        case T_INT:
+        case T_DOUBLE:
+        case T_STRING:
+        case T_OP_MINUS:
+        case T_OP_NOT:
+        case T_KW_TRUE:
+        case T_KW_FALSE:
+        case T_PAR_L:
+        case T_DEDENT:{
+            break;
+        }
+        default:
+            throw_fatal_error(2, "After if block: expected 'else', next statement or end of block");
+     }
+}
+
+ASTNode *parse_else_body(Parser *p){
+    switch(p->token.type){
+        case T_NEWLINE:{
+            return parse_block(p);
+        }
+        case T_KW_IF:{
+            ASTNode *else_block = create_node(NODE_BLOCK);
+            ast_array_append(&else_block->data.block.statements, &else_block->data.block.count, &else_block->data.block.capacity, parse_if_stmt(p));
+            return else_block;
+        }
+        default:
+            throw_fatal_error(2, "After 'else': expected newline with block or 'if'");
+    }
+    return NULL;    
 }
