@@ -1,3 +1,12 @@
+/**
+ * @file parser.h
+ * @brief Parser interface
+ * 
+ * Defines the parser state and the functions used by other parts of the compiler.
+ * 
+ * @author Jakub Juřík (xjurikj00)
+ * @date 16.11.2026
+ */
 
 #ifndef PARSER_H
 #define PARSER_H
@@ -9,35 +18,79 @@
 #include "symtable.h"
 #include "token.h"
 
+/**
+ * @brief State of the parser
+ */
 typedef struct {
-    FILE *src;
-    SymTable *symtab;
+    FILE *src;                          //input file
+    SymTable *symtab;                   //symbol table
 
-    Token token;
+    Token token;                        //current token
 
-    Token peek_token;
-    bool has_peek;
+    Token peek_token;                   //next token ready by peek_token_type
+    bool has_peek;                      //true if peek_token is valid
 
-    Token pending_token;
-    bool has_pending_token;
+    Token pending_token;                //token saved for later by next_token    
+    bool has_pending_token;             //true if pending_token is valid
 
-    int *indent_stack;
-    size_t indent_count;
-    size_t indent_capacity;
+    int *indent_stack;                  //stack of indentation levels (spaces)
+    size_t indent_count;                //number of levels on the stack
+    size_t indent_capacity;             //size of the stack
 
-    size_t  pending_dedent;
-    bool line_start;
-    bool eof_newline_done;
+    size_t  pending_dedent;             //number of DEDENT tokens still to return
+    bool line_start;                    //true at the start of a new line
+    bool eof_newline_done;              //true when the NEWLINE before EOF was added
 
-    size_t paren_depth;
-    size_t logical_indent;
-    bool pending_lf;
+    size_t paren_depth;                 //how deep we are inside bracket
+    size_t logical_indent;              //indentation of the current statement
+    bool pending_lf;                    //true if there was a new line inside brackets
 }Parser;
 
+
+/**
+ * @brief Parses a whole program and returns its AST.
+ * 
+ * Rule 1: PROGRAM -> PROLOG FUNCTION_LIST
+ * 
+ * @param file Input file
+ * @param table Symbol table
+ * 
+ * @return Root of the AST (NODE_PROGRAM)
+ */
 ASTNode *parse_program(FILE *file, SymTable *table);
 
+
+/**
+ * @brief Moves to the next token
+ * 
+ * Frees the data of the current token if the AST did not take it.
+ * 
+ * @param p Parser
+ */
 void advance(Parser *p);
+
+
+/**
+ * @brief Checks the current token and moves to the next one.
+ * 
+ * If the token is wrong, ends with syntax error 2.
+ * 
+ * @param p Parser
+ * @param type Expected token type
+ * @param msg Error message
+ */
 void expect(Parser *p, TokenType type, char *msg);
+
+
+/**
+ * @brief Looks at the next token, but does not move it.
+ * 
+ * Used to know if "id" starts an assignment (next token is '=') or an expression (rule 34 and 36).
+ * 
+ * @param p Parser
+ * 
+ * @return Type of the next token 
+ */
 TokenType peek_token_type(Parser *p);
 
 #endif

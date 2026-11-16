@@ -1,7 +1,26 @@
+/**
+ * @file parser.c
+ * @brief Syntax analysis of IFJ26 (LL(1)).
+ * 
+ * The parser reads tokens and checks that the program follows the grammar. 
+ * It uses recursive descent: every non-terminal has its own function parse_<name>.
+ * Rule numbers match LL_Table.xlsx (rules 1-48).
+ * Expressions are parsed by parse_expression (precedence parser).
+ * While parsing, the parser builds the AST.
+ * 
+ * next_token is a small layer between the scanner and parser.
+ * It makes INDENT and DEDENT tokens from the indentation, skips empty lines, 
+ * ignores newlines inside brackets and does not allow '-' or '!' at the start of a line.
+ * 
+ * @author Jakub Juřík (xjurikj00)
+ * @date 16.11.2026
+ */
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "scanner.h"
 #include "token.h"
@@ -11,11 +30,23 @@
 #include "ast.h"
 #include "expression_parser.h"
 
+/**
+ * @brief Prints a syntax error and ends the program with code 2.
+ * 
+ * @param msg Error message.
+ */
 static void syntax_error(const char *msg) {
     fprintf(stderr, "Syntax error: %s\n", msg);
     exit(2);
 }
 
+/**
+ * @brief Initialize parser - sets to its start state.
+ * 
+ * @param p Parser 
+ * @param file Input file
+ * @param table Symbol table
+ */
 static void init_parser(Parser *p, FILE *file, SymTable *table) {
     p->src = file;
     p->symtab = table;
@@ -38,6 +69,14 @@ static void init_parser(Parser *p, FILE *file, SymTable *table) {
     p->indent_stack[p->indent_count++] = 0;
 }
 
+/**
+ * @brief Adds a new indentation level to the stack.
+ * 
+ * Makes the stack bigger when it's full.
+ * 
+ * @param p Parser
+ * @param level Number of spaces of the new block 
+ */
 static void push_indent(Parser *p, int level) {
     if(p->indent_count == p->indent_capacity) {
         size_t new_capacity = p->indent_capacity * 2;
@@ -52,11 +91,29 @@ static void push_indent(Parser *p, int level) {
     p->indent_stack[p->indent_count++] = level;
 }
 
+/**
+ * @brief Makes a new token without data.
+ * 
+ * Used for tokens made by parser (INDENT, DEDENT, NEWLINE).
+ * 
+ * @param type Token type
+ * 
+ * @return New token
+ */
 static Token make_token(TokenType type) { 
     Token t = {type, NULL}; 
     return t; 
 }
 
+/**
+ * @brief Gets the new token from the scanner.
+ * 
+ * If a token was saved for late, it returns that token first.
+ * 
+ * @param p Parser
+ * 
+ * @return Next token from the scanner  
+ */
 static Token raw_scan(Parser *p) {
     if (p->has_pending_token) { 
         p->has_pending_token = false;
@@ -66,6 +123,19 @@ static Token raw_scan(Parser *p) {
     return t;
 }
 
+/**
+ * @brief Gets the next token for the parser.
+ * 
+ * - makes INDENT/DEDENT tokens from the indentation,
+ * - skips empty lines and lines with only comments,
+ * - inside brackets a newline is only a space, the next line must be indented more than the start of the statement,
+ * - a line cannot start with '-' or '!',
+ * - adds NEWLINE before EOF if it is missing.
+ * 
+ * @param p Parser
+ *
+ * @return Next token
+ */
 static Token next_token(Parser *p) {
     if (p->pending_dedent > 0) { 
         p->pending_dedent--; 
@@ -233,7 +303,6 @@ static void parse_else_stmt(Parser *p, ASTNode *if_node);
 ASTNode *parse_else_body(Parser *p);
 
 
-
 ASTNode *parse_program(FILE *file, SymTable *table) {
     Parser p;
     init_parser(&p, file, table);
@@ -254,6 +323,13 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
     return program;
 }
 
+/**
+ * @brief Parses the first line "import ifj26.*".   
+ * 
+ * Rule 2: PROLOG -> T_KW_IMPORT T_IDENT T_DOT T_OP_MUL T_NEWLINE
+ * 
+ * @param p Parser
+ */
 static void parse_prolog(Parser *p){
     switch (p->token.type){
         case T_KW_IMPORT:
@@ -271,6 +347,15 @@ static void parse_prolog(Parser *p){
     }
 }
 
+/**
+ * @brief Parses all functions and adds them to the program.
+ * 
+ * Rule 3: FUNCTION_LIST -> FUNCTION_DEF FUNCTION_LIST
+ * Rule 4: FUNCTION_LIST -> ε
+ * 
+ * @param p Parser
+ * @param program Program node
+ */
 static void parse_function_list(Parser *p, ASTNode *program){
     switch (p->token.type){
         case T_AT_MAIN:
@@ -287,6 +372,15 @@ static void parse_function_list(Parser *p, ASTNode *program){
     }   
 }
 
+/**
+ * @brief Parses one function.
+ * 
+ * Rule 5: FUNCTION_DEF -> ANNOTATION_OPT T_KW_DEF T_IDENT T_PAR_L PARAMS T_PAR_R RETURN_TYPE T_OP_ASSIGN FUNCTION_BODY
+ * 
+ * @param p Parser
+ * 
+ * @return Function node (NODE_FUNCTION_DEF)
+ */
 ASTNode *parse_function_def(Parser *p){
     ASTNode *function_def = create_node(NODE_FUNCTION_DEF);
     switch (p->token.type){
@@ -317,6 +411,16 @@ ASTNode *parse_function_def(Parser *p){
     return function_def;
 }
 
+/**
+ * @brief Parses the optional @main before def.
+ * 
+ * Rule 6: ANNOTATION_OPT -> T_AT_MAIN ANNOTATION_REMAINING
+ * Rule 7: ANNOTATION_OPT -> ε
+ * 
+ * @param p Parser
+ * 
+ * @return True if the function has @main
+ */
 static bool parse_annotation_opt(Parser *p){
     switch (p->token.type){
         case T_AT_MAIN:
@@ -331,6 +435,14 @@ static bool parse_annotation_opt(Parser *p){
     return false;
 }
 
+/**
+ * @brief Parses the optional new line after @main.
+ * 
+ * Rule 8: ANNOTATION_REMAINING -> T_NEWLINE
+ * Rule 9: ANNOTATION_REMAINING -> ε
+ * 
+ * @param p Parser
+ */
 static void parse_annotation_remaining(Parser *p){
     switch (p->token.type){
         case T_NEWLINE:
@@ -343,6 +455,16 @@ static void parse_annotation_remaining(Parser *p){
     }
 }
 
+/**
+ * @brief Parses the optional type ": Type".
+ * 
+ * Rule 10: RETURN_TYPE -> T_COLON TYPE
+ * Rule 11: RETURN_TYPE -> ε
+ * 
+ * @param p Parser
+ * 
+ * @return The type or TYPE_UNKNOWN if there is no type
+ */
 DataType parse_return_type(Parser *p){
     switch (p->token.type){
         case T_COLON:
@@ -356,6 +478,19 @@ DataType parse_return_type(Parser *p){
     return TYPE_UNKNOWN;
 }
 
+/**
+ * @brief Parses a type name.
+ * 
+ * Rule 12: TYPE -> T_KW_INT
+ * Rule 13: TYPE -> T_KW_DOUBLE
+ * Rule 14: TYPE -> T_KW_STRING
+ * Rule 15: TYPE -> T_KW_UNIT
+ * Rule 16: TYPE -> T_KW_BOOLEAN
+ * 
+ * @param p Parser
+ * 
+ * @return Type
+ */
 DataType parse_type (Parser *p){
     switch (p->token.type){
         case T_KW_INT:
@@ -379,6 +514,15 @@ DataType parse_type (Parser *p){
     return TYPE_UNKNOWN;
 }
 
+/**
+ * @brief Parses the parameters of a function.
+ * 
+ * Rule 17: PARAMS -> ONE_PARAM PARAM_TAIL
+ * Rule 18: PARAMS -> ε
+ * 
+ * @param p Parser
+ * @param func Function node 
+ */
 static void parse_params(Parser *p, ASTNode *func){
     switch (p->token.type){
         case T_IDENT:{
@@ -394,6 +538,15 @@ static void parse_params(Parser *p, ASTNode *func){
     }
 }
 
+/**
+ * @brief Parses one parameter "name: Type".
+ * 
+ * Rule 19: ONE_PARAM -> T_IDENT T_COLON TYPE
+ * 
+ * @param p Parser
+ * 
+ * @return Parameter node (NODE_PARAM)
+ */
 ASTNode *parse_one_param(Parser *p){
     switch (p->token.type){
         case T_IDENT:{
@@ -411,6 +564,15 @@ ASTNode *parse_one_param(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses rest of the parameters (after one_param).
+ * 
+ * Rule 20: PARAM_TAIL -> T_COMMA NEXT_PARAM
+ * Rule 21: PARAM_TAIL -> ε
+ * 
+ * @param p Parser
+ * @param func Function node 
+ */
 static void parse_param_tail(Parser *p, ASTNode *func){
     switch (p->token.type){
         case T_COMMA:{
@@ -426,6 +588,17 @@ static void parse_param_tail(Parser *p, ASTNode *func){
     } 
 }
 
+/**
+ * @brief Parses what comes after a comma in the parameters.
+ * 
+ * A comma at the and is allowed only if  ')' is on a new line.
+ * 
+ * Rule 22: NEXT_PARAM -> ONE_PARAM PARAM_TAIL
+ * Rule 23: NEXT_PARAM -> ε
+ * 
+ * @param p Parser
+ * @param func Function node 
+ */
 static void parse_next_param(Parser *p, ASTNode *func){
     switch (p->token.type){
         case T_IDENT:{
@@ -445,6 +618,18 @@ static void parse_next_param(Parser *p, ASTNode *func){
     }
 }
 
+/**
+ * @brief Parses the body of a function.
+ * 
+ * A one-line body is saved as a block with one expression, so both kinds of body look same in the AST.
+ * 
+ * Rule 24: FUNCTION_BODY -> EXPR T_NEWLINE
+ * Rule 25: FUNCTION_BODY -> BLOCK
+ * 
+ * @param p Parser
+ * 
+ * @return Block node (NODE_BLOCK)
+ */
 ASTNode *parse_function_body(Parser *p){
     switch (p->token.type){
         case T_IDENT:
@@ -469,6 +654,15 @@ ASTNode *parse_function_body(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses an indented block. 
+ * 
+ * Rule 26: BLOCK -> T_NEWLINE T_INDENT STMT_LIST
+ * 
+ * @param p Parser
+ * 
+ * @return Block node (NODE_BLOCK)
+ */
 ASTNode *parse_block(Parser *p){
     switch (p->token.type){
         case T_NEWLINE:{
@@ -484,6 +678,15 @@ ASTNode *parse_block(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses one statement and then the rest of the block.
+ * 
+ * Rule 27: STMT_LIST -> SIMPLE_STMT SIMPLE_END
+ * Rule 28: STMT_LIST -> COMPOUND_STMT STMT_LIST_END
+ * 
+ * @param p Parser
+ * @param block Block node
+ */
 static void parse_stmt_list(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_KW_VAL:
@@ -515,6 +718,15 @@ static void parse_stmt_list(Parser *p, ASTNode *block){
     }
 }
 
+/**
+ * @brief Parses ";" or a new line after a simple statement.
+ * 
+ * Rule 29: SIMPLE_END -> T_SEMICOLON STMT_LIST
+ * Rule 30: SIMPLE_END -> T_NEWLINE STMT_LIST_END
+ * 
+ * @param p Parser
+ * @param block Block node
+ */
 static void parse_simple_end(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_SEMICOLON:
@@ -530,6 +742,15 @@ static void parse_simple_end(Parser *p, ASTNode *block){
     }
 }
 
+/**
+ * @brief Parses the next statement or end of the block.
+ * 
+ * Rule 31: STMT_LIST_END -> STMT_LIST
+ * Rule 32: STMT_LIST_END -> T_DEDENT
+ * 
+ * @param p Parser
+ * @param block Block node
+ */
 static void parse_stmt_list_end(Parser *p, ASTNode *block){
     switch (p->token.type){
         case T_KW_VAL:
@@ -556,6 +777,18 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block){
     }
 }
 
+/**
+ * @brief Parses a simple statement.
+ * 
+ * Rule 33: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN EXPR
+ * Rule 34: SIMPLE_STMT -> T_IDENT AFTER_IDENT
+ * Rule 35: SIMPLE_STMT -> T_KW_RETURN RETURN_VAL
+ * Rule 36: SIMPLE_STMT -> EXPR
+ * 
+ * @param p Parser
+ * 
+ * @return Statement node
+ */
 ASTNode *parse_simple_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
@@ -573,6 +806,7 @@ ASTNode *parse_simple_stmt(Parser *p){
             simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
             return simple_value;
         }
+        // id followed by '=' is an assignment, otherwise an expression
         case T_IDENT:{ 
             if(peek_token_type(p) == T_OP_ASSIGN){
                 char *name = p->token.data;
@@ -588,6 +822,7 @@ ASTNode *parse_simple_stmt(Parser *p){
             simple_return->data.return_stmt.value = parse_return_val(p);
             return simple_return;
         }
+        //Expression or function call
         case T_INT:
         case T_DOUBLE:
         case T_STRING:
@@ -602,8 +837,18 @@ ASTNode *parse_simple_stmt(Parser *p){
             throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
     }
     return NULL;
-}
+} 
 
+/**
+ * @brief Parses rest of an assignment  "= expression".
+ * 
+ * Rule 37: AFTER_IDENT -> T_OP_ASSIGN EXPR
+ * 
+ * @param p Parser
+ * @param name Name of the variable
+ * 
+ * @return Assignment node (NODE_ASSIGN)
+ */
 ASTNode *parse_after_ident(Parser *p, char *name){
     switch (p->token.type){
         case T_OP_ASSIGN:{
@@ -614,11 +859,21 @@ ASTNode *parse_after_ident(Parser *p, char *name){
             return after_assign;
         }
         default:
-            throw_fatal_error(2, "After identifier: expected '=', '(', operator or end of statement");
+            throw_fatal_error(2, "After identifier: expected '='");
     }
     return NULL;
 }
 
+/**
+ * @brief Parses the value after return (can be missing).
+ * 
+ * Rule 38: RETURN_VAL -> EXPR
+ * Rule 39: RETURN_VAL -> ε
+ * 
+ * @param p Parser
+ * 
+ * @return Expression node, or NULL if there is no value 
+ */
 ASTNode *parse_return_val(Parser *p){
     switch (p->token.type){
         case T_IDENT:
@@ -640,6 +895,16 @@ ASTNode *parse_return_val(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses val or var.
+ * 
+ * Rule 40: DEF_VALUE -> T_KW_VAL
+ * Rule 41: DEF_VALUE -> T_KW_VAR
+ * 
+ * @param p Parser
+ * 
+ * @return True for var, false for val
+ */
 static bool parse_def_value(Parser *p){
     switch (p->token.type){
         case T_KW_VAL:
@@ -654,6 +919,16 @@ static bool parse_def_value(Parser *p){
     return false;
 }
 
+/**
+ * @brief Parses if or while.
+ * 
+ * Rule 42: COMPOUND_STMT -> IF_STMT
+ * Rule 43: COMPOUND_STMT -> T_KW_WHILE EXPR T_KW_DO BLOCK
+ * 
+ * @param p Parser
+ * 
+ * @return If node or while node
+ */
 ASTNode *parse_compound_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:{
@@ -673,6 +948,15 @@ ASTNode *parse_compound_stmt(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses an if statement.
+ * 
+ * Rule 44: IF_STMT -> T_KW_IF EXPR T_KW_THEN BLOCK ELSE_STMT
+ * 
+ * @param p Parser
+ * 
+ * @return If node (NODE_IF)
+ */
 ASTNode *parse_if_stmt(Parser *p){
     switch (p->token.type){
         case T_KW_IF:{
@@ -692,6 +976,17 @@ ASTNode *parse_if_stmt(Parser *p){
     return NULL;
 }
 
+/**
+ * @brief Parses an else part of if statement.
+ * 
+ * If there is no else, else_block stays NULL.
+ * 
+ * Rule 45: ELSE_STMT -> T_KW_ELSE ELSE_BODY
+ * Rule 46: ELSE_STMT -> ε
+ * 
+ * @param p Parser
+ * @param if_node If node
+ */
 static void parse_else_stmt(Parser *p, ASTNode *if_node){
      switch (p->token.type){
         case T_KW_ELSE:{
@@ -721,6 +1016,16 @@ static void parse_else_stmt(Parser *p, ASTNode *if_node){
      }
 }
 
+/**
+ * @brief Parses what comes after else: a block or another if
+ * 
+ * Rule 47: ELSE_BODY -> BLOCK
+ * Rule 48: ELSE_BODY -> IF_STMT
+ * 
+ * @param p Parser
+ * 
+ * @return Block node (NODE_BLOCK)
+ */
 ASTNode *parse_else_body(Parser *p){
     switch(p->token.type){
         case T_NEWLINE:{
