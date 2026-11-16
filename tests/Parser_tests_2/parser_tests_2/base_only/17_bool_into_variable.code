@@ -1,2 +1,0 @@
-2 6
-# V zakladu chyba, ale s rozsirenim BOOLTHEN je to platny kod. Oficialni testy to v zakladu nekontroluji. Syntakticky je to OK vyraz; semanticky Boolean nelze bez BOOLTHEN ukladat.

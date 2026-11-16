@@ -129,6 +129,7 @@ run_dir ok
 run_dir err_lex
 run_dir err_syntax
 run_dir err_sem
+run_dir ext_boolthen
 [ "$SKIP_EXT" -eq 0 ] && run_dir base_only
 run_dir ext_funexp
 run_dir sem_rules

@@ -62,6 +62,7 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
     add_builtin(ctx, "readLine", TYPE_STRING, 0, NULL);
     add_builtin(ctx, "readInt", TYPE_INT, 0, NULL);
     add_builtin(ctx, "readDouble", TYPE_DOUBLE, 0, NULL);
+    add_builtin(ctx, "readBoolean", TYPE_BOOL, 0, NULL);
     add_builtin(ctx, "toStr", TYPE_STRING, 1, (DataType[]){TYPE_ANY});
     add_builtin(ctx, "toInt", TYPE_INT, 1, (DataType[]){TYPE_DOUBLE});
     add_builtin(ctx, "strLength", TYPE_INT, 1, (DataType[]){TYPE_STRING});
@@ -146,9 +147,6 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
     switch (stmt->type){
         case NODE_DEF_VAR:{
             DataType value_type = check_expression(ctx, stmt->data.def_var.value);
-            if (value_type == TYPE_BOOL){
-                throw_fatal_error(6, "Value cannot be true/false");
-            }
             DataType var_type = stmt->data.def_var.type;
             if (var_type == TYPE_UNKNOWN){
                 if (value_type == TYPE_UNKNOWN){
@@ -270,14 +268,9 @@ static void check_function(SemContext *ctx, ASTNode *func){
             }
         }
         else{
-            if (type == TYPE_BOOL){
-                throw_fatal_error(6, "Cannot return Boolean value");
+            func->data.function_def.return_type = type;
+            search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
             }
-            else{
-                func->data.function_def.return_type = type;
-                search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
-            }
-        }
     }
     DataType ret = func->data.function_def.return_type;
     if ((last != NULL) && (last->type == NODE_IF)){
@@ -306,10 +299,7 @@ static void check_function(SemContext *ctx, ASTNode *func){
 }
 
 bool types_compatible(DataType expected, DataType actual){
-    if (actual == TYPE_BOOL){
-        return false;
-    }
-    else if (expected == actual){
+    if (expected == actual){
         return true;
     }
     else if (expected == TYPE_ANY){
@@ -399,13 +389,23 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
                     if ((is_numeric(a)) && (is_numeric(b))){
                         result = TYPE_BOOL;
                     }
-                    else if ((a == b) && (a != TYPE_BOOL)){
+                    else if (a == b){
                         result = TYPE_BOOL;
                     }
                     else{
                         throw_fatal_error(6, "Equality operator requires compatible operands");
                     }
                     break;
+                case OP_AND:
+                case OP_OR:{
+                    if ((a == TYPE_BOOL) && (b == TYPE_BOOL)){
+                        result = TYPE_BOOL;
+                    }
+                    else{
+                        throw_fatal_error(6, "Logical operator requires Boolean operands");
+                    }
+                    break;
+                }
                 default:
                     break;
             }
@@ -414,16 +414,29 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
 
         case NODE_UNOP:{
             DataType t = check_expression(ctx, expr->data.un_op.operand);
-            if (is_numeric(t)){
-                result = t;
+            if (expr->data.un_op.operation == OP_NOT){
+                if (t == TYPE_BOOL){
+                    result = TYPE_BOOL;
+                }
+                else{
+                    throw_fatal_error(6, "Operator '!' requires a Boolean operand");
+                }
             }
             else{
+                if (is_numeric(t)){
+                result = t;
+                } 
+                else{
                 throw_fatal_error(6, "Unary minus requires a numeric operand");
+                }
             }
             break;
         }
         case NODE_FUNCTION_CALL:
             result = check_call (ctx, expr);
+            break;
+        case NODE_BOOL_LITERAL:
+            result = TYPE_BOOL;
             break;
         default:
             break;

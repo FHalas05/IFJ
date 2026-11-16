@@ -1,0 +1,7 @@
+import ifj26.*
+@main def main(): Unit =
+  val b = readBoolean()
+  if b then
+    print(1)
+  else
+    print(0)
