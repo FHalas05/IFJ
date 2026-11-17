@@ -13,7 +13,7 @@
  * ignores newlines inside brackets and does not allow '-' or '!' at the start of a line.
  * 
  * @author Jakub Juřík (xjurikj00)
- * @date 16.11.2026
+ * @date 4.10.2026
  */
 
 

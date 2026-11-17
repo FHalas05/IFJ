@@ -5,7 +5,7 @@
  * Defines the parser state and the functions used by other parts of the compiler.
  * 
  * @author Jakub Juřík (xjurikj00)
- * @date 16.11.2026
+ * @date 4.10.2026
  */
 
 #ifndef PARSER_H
