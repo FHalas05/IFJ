@@ -104,10 +104,15 @@ static void cond_label_formatter(DynamicString *label_to_be_filled, NodeType con
  *
  * @param variable formatted variable (LF@<var_name>)
  * @param var_name name of the function from AST
+ * @param var_id variable id
  */
-static void variable_formatter(DynamicString *variable, const char *var_name) {
+static void variable_formatter(DynamicString *variable, const char *var_name, size_t var_id) {
     dyn_str_add_string(variable, "LF@");
     dyn_str_add_string(variable, var_name);
+    dyn_str_add_string(variable, "$");
+    char var_id_buffer[INT_CHAR_COUNT];
+    snprintf(var_id_buffer, sizeof(var_id_buffer), "%zu", var_id);
+    dyn_str_add_string(variable, var_id_buffer);
 }
 
 /**
@@ -160,7 +165,7 @@ static void variable_generator(ASTNode *body) {
         break;
     case NODE_DEF_VAR: {
         DynamicString *variable = dyn_str_init();
-        variable_formatter(variable, body->data.def_var.name);
+        variable_formatter(variable, body->data.def_var.name, body->data.def_var.variable_id);
         print_formatted_1("DEFVAR", variable->string);
         dyn_str_free(variable);
         break;
@@ -192,27 +197,27 @@ static void operation_formatter(Operator operation) {
     case OP_EQ:
         print_formatted_0("EQS");
         break;
-    case OP_GE:
+    case OP_GR_EQ:
         print_formatted_0("LTS");
         print_formatted_0("NOTS");
         break;
-    case OP_SUBB:
+    case OP_SUB:
         print_formatted_0("SUBS");
         break;
-    case OP_GT:
+    case OP_GR:
         print_formatted_0("GTS");
         break;
-    case OP_LE:
+    case OP_LESS_EQ:
         print_formatted_0("GTS");
         print_formatted_0("NOTS");
         break;
-    case OP_LS:
+    case OP_LESS:
         print_formatted_0("LTS");
         break;
     case OP_MUL:
         print_formatted_0("MULS");
         break;
-    case OP_NEQ:
+    case OP_NOT_EQ:
         print_formatted_0("EQS");
         print_formatted_0("NOTS");
         break;
@@ -250,63 +255,51 @@ static void instruction_generator(ASTNode *body) {
             dyn_str_free(label);
             break;
         }
+        case NODE_UNOP: {
+            Operator op = body->data.un_op.operation;
+            ASTNode *operand = body->data.un_op.operand;
+            instruction_generator(operand);
+            if (op == OP_UNARY_MINUS && operand->data_type == TYPE_DOUBLE) {
+                print_formatted_1("PUSHS", "float@-0x1p+0");
+                print_formatted_0("MULS");
+            } else if (op == OP_UNARY_MINUS && operand->data_type == TYPE_INT) {
+                print_formatted_1("PUSHS", "int@-1");
+                print_formatted_0("MULS");
+            }
+            break;
+        }
         case NODE_BINOP: {
             Operator op = body->data.bin_op.operation;
-            if (body->data.bin_op.left == NULL) {
-                ASTNode *right = body->data.bin_op.right;
-                instruction_generator(right);
-                if (op == OP_UNARY_MINUS && right->data_type == TYPE_DOUBLE) {
-                    print_formatted_1("PUSHS", "float@-0x1p+0");
-                    print_formatted_0("MULS");
-                } else if (op == OP_UNARY_MINUS && right->data_type == TYPE_INT) {
-                    print_formatted_1("PUSHS", "int@-1");
-                    print_formatted_0("MULS");
-                }
-                break;
-            } else if (body->data.bin_op.right == NULL) {
-                ASTNode *left = body->data.bin_op.left;
-                instruction_generator(left);
-                if (op == OP_UNARY_MINUS && left->data_type == TYPE_DOUBLE) {
-                    print_formatted_1("PUSHS", "float@-0x1p+0");
-                    print_formatted_0("MULS");
-                } else if (op == OP_UNARY_MINUS && left->data_type == TYPE_INT) {
-                    print_formatted_1("PUSHS", "int@-1");
-                    print_formatted_0("MULS");
-                    break;
-                }
-                break;
-            } else {
-                ASTNode *right = body->data.bin_op.right;
-                ASTNode *left = body->data.bin_op.left;
-                instruction_generator(left);
-                if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
-                    print_formatted_0("INT2FLOATS");
-                }
-                instruction_generator(right);
-                if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
-                    print_formatted_0("INT2FLOATS");
-                }
-                if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
-                    print_formatted_1("CALL", "$helpConcat");
-                    break;
-                }
-                if (op == OP_DIV &&
-                    (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
-                    print_formatted_0("DIVS");
-                    break;
-                    }
-                if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
-                    print_formatted_0("IDIVS");
-                    break;
-                }
-                operation_formatter(op);
+            ASTNode *right = body->data.bin_op.right;
+            ASTNode *left = body->data.bin_op.left;
+            instruction_generator(left);
+            if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
+                print_formatted_0("INT2FLOATS");
             }
+            instruction_generator(right);
+            if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
+                print_formatted_0("INT2FLOATS");
+            }
+            if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
+                print_formatted_1("CALL", "$helpConcat");
+                break;
+            }
+            if (op == OP_DIV &&
+                (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
+                print_formatted_0("DIVS");
+                break;
+                }
+            if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
+                print_formatted_0("IDIVS");
+                break;
+            }
+            operation_formatter(op);
             break;
         }
         case NODE_ASSIGN: {
             instruction_generator(body->data.assign.value);
             DynamicString *variable = dyn_str_init();
-            variable_formatter(variable, body->data.assign.name);
+            variable_formatter(variable, body->data.assign.name, body->data.assign.variable_id);
             print_formatted_1("POPS", variable->string);
             dyn_str_free(variable);
             break;
@@ -360,7 +353,7 @@ static void instruction_generator(ASTNode *body) {
         }
         case NODE_IDENTIFIER: {
             DynamicString *identifier = dyn_str_init();
-            variable_formatter(identifier, body->data.identifier.name);
+            variable_formatter(identifier, body->data.identifier.name, body->data.identifier.variable_id);
             print_formatted_1("PUSHS", identifier->string);
             dyn_str_free(identifier);
             break;
@@ -706,7 +699,7 @@ int generator(ASTNode *ast) {
         for (size_t x = 0; x < cur_fun->data.function_def.param_count; x++) {
             ASTNode *param = cur_fun->data.function_def.parameters[x];
             DynamicString *variable = dyn_str_init();
-            variable_formatter(variable, param->data.param.name);
+            variable_formatter(variable, param->data.param.name, param->data.param.variable_id);
 
             print_formatted_1("DEFVAR", variable->string);
             print_formatted_1("POPS", variable->string);
