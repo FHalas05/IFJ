@@ -8,6 +8,7 @@
 
 typedef enum{
     TYPE_UNKNOWN,
+    TYPE_ANY,
     TYPE_INT,
     TYPE_DOUBLE,
     TYPE_STRING,
@@ -22,7 +23,8 @@ typedef enum{
     NODE_FUNCTION_DEF,           //function definition
     NODE_FUNCTION_CALL,          //call function
     NODE_DEF_VAR,                //definition - val, var
-    NODE_BINOP,                  //binnary operation
+    NODE_BINOP,                  //binary operation
+    NODE_UNOP,                   //unary operation
     NODE_IF,                     //if cycle
     NODE_WHILE,                  //while_cycle
     NODE_ASSIGN,                 //assignment (x=1)
@@ -38,11 +40,13 @@ typedef enum{
 
 //operations for numbers
 typedef enum{
-    OP_ADD, OP_SUBB, OP_MUL, OP_DIV, 
-    OP_LS, OP_LE, OP_GT, OP_GE,
-    OP_EQ, OP_NEQ,
-    OP_UNARY_MINUS, OP_UNARY_PLUS
+    OP_ADD, OP_SUB, OP_MUL, OP_DIV, 
+    OP_LESS, OP_LESS_EQ, OP_GR, OP_GR_EQ,
+    OP_EQ, OP_NOT_EQ,
+    OP_UNARY_MINUS, OP_NOT, OP_AND, OP_OR,
 } Operator;
+
+struct Scope;
 
 //structures for everything - union = only one structure at a time
 typedef struct ASTNode{
@@ -60,6 +64,7 @@ typedef struct ASTNode{
 
         struct {
             struct ASTNode **statements;
+            struct Scope *scope;
             size_t count;
             size_t capacity;
         } block;
@@ -73,6 +78,8 @@ typedef struct ASTNode{
             DataType return_type;
             bool has_explicit_return_type;
             bool is_main;
+            int check_state;
+            struct ASTNode *caller;
         } function_def;
 
         struct{
@@ -80,6 +87,7 @@ typedef struct ASTNode{
             size_t arg_count;
             size_t arg_capacity;
             struct ASTNode **arguments;
+            bool is_builtin;
         } function_call;
 
         struct{
@@ -87,6 +95,7 @@ typedef struct ASTNode{
             bool var;    
             DataType type;                              
             struct ASTNode *value;
+            size_t variable_id;
         } def_var;
 
         struct{
@@ -94,6 +103,11 @@ typedef struct ASTNode{
             struct ASTNode *left;
             struct ASTNode *right;
         } bin_op;
+
+        struct{
+            Operator operation;
+            struct ASTNode *operand;
+        } un_op;
 
         struct{
             struct ASTNode *condition;
@@ -109,6 +123,7 @@ typedef struct ASTNode{
         struct{
             char *name;
             struct ASTNode *value;
+            size_t variable_id;
         } assign;
 
         struct{
@@ -117,6 +132,7 @@ typedef struct ASTNode{
 
         struct{
             char *name;
+            size_t variable_id;
         } identifier;
         
         struct{
@@ -138,6 +154,7 @@ typedef struct ASTNode{
         struct {
             char *name;
             DataType data;
+            size_t variable_id;
         } param;
 
     } data;

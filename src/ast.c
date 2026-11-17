@@ -79,6 +79,9 @@ void free_ast(ASTNode *node){
             free_ast(node->data.bin_op.left);
             free_ast(node->data.bin_op.right);
             break;
+        case NODE_UNOP:
+            free_ast(node->data.un_op.operand);
+            break;
         case NODE_IF:
             free_ast(node->data.if_stmt.condition);
             free_ast(node->data.if_stmt.else_block);
