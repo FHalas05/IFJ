@@ -254,13 +254,21 @@ static void instruction_generator(ASTNode *body) {
         break;
     }
     case NODE_FUNCTION_CALL: {
-        for (size_t i = body->data.function_call.arg_count; i > 0; i--) {
-            instruction_generator(body->data.function_call.arguments[i - 1]);
+        for (size_t i = 0; i < body->data.function_call.arg_count; i++) {
+            instruction_generator(body->data.function_call.arguments[i]);
         }
         DynamicString *label = dyn_str_init();
         fun_label_formatter(label, body->data.function_call.name);
         print_formatted_1("CALL", label->string);
         dyn_str_free(label);
+        break;
+    }
+    case NODE_DEF_VAR: {
+        instruction_generator(body->data.def_var.value);
+        DynamicString *variable = dyn_str_init();
+        variable_formatter(variable, body->data.def_var.name, body->data.def_var.variable_id);
+        print_formatted_1("POPS", variable->string);
+        dyn_str_free(variable);
         break;
     }
     case NODE_UNOP: {
@@ -444,6 +452,7 @@ static void instruction_generator(ASTNode *body) {
     }
     default: {
         throw_fatal_error(404, "generator error - invalid node type");
+        //break;
     }
     }
 }
@@ -646,12 +655,12 @@ static void builtin_substr() {
     print_formatted_1("LABEL", "$subStr");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
-    print_formatted_1("DEFVAR", "LF@or_string");
-    print_formatted_1("POPS", "LF@or_string");
-    print_formatted_1("DEFVAR", "LF@start");
-    print_formatted_1("POPS", "LF@start");
     print_formatted_1("DEFVAR", "LF@end");
     print_formatted_1("POPS", "LF@end");
+    print_formatted_1("DEFVAR", "LF@start");
+    print_formatted_1("POPS", "LF@start");
+    print_formatted_1("DEFVAR", "LF@or_string");
+    print_formatted_1("POPS", "LF@or_string");
     print_formatted_1("DEFVAR", "LF@check");
     print_formatted_1("PUSHS", "LF@or_string");
     print_formatted_1("CALL", "$strLength");
@@ -663,8 +672,8 @@ static void builtin_substr() {
     print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@start", "LF@end");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
-    print_formatted_3("LT", "LF@check", "LF@start", "LF@str_length");
-    print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_3("GT", "LF@check", "LF@start", "LF@str_length");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@end", "LF@str_length");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_1("DEFVAR", "LF@fin_string");
@@ -691,10 +700,10 @@ static void builtin_ord() {
     print_formatted_1("LABEL", "$ord");
     print_formatted_0("CREATEFRAME");
     print_formatted_0("PUSHFRAME");
-    print_formatted_1("DEFVAR", "LF@value");
-    print_formatted_1("POPS", "LF@value");
     print_formatted_1("DEFVAR", "LF@index");
     print_formatted_1("POPS", "LF@index");
+    print_formatted_1("DEFVAR", "LF@value");
+    print_formatted_1("POPS", "LF@value");
     print_formatted_1("PUSHS", "LF@value");
     print_formatted_1("CALL", "$strLength");
     print_formatted_1("DEFVAR", "LF@str_length");
@@ -766,8 +775,8 @@ int generator(ASTNode *ast) {
         print_formatted_0("PUSHFRAME");
 
         // for every function parameter: define a variable, then set its value from the data stack
-        for (size_t x = 0; x < cur_fun->data.function_def.param_count; x++) {
-            ASTNode *param = cur_fun->data.function_def.parameters[x];
+        for (size_t x = cur_fun->data.function_def.param_count; x > 0; x--) {
+            ASTNode *param = cur_fun->data.function_def.parameters[x - 1];
             DynamicString *variable = dyn_str_init();
             variable_formatter(variable, param->data.param.name, param->data.param.variable_id);
 
