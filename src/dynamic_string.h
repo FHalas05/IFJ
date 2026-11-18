@@ -10,11 +10,15 @@
 typedef struct {
     char *string;
     size_t len;
+    size_t capacity;
 } DynamicString;
 
 DynamicString *dyn_str_init();
 
 void dyn_str_add(DynamicString *string, int c);
+
+// WARNING: the returned string NEEDS to be freed eventually (use token_free_data_if_applicable())
+void dyn_str_add_string(DynamicString *dyn_str, const char *str);
 
 // WARNING: the returned string NEEDS to be freed eventually (use token_free_data_if_applicable())
 char *dyn_str_get_string_copy(DynamicString *string);
