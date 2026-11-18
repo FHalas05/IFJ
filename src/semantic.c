@@ -6,31 +6,29 @@
  * and checks that the program makes sense.
  *
  * It works in two passes:
- * 1. collect_functions - saves all functions (and built-in functions) into a table. 
- *    Thanks to this, a function can be called before it is defined in the file.
+ * 1. collect_functions - saves all functions (and built-in functions)
+ *    into a table. Thanks to this, a function can be called before
+ *    it is defined in the file.
  * 2. check_function - checks the body of every function:
  *    variables, assignments, conditions, calls, returns and types.
  *
- * Variables are kept in scopes. Every block (function body, if, while)has its own scope. 
- * A scope points to its parent scope, so a variable is searched from the inner block to the outer ones.
+ * Variables are kept in scopes. Every block (function body, if, while)
+ * has its own scope. A scope points to its parent scope, so a variable
+ * is searched from the inner block to the outer ones.
  *
- * The type of every expression is saved into the AST (data_type), so the code generator knows which instructions to use.
+ * The type of every expression is saved into the AST (data_type),
+ * so the code generator knows which instructions to use.
  *
- * * Error codes:
- * - 3 undefined
- * - 4 redefinition
- * - 5 wrong arguments
- * - 6 wrong types
- * - 7 assignment to val or parameter
+ * Error codes: 3 undefined, 4 redefinition, 5 wrong arguments,
+ * 6 wrong types, 7 assignment to val or parameter.
  *
  * @author Jakub Juřík (xjurikj00)
- * @date 8.11.2026
+ * @date 17.11.2026
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "semantic.h"
 #include "symtable.h"
@@ -40,19 +38,19 @@ static void add_builtin(SemContext *ctx, char *name, DataType return_type, size_
 
 static void collect_functions(SemContext *ctx, ASTNode *program);
 
+static void check_function(SemContext *ctx, ASTNode *func);
+
 static void check_block(SemContext *ctx, ASTNode *block);
 
 static void check_statement(SemContext *ctx, ASTNode *stmt);
 
-static void check_function(SemContext *ctx, ASTNode *func);
+static DataType check_expression(SemContext *ctx, ASTNode *expr);
+
+static DataType check_call(SemContext *ctx, ASTNode *call);
 
 bool types_compatible(DataType expected, DataType actual);
 
-static DataType check_expression(SemContext *ctx, ASTNode *expr);
-
 static bool is_numeric(DataType t);
-
-static DataType check_call(SemContext *ctx, ASTNode *call);
 
 static DataType block_result(ASTNode *block);
 
@@ -60,9 +58,28 @@ static bool ends_with_return(ASTNode *block);
 
 static bool all_branches_unit(ASTNode *block);
 
-void semantic_analyze (ASTNode *program);
 
+/**
+ * @brief Runs the whole semantic analysis on the AST.
+ *
+ * @param program Root of the AST (NODE_PROGRAM)
+ */
+void semantic_analyze (ASTNode *program){
+    SemContext ctx = {0};
 
+    // Pass 1: save all functions
+    collect_functions(&ctx, program);
+
+    // Pass 2: check every function that was not checked yet
+    // (some can be checked before by check_call)
+    for (size_t i = 0; i < program->data.program.count; i++){
+        ASTNode *func = program->data.program.functions[i];
+        if (program->data.program.functions[i]->data.function_def.check_state == 0){
+            check_function(&ctx, func);
+        }
+    }
+    destroy_symtable(ctx.functions);
+}
 
 /**
  * @brief Adds one built-in function (print, readInt, ...) to the function table.
@@ -191,6 +208,114 @@ static void collect_functions(SemContext *ctx, ASTNode *program){
     if (main_count == 0){
                 throw_fatal_error(3, "@main not found");
         }
+}
+
+/**
+ * @brief Checks the body of one function - second pass.
+ *
+ * - puts the parameters into a new scope (they cannot be changed),
+ * - checks all statements of the body,
+ * - checks the value at the end of the body (implicit return),
+ * - finds the return type if it is not written.
+ *
+ * A function can be checked in the middle of another function
+ * (check_call does it when it needs the return type), so the old state
+ * is saved at the start and put back at the end.
+ *
+ * check_state: 0 = not checked, 1 = being checked now, 2 = done.
+ *
+ * @param ctx Semantic state
+ * @param func Function node
+ */
+static void check_function(SemContext *ctx, ASTNode *func){
+    // Save the state of the function that was checked before
+    Scope *saved_scope = ctx->current;
+    ASTNode *saved_func = ctx->current_function;
+
+    func->data.function_def.check_state = 1;            // being checked now
+    func->data.function_def.caller = saved_func;        // who started this check (for recursion)
+    ctx->current_function = func;
+
+    // New scope without a parent: a function cannot see variables of other functions
+    ctx->current = create_scope(NULL);
+
+    // Parameters are variables that cannot be changed.
+    // They are in the same scope as the body, so "val x" in the body
+    // with a parameter x is a redefinition (4).
+    for (size_t i = 0; i < func->data.function_def.param_count; i++){
+        ASTNode *param = func->data.function_def.parameters[i];
+        TData d = {0};
+        d.kind = SYMBOL_VARIABLE;
+        d.data.variable.type = param->data.param.data;
+        d.data.variable.is_mutable = false;
+        d.data.variable.variable_id = ctx->next_var_id++;
+        insert(ctx->current->symbols, param->data.param.name, d);
+    }
+
+    // Check the statements of the body (not with check_block,
+    // because the body uses the scope with the parameters)
+    ASTNode *body = func->data.function_def.body;
+    for (size_t i = 0; i < body->data.block.count ; i++){
+        check_statement(ctx, body->data.block.statements[i]);
+    }
+
+    // Last statement of the body = value of the function (if there is no return)
+    ASTNode *last = NULL;
+    if (body->data.block.count > 0){
+        last = body->data.block.statements[body->data.block.count -1];
+    }
+
+    // Body ends with an expression, val/var, assignment or while.
+    // (return was already checked in check_statement, if is checked below)
+    if ((last != NULL) && (last->type != NODE_RETURN) && (last->type != NODE_IF)){
+        DataType type = block_result (body);
+        DataType ret = func->data.function_def.return_type;
+        if (func->data.function_def.has_explicit_return_type){
+            // Written type: the last value must fit it (Unit function throws it away)
+            if ((ret != TYPE_UNIT) && (!types_compatible(ret, type))){
+                throw_fatal_error(6, "Implicit return value type mismatch");
+            }
+        }
+        else{
+            // Type not written: the function gets the type of the last value.
+            // Save it into the AST and into the function table.
+            func->data.function_def.return_type = type;
+            search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
+            }
+    }
+
+    // Body ends with if. It is OK only if:
+    // - the return type is written and it is Unit, or
+    // - all branches end with return, or
+    // - the return type is not written and all branches give Unit (type is Unit)
+    DataType ret = func->data.function_def.return_type;
+    if ((last != NULL) && (last->type == NODE_IF)){
+        if((func->data.function_def.has_explicit_return_type) && (ret == TYPE_UNIT)){
+            // OK
+        }
+        else if(ends_with_return(func->data.function_def.body)){
+            // OK
+        }
+        else if((!func->data.function_def.has_explicit_return_type) &&(all_branches_unit(func->data.function_def.body))){
+            func->data.function_def.return_type = TYPE_UNIT;
+            search(ctx->functions, func->data.function_def.name)->data.function.return_type = TYPE_UNIT;
+        }
+        else{
+            throw_fatal_error(6, "If at end of function body must end with return in all branches");
+        }
+
+    }
+
+    // @main without a written type: the found type must be Unit
+    if ((func->data.function_def.is_main) && (func->data.function_def.return_type != TYPE_UNIT)){
+        throw_fatal_error(6, "@main must return Unit");
+    }
+
+    // Close the scope and put back the saved state
+    destroy_scope(ctx->current);
+    func->data.function_def.check_state = 2;            // done
+    ctx->current = saved_scope;
+    ctx->current_function = saved_func;
 }
 
 /**
@@ -352,137 +477,6 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             check_expression(ctx, stmt);
             break;
     }
-}
-
-/**
- * @brief Checks the body of one function.
- *
- * - puts the parameters into a new scope (they cannot be changed),
- * - checks all statements of the body,
- * - checks the value at the end of the body (implicit return),
- * - finds the return type if it is not written.
- *
- * A function can be checked in the middle of another function
- * (check_call does it when it needs the return type), so the old state
- * is saved at the start and put back at the end.
- *
- * check_state: 0 = not checked, 1 = being checked now, 2 = done.
- *
- * @param ctx Semantic state
- * @param func Function node
- */
-static void check_function(SemContext *ctx, ASTNode *func){
-    // Save the state of the function that was checked before
-    Scope *saved_scope = ctx->current;
-    ASTNode *saved_func = ctx->current_function;
-
-    func->data.function_def.check_state = 1;            // being checked now
-    func->data.function_def.caller = saved_func;        // who started this check (for recursion)
-    ctx->current_function = func;
-
-    // New scope without a parent: a function cannot see variables of other functions
-    ctx->current = create_scope(NULL);
-
-    // Parameters are variables that cannot be changed.
-    // They are in the same scope as the body, so "val x" in the body
-    // with a parameter x is a redefinition (4).
-    for (size_t i = 0; i < func->data.function_def.param_count; i++){
-        ASTNode *param = func->data.function_def.parameters[i];
-        TData d = {0};
-        d.kind = SYMBOL_VARIABLE;
-        d.data.variable.type = param->data.param.data;
-        d.data.variable.is_mutable = false;
-        d.data.variable.variable_id = ctx->next_var_id++;
-        insert(ctx->current->symbols, param->data.param.name, d);
-    }
-
-    // Check the statements of the body (not with check_block,
-    // because the body uses the scope with the parameters)
-    ASTNode *body = func->data.function_def.body;
-    for (size_t i = 0; i < body->data.block.count ; i++){
-        check_statement(ctx, body->data.block.statements[i]);
-    }
-
-    // Last statement of the body = value of the function (if there is no return)
-    ASTNode *last = NULL;
-    if (body->data.block.count > 0){
-        last = body->data.block.statements[body->data.block.count -1];
-    }
-
-    // Body ends with an expression, val/var, assignment or while.
-    // (return was already checked in check_statement, if is checked below)
-    if ((last != NULL) && (last->type != NODE_RETURN) && (last->type != NODE_IF)){
-        DataType type = block_result (body);
-        DataType ret = func->data.function_def.return_type;
-        if (func->data.function_def.has_explicit_return_type){
-            // Written type: the last value must fit it (Unit function throws it away)
-            if ((ret != TYPE_UNIT) && (!types_compatible(ret, type))){
-                throw_fatal_error(6, "Implicit return value type mismatch");
-            }
-        }
-        else{
-            // Type not written: the function gets the type of the last value.
-            // Save it into the AST and into the function table.
-            func->data.function_def.return_type = type;
-            search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
-            }
-    }
-
-    // Body ends with if. It is OK only if:
-    // - the return type is written and it is Unit, or
-    // - all branches end with return, or
-    // - the return type is not written and all branches give Unit (type is Unit)
-    DataType ret = func->data.function_def.return_type;
-    if ((last != NULL) && (last->type == NODE_IF)){
-        if((func->data.function_def.has_explicit_return_type) && (ret == TYPE_UNIT)){
-            // OK
-        }
-        else if(ends_with_return(func->data.function_def.body)){
-            // OK
-        }
-        else if((!func->data.function_def.has_explicit_return_type) &&(all_branches_unit(func->data.function_def.body))){
-            func->data.function_def.return_type = TYPE_UNIT;
-            search(ctx->functions, func->data.function_def.name)->data.function.return_type = TYPE_UNIT;
-        }
-        else{
-            throw_fatal_error(6, "If at end of function body must end with return in all branches");
-        }
-
-    }
-
-    // @main without a written type: the found type must be Unit
-    if ((func->data.function_def.is_main) && (func->data.function_def.return_type != TYPE_UNIT)){
-        throw_fatal_error(6, "@main must return Unit");
-    }
-
-    // Close the scope and put back the saved state
-    destroy_scope(ctx->current);
-    func->data.function_def.check_state = 2;            // done
-    ctx->current = saved_scope;
-    ctx->current_function = saved_func;
-}
-
-/**
- * @brief Checks if a value of type actual can be used where expected is needed.
- *
- * True if the types are the same, if expected is Any (print, toStr)
- * or if an Int is used where a Double is needed (the only automatic conversion).
- *
- * @param expected Type that is needed
- * @param actual Type of the value
- * @return true if the value can be used
- */
-bool types_compatible(DataType expected, DataType actual){
-    if (expected == actual){
-        return true;
-    }
-    else if (expected == TYPE_ANY){
-        return true;
-    }
-    else if ((expected == TYPE_DOUBLE ) && (actual == TYPE_INT)){
-        return  true;
-    }
-    return false;
 }
 
 /**
@@ -660,19 +654,6 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
 }
 
 /**
- * @brief Checks if a type is a number (Int or Double).
- *
- * @param t Type
- * @return true for Int or Double
- */
-static bool is_numeric(DataType t){
-    if ((t == TYPE_INT ) || (t == TYPE_DOUBLE)){
-        return true;
-    }
-    return false;
-}
-
-/**
  * @brief Checks a function call and returns the type the function returns.
  *
  * - the function must exist (3),
@@ -731,6 +712,42 @@ static DataType check_call(SemContext *ctx, ASTNode *call){
         }
     }
     return func->data.function.return_type;
+}
+
+/**
+ * @brief Checks if a value of type actual can be used where expected is needed.
+ *
+ * True if the types are the same, if expected is Any (print, toStr)
+ * or if an Int is used where a Double is needed (the only automatic conversion).
+ *
+ * @param expected Type that is needed
+ * @param actual Type of the value
+ * @return true if the value can be used
+ */
+bool types_compatible(DataType expected, DataType actual){
+    if (expected == actual){
+        return true;
+    }
+    else if (expected == TYPE_ANY){
+        return true;
+    }
+    else if ((expected == TYPE_DOUBLE ) && (actual == TYPE_INT)){
+        return  true;
+    }
+    return false;
+}
+
+/**
+ * @brief Checks if a type is a number (Int or Double).
+ *
+ * @param t Type
+ * @return true for Int or Double
+ */
+static bool is_numeric(DataType t){
+    if ((t == TYPE_INT ) || (t == TYPE_DOUBLE)){
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -796,26 +813,4 @@ static bool all_branches_unit(ASTNode *block){
         return all_branches_unit(last->data.if_stmt.then_block) && all_branches_unit(last->data.if_stmt.else_block);
     }
     return block_result(block) == TYPE_UNIT;
-}
-
-/**
- * @brief Runs the whole semantic analysis on the AST.
- *
- * @param program Root of the AST (NODE_PROGRAM)
- */
-void semantic_analyze (ASTNode *program){
-    SemContext ctx = {0};
-
-    // Pass 1: save all functions
-    collect_functions(&ctx, program);
-
-    // Pass 2: check every function that was not checked yet
-    // (some can be checked before by check_call)
-    for (size_t i = 0; i < program->data.program.count; i++){
-        ASTNode *func = program->data.program.functions[i];
-        if (program->data.program.functions[i]->data.function_def.check_state == 0){
-            check_function(&ctx, func);
-        }
-    }
-    destroy_symtable(ctx.functions);
 }
