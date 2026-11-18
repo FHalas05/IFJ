@@ -2,8 +2,8 @@
 // Created by Šimon on 3/11/2026
 //
 #include "ast.h"
-#include "library.h"
 #include "dynamic_string.h"
+#include "library.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -14,6 +14,9 @@
        // prefix (int@...)
 #define DOUBLE_CHAR_PREFIX_COUNT                                                                   \
     32 // maximum number of characters in double literal with the IFJcode26 prefix (float@...)
+
+// label for conditions and boolean operations
+typedef enum { LABEL_IF, LABEL_WHILE, LABEL_AND, LABEL_OR } labels;
 
 /**
  * @brief Prints formatted line of code for zero-operand instructions
@@ -73,12 +76,14 @@ static void fun_label_formatter(DynamicString *label, const char *fun_name) {
  * format used: $<label_count>$<if | while>$<label_type>
  *
  * @param label_to_be_filled formatted label ($<label_count>$<cond_type>$<label_type>)
- * @param cond_type type of condition if/while
+ * @param cond_type type of condition if/while/and/or
  * @param label_count dynamic number of labels in a program
- * @param label_type purpose specifying suffix (identifies the type of label this is; while -> "start"|"end"; if -> "else"|"end")
- * determines which part of the condition we are labeling
+ * @param label_type purpose specifying suffix (identifies the type of label this is; while ->
+ * "start"|"end"; if -> "else"|"end"; and -> "failed"|"end"; or -> "success"|"end") determines which
+ * part of the condition we are labeling
  */
-static void cond_label_formatter(DynamicString *label_to_be_filled, NodeType cond_type, size_t label_count, const char *label_type) {
+static void cond_label_formatter(DynamicString *label_to_be_filled, labels cond_type,
+                                 size_t label_count, const char *label_type) {
     char label_count_buffer[INT_CHAR_COUNT];
     snprintf(label_count_buffer, sizeof(label_count_buffer), "%zu", label_count);
 
@@ -89,11 +94,14 @@ static void cond_label_formatter(DynamicString *label_to_be_filled, NodeType con
     dyn_str_add_string(label_to_be_filled, label_count_buffer);
     dyn_str_add(label_to_be_filled, '$');
 
-    if (cond_type == NODE_IF)
+    if (cond_type == LABEL_IF)
         dyn_str_add_string(label_to_be_filled, "if");
-    else
+    else if (cond_type == LABEL_WHILE)
         dyn_str_add_string(label_to_be_filled, "while");
-
+    else if (cond_type == LABEL_AND)
+        dyn_str_add_string(label_to_be_filled, "and");
+    else
+        dyn_str_add_string(label_to_be_filled, "or");
 
     dyn_str_add(label_to_be_filled, '$');
     dyn_str_add_string(label_to_be_filled, label_type);
@@ -239,160 +247,204 @@ static void instruction_generator(ASTNode *body) {
         return;
     }
     switch (body->type) {
-        case NODE_BLOCK: {
-            for (size_t i = 0; i < body->data.block.count; i++) {
-                instruction_generator(body->data.block.statements[i]);
-            }
-            break;
+    case NODE_BLOCK: {
+        for (size_t i = 0; i < body->data.block.count; i++) {
+            instruction_generator(body->data.block.statements[i]);
         }
-        case NODE_FUNCTION_CALL: {
-            for (size_t i = body->data.function_call.arg_count; i > 0; i--) {
-                instruction_generator(body->data.function_call.arguments[i - 1]);
-            }
-            DynamicString *label = dyn_str_init();
-            fun_label_formatter(label, body->data.function_call.name);
-            print_formatted_1("CALL", label->string);
-            dyn_str_free(label);
-            break;
+        break;
+    }
+    case NODE_FUNCTION_CALL: {
+        for (size_t i = body->data.function_call.arg_count; i > 0; i--) {
+            instruction_generator(body->data.function_call.arguments[i - 1]);
         }
-        case NODE_UNOP: {
-            Operator op = body->data.un_op.operation;
-            ASTNode *operand = body->data.un_op.operand;
-            instruction_generator(operand);
-            if (op == OP_UNARY_MINUS && operand->data_type == TYPE_DOUBLE) {
-                print_formatted_1("PUSHS", "float@-0x1p+0");
-                print_formatted_0("MULS");
-            } else if (op == OP_UNARY_MINUS && operand->data_type == TYPE_INT) {
-                print_formatted_1("PUSHS", "int@-1");
-                print_formatted_0("MULS");
-            }
-            break;
+        DynamicString *label = dyn_str_init();
+        fun_label_formatter(label, body->data.function_call.name);
+        print_formatted_1("CALL", label->string);
+        dyn_str_free(label);
+        break;
+    }
+    case NODE_UNOP: {
+        Operator op = body->data.un_op.operation;
+        ASTNode *operand = body->data.un_op.operand;
+        instruction_generator(operand);
+        if (op == OP_UNARY_MINUS && operand->data_type == TYPE_DOUBLE) {
+            print_formatted_1("PUSHS", "float@-0x1p+0");
+            print_formatted_0("MULS");
+        } else if (op == OP_UNARY_MINUS && operand->data_type == TYPE_INT) {
+            print_formatted_1("PUSHS", "int@-1");
+            print_formatted_0("MULS");
+        } else if (op == OP_NOT) {
+            print_formatted_0("NOTS");
         }
-        case NODE_BINOP: {
-            Operator op = body->data.bin_op.operation;
-            ASTNode *right = body->data.bin_op.right;
-            ASTNode *left = body->data.bin_op.left;
+        break;
+    }
+    case NODE_BINOP: {
+        Operator op = body->data.bin_op.operation;
+        ASTNode *right = body->data.bin_op.right;
+        ASTNode *left = body->data.bin_op.left;
+        if (op == OP_AND) {
+            size_t and_label_count = get_label_count_and_increment_it();
+            DynamicString *and_label_failed = dyn_str_init();
+            cond_label_formatter(and_label_failed, LABEL_AND, and_label_count, "failed");
+            DynamicString *and_label_end = dyn_str_init();
+            cond_label_formatter(and_label_end, LABEL_AND, and_label_count, "end");
             instruction_generator(left);
-            if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
-                print_formatted_0("INT2FLOATS");
-            }
+            print_formatted_1("PUSHS", "bool@false");
+            print_formatted_1("JUMPIFEQS", and_label_failed->string);
             instruction_generator(right);
-            if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
-                print_formatted_0("INT2FLOATS");
-            }
-            if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
-                print_formatted_1("CALL", "$helpConcat");
-                break;
-            }
-            if (op == OP_DIV &&
-                (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
-                print_formatted_0("DIVS");
-                break;
-                }
-            if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
-                print_formatted_0("IDIVS");
-                break;
-            }
-            operation_formatter(op);
-            break;
-        }
-        case NODE_ASSIGN: {
-            instruction_generator(body->data.assign.value);
-            DynamicString *variable = dyn_str_init();
-            variable_formatter(variable, body->data.assign.name, body->data.assign.variable_id);
-            print_formatted_1("POPS", variable->string);
-            dyn_str_free(variable);
-            break;
-        }
-        case NODE_RETURN: {
-            if (body->data.return_stmt.value != NULL) {
-                instruction_generator(body->data.return_stmt.value);
-            } else {
-                print_formatted_1("PUSHS", "nil@nil");
-            }
-            print_formatted_0("POPFRAME");
-            print_formatted_0("RETURN");
-            break;
-        }
-        case NODE_IF: {
-            instruction_generator(body->data.if_stmt.condition);
-            DynamicString *label = dyn_str_init();
-            size_t label_count = get_label_count_and_increment_it();
-            cond_label_formatter(label, NODE_IF, label_count, "else");
             print_formatted_1("PUSHS", "bool@false");
-            print_formatted_1("JUMPIFEQS", label->string);
-            instruction_generator(body->data.if_stmt.then_block);
-            DynamicString *label_end = dyn_str_init();
-            cond_label_formatter(label_end, NODE_IF, label_count, "end");
-            print_formatted_1("JUMP", label_end->string);
-            print_formatted_1("LABEL", label->string);
-            dyn_str_free(label);
-            if (body->data.if_stmt.else_block != NULL) {
-                instruction_generator(body->data.if_stmt.else_block);
-            }
-            print_formatted_1("LABEL", label_end->string);
-            dyn_str_free(label_end);
-            break;
-        }
-        case NODE_WHILE: {
-            DynamicString *label_start = dyn_str_init();
-            size_t label_count = get_label_count_and_increment_it();
-            cond_label_formatter(label_start, NODE_WHILE, label_count, "start");
-            print_formatted_1("LABEL", label_start->string);
-            instruction_generator(body->data.while_loop.condition);
+            print_formatted_1("JUMPIFEQS", and_label_failed->string);
+            print_formatted_1("PUSHS", "bool@true");
+            print_formatted_1("JUMP", and_label_end->string);
+            print_formatted_1("LABEL", and_label_failed->string);
             print_formatted_1("PUSHS", "bool@false");
-            DynamicString *label_end = dyn_str_init();
-            cond_label_formatter(label_end, NODE_WHILE, label_count, "end");
-            print_formatted_1("JUMPIFEQS", label_end->string);
-            instruction_generator(body->data.while_loop.body);
-            print_formatted_1("JUMP", label_start->string);
-            print_formatted_1("LABEL", label_end->string);
-            dyn_str_free(label_start);
-            dyn_str_free(label_end);
+            print_formatted_1("LABEL", and_label_end->string);
+            dyn_str_free(and_label_failed);
+            dyn_str_free(and_label_end);
+            break;
+        } else if (op == OP_OR) {
+            size_t or_label_count = get_label_count_and_increment_it();
+            DynamicString *or_label_success = dyn_str_init();
+            cond_label_formatter(or_label_success, LABEL_OR, or_label_count, "success");
+            DynamicString *or_label_end = dyn_str_init();
+            cond_label_formatter(or_label_end, LABEL_OR, or_label_count, "end");
+            instruction_generator(left);
+            print_formatted_1("PUSHS", "bool@true");
+            print_formatted_1("JUMPIFEQS", or_label_success->string);
+            instruction_generator(right);
+            print_formatted_1("PUSHS", "bool@true");
+            print_formatted_1("JUMPIFEQS", or_label_success->string);
+            print_formatted_1("PUSHS", "bool@false");
+            print_formatted_1("JUMP", or_label_end->string);
+            print_formatted_1("LABEL", or_label_success->string);
+            print_formatted_1("PUSHS", "bool@true");
+            print_formatted_1("LABEL", or_label_end->string);
+            dyn_str_free(or_label_success);
+            dyn_str_free(or_label_end);
             break;
         }
-        case NODE_IDENTIFIER: {
-            DynamicString *identifier = dyn_str_init();
-            variable_formatter(identifier, body->data.identifier.name, body->data.identifier.variable_id);
-            print_formatted_1("PUSHS", identifier->string);
-            dyn_str_free(identifier);
+        instruction_generator(left);
+        if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
+            print_formatted_0("INT2FLOATS");
+        }
+        instruction_generator(right);
+        if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
+            print_formatted_0("INT2FLOATS");
+        }
+        if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
+            print_formatted_1("CALL", "$helpConcat");
             break;
         }
-        case NODE_INT_LITERAL: {
-            char int_buffer[INT_CHAR_PREFIX_COUNT];
-            snprintf(int_buffer, sizeof(int_buffer), "int@%ld", body->data.int_lit.value);
-            print_formatted_1("PUSHS", int_buffer);
+        if (op == OP_DIV && (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
+            print_formatted_0("DIVS");
             break;
         }
-        case NODE_DOUBLE_LITERAL: {
-            char double_buffer[DOUBLE_CHAR_PREFIX_COUNT];
-            snprintf(double_buffer, sizeof(double_buffer), "float@%a", body->data.double_lit.value);
-            print_formatted_1("PUSHS", double_buffer);
+        if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
+            print_formatted_0("IDIVS");
             break;
         }
-        case NODE_STRING_LITERAL: {
-            char *string_lit_value = body->data.string_lit.value;
-            DynamicString *final_string = dyn_str_init();
-            string_formatter(final_string, string_lit_value);
-            print_formatted_1("PUSHS", final_string->string);
-            dyn_str_free(final_string);
-            break;
-        }
-        case NODE_BOOL_LITERAL: {
-            if (body->data.bool_lit.value == false) {
-                print_formatted_1("PUSHS", "bool@false");
-            } else {
-                print_formatted_1("PUSHS", "bool@true");
-            }
-            break;
-        }
-
-        case NODE_UNIT_LITERAL: {
+        operation_formatter(op);
+        break;
+    }
+    case NODE_ASSIGN: {
+        instruction_generator(body->data.assign.value);
+        DynamicString *variable = dyn_str_init();
+        variable_formatter(variable, body->data.assign.name, body->data.assign.variable_id);
+        print_formatted_1("POPS", variable->string);
+        dyn_str_free(variable);
+        break;
+    }
+    case NODE_RETURN: {
+        if (body->data.return_stmt.value != NULL) {
+            instruction_generator(body->data.return_stmt.value);
+        } else {
             print_formatted_1("PUSHS", "nil@nil");
-            break;
         }
-        default: {throw_fatal_error(404, "generator error - invalid node type");}
+        print_formatted_0("POPFRAME");
+        print_formatted_0("RETURN");
+        break;
+    }
+    case NODE_IF: {
+        instruction_generator(body->data.if_stmt.condition);
+        DynamicString *label = dyn_str_init();
+        size_t label_count = get_label_count_and_increment_it();
+        cond_label_formatter(label, LABEL_IF, label_count, "else");
+        print_formatted_1("PUSHS", "bool@false");
+        print_formatted_1("JUMPIFEQS", label->string);
+        instruction_generator(body->data.if_stmt.then_block);
+        DynamicString *label_end = dyn_str_init();
+        cond_label_formatter(label_end, LABEL_IF, label_count, "end");
+        print_formatted_1("JUMP", label_end->string);
+        print_formatted_1("LABEL", label->string);
+        dyn_str_free(label);
+        if (body->data.if_stmt.else_block != NULL) {
+            instruction_generator(body->data.if_stmt.else_block);
+        }
+        print_formatted_1("LABEL", label_end->string);
+        dyn_str_free(label_end);
+        break;
+    }
+    case NODE_WHILE: {
+        DynamicString *label_start = dyn_str_init();
+        size_t label_count = get_label_count_and_increment_it();
+        cond_label_formatter(label_start, LABEL_WHILE, label_count, "start");
+        print_formatted_1("LABEL", label_start->string);
+        instruction_generator(body->data.while_loop.condition);
+        print_formatted_1("PUSHS", "bool@false");
+        DynamicString *label_end = dyn_str_init();
+        cond_label_formatter(label_end, LABEL_WHILE, label_count, "end");
+        print_formatted_1("JUMPIFEQS", label_end->string);
+        instruction_generator(body->data.while_loop.body);
+        print_formatted_1("JUMP", label_start->string);
+        print_formatted_1("LABEL", label_end->string);
+        dyn_str_free(label_start);
+        dyn_str_free(label_end);
+        break;
+    }
+    case NODE_IDENTIFIER: {
+        DynamicString *identifier = dyn_str_init();
+        variable_formatter(identifier, body->data.identifier.name,
+                           body->data.identifier.variable_id);
+        print_formatted_1("PUSHS", identifier->string);
+        dyn_str_free(identifier);
+        break;
+    }
+    case NODE_INT_LITERAL: {
+        char int_buffer[INT_CHAR_PREFIX_COUNT];
+        snprintf(int_buffer, sizeof(int_buffer), "int@%ld", body->data.int_lit.value);
+        print_formatted_1("PUSHS", int_buffer);
+        break;
+    }
+    case NODE_DOUBLE_LITERAL: {
+        char double_buffer[DOUBLE_CHAR_PREFIX_COUNT];
+        snprintf(double_buffer, sizeof(double_buffer), "float@%a", body->data.double_lit.value);
+        print_formatted_1("PUSHS", double_buffer);
+        break;
+    }
+    case NODE_STRING_LITERAL: {
+        char *string_lit_value = body->data.string_lit.value;
+        DynamicString *final_string = dyn_str_init();
+        string_formatter(final_string, string_lit_value);
+        print_formatted_1("PUSHS", final_string->string);
+        dyn_str_free(final_string);
+        break;
+    }
+    case NODE_BOOL_LITERAL: {
+        if (body->data.bool_lit.value == false) {
+            print_formatted_1("PUSHS", "bool@false");
+        } else {
+            print_formatted_1("PUSHS", "bool@true");
+        }
+        break;
+    }
 
+    case NODE_UNIT_LITERAL: {
+        print_formatted_1("PUSHS", "nil@nil");
+        break;
+    }
+    default: {
+        throw_fatal_error(404, "generator error - invalid node type");
+    }
     }
 }
 /**
@@ -493,6 +545,24 @@ static void builtin_readdouble() {
     print_formatted_1("LABEL", "$read_double_nil");
     print_formatted_1("PUSHS", "float@0x0p+0");
     print_formatted_1("LABEL", "$read_double_end");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
+static void builtin_readbool() {
+    print_formatted_1("LABEL", "$readBoolean");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@read_bool");
+    print_formatted_1("DEFVAR", "LF@isnil");
+    print_formatted_2("READ", "LF@read_bool", "bool");
+    print_formatted_2("TYPE", "LF@isnil", "LF@read_bool");
+    print_formatted_3("JUMPIFEQ", "$read_bool_nil", "string@nil", "LF@isnil");
+    print_formatted_1("PUSHS", "LF@read_bool");
+    print_formatted_1("JUMP", "$read_bool_end");
+    print_formatted_1("LABEL", "$read_bool_nil");
+    print_formatted_1("PUSHS", "bool@false");
+    print_formatted_1("LABEL", "$read_bool_end");
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
 }
@@ -726,6 +796,7 @@ int generator(ASTNode *ast) {
     builtin_readline();
     builtin_readint();
     builtin_readdouble();
+    builtin_readbool();
     builtin_tostr();
     builtin_toint();
     builtin_strlength();
