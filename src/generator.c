@@ -1,6 +1,12 @@
-//
-// Created by Šimon on 3/11/2026
-//
+/**
+ * @file generator.c
+ * @brief Generates IFJcode26 instructions based from the program's AST representation
+ * 
+ * Recursively goes through AST to build all function bodies and flow control statements and generates all builtin functions bodies
+ * 
+ * @author Šimon Hejl (xhejlsi00)
+ * @date 3.11.2026
+ */
 #include "ast.h"
 #include "dynamic_string.h"
 #include "library.h"
