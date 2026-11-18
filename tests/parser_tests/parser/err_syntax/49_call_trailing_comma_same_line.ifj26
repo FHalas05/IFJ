@@ -1,0 +1,6 @@
+// koncova carka je podle dema povolena jen s novym radkem pred ')'
+import ifj26.*
+def f(a: Int, b: Int): Int =
+  return a
+@main def main(): Unit =
+  f(1, 2,)

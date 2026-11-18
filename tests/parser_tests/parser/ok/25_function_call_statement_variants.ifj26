@@ -1,0 +1,8 @@
+import ifj26.*
+def p(a: Int, b: Int): Unit =
+  print(a)
+@main def main(): Unit =
+  var x = 1
+  p(x, x)
+  p(1, 2); p(x, 3)
+  x = 2; p(x, x)

@@ -1,0 +1,3 @@
+import scala.*
+@main def main(): Unit =
+  print(1)

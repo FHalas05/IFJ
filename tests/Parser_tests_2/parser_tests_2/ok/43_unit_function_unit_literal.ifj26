@@ -1,0 +1,11 @@
+import ifj26.*
+def nop(): Unit =
+  ()
+
+def nop2() =
+  ()
+
+@main def main(): Unit =
+  nop()
+  nop2()
+  ()

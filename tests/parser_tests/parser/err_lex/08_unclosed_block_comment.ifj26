@@ -1,0 +1,4 @@
+import ifj26.*
+@main def main(): Unit =
+  /* neuzavreny komentar
+  print(1)

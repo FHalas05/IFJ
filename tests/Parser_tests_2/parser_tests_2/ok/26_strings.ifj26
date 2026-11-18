@@ -1,0 +1,14 @@
+import ifj26.*
+@main def main(): Unit =
+  val s1 = "obycejny retezec"
+  val s2 = ""
+  val s3 = "escape: \" \\ \n \t \r konec"
+  val s4 = "  mezery  "
+  val s5 = "// neni komentar"
+  val s6 = "/* taky neni komentar */"
+  val s7 = "print(x) + 1 ; if then else"
+  val s8 = s1 + s2 + s3
+  if s1 == "abc" then
+    print(s1)
+  else
+    print(s8)

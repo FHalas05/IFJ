@@ -1,0 +1,10 @@
+// OCEKAVANO: 2 v zakladu, 0 s rozsirenim BOOLTHEN (netestuje se)
+import ifj26.*
+@main def main(): Unit =
+  var x = 1
+  if x < 0 then
+    print(1)
+  else if x == 0 then
+    print(2)
+  else
+    print(3)

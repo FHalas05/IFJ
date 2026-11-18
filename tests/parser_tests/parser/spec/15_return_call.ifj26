@@ -1,0 +1,9 @@
+// OCEKAVANO: ? - 'return f(x)' - je volani povolene jako navratova hodnota?
+import ifj26.*
+def v(x: Int): Int =
+  return x
+def w(x: Int): Int =
+  return v(x)
+@main def main(): Unit =
+  val a = w(2)
+  print(a)

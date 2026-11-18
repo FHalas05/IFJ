@@ -1,0 +1,5 @@
+// OCEKAVANO: 2 v zakladu (do<NL+>), 0 s rozsirenim CONTROL (netestuje se)
+import ifj26.*
+@main def main(): Unit =
+  var x = 3
+  while x > 0 do x = x - 1

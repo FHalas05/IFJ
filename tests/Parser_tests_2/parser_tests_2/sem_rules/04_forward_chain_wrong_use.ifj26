@@ -1,0 +1,6 @@
+import ifj26.*
+@main def main(): Unit =
+  val s: String = g()
+  print(s)
+def g() = h()
+def h() = 5

@@ -1,0 +1,11 @@
+import ifj26.*
+def foo(x: Int): Int =
+  var a = bar(x)
+  a
+
+def bar(y: Int) =
+  y * 10
+
+@main def main(): Unit =
+  val r = foo(2)
+  print(r)

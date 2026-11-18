@@ -1,0 +1,7 @@
+// OCEKAVANO: 0 - slajdy 36 a 40 pouzivaji () jako prikaz
+import ifj26.*
+@main def main(): Unit =
+  if 1 < 2 then
+    print(1)
+  else
+    ()

@@ -1,0 +1,30 @@
+import ifj26.*
+def f1(): Int =
+  return 1
+def f2(a: Int): Int =
+  return a
+def f3(a: Int, b: Int): Int =
+  return a + b
+def f4(a: String): String =
+  return a
+def f5(a: Double): Double =
+  return a
+def f6(): Unit =
+  print(6)
+def f7(a: Int, b: Int, c: Int, d: Int, e: Int, f: Int): Int =
+  return a + b + c + d + e + f
+def f8() =
+  8
+def f9(x: Int) =
+  x
+@main def main(): Unit =
+  val a = f1()
+  val b = f2(a)
+  val c = f3(a, b)
+  val d = f4("d")
+  val e = f5(1.0)
+  f6()
+  val g = f7(1, 2, 3, 4, 5, 6)
+  val h = f8()
+  val i = f9(9)
+  print(g)

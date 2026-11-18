@@ -1,0 +1,12 @@
+import ifj26.*
+@main def main(): Unit =
+  val s = readLine()
+  val i = readInt()
+  val d = readDouble()
+  val t = toStr(i)
+  val k = toInt(d)
+  val n = strLength(t)
+  val sub = subStr(t, 0, 1)
+  val o = ord(t, 0)
+  val c = chr(65)
+  print(sub)

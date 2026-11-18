@@ -1,0 +1,8 @@
+import ifj26.*
+def f() =
+  var i = 0
+  while i < 3 do
+    i = i + 1
+@main def main(): Unit =
+  val s: String = f()
+  print(s)

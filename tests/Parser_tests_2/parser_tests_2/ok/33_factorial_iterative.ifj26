@@ -1,0 +1,12 @@
+import ifj26.*
+def fact(n: Int): Int =
+  var res = 1
+  var i = n
+  while i > 1 do
+    res = res * i
+    i = i - 1
+  return res
+
+@main def main(): Unit =
+  val r = fact(6)
+  print(r)

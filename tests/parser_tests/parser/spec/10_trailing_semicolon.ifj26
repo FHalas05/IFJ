@@ -1,0 +1,5 @@
+// OCEKAVANO: ? - slajd 22: 'print(x);? print(y)' je nejasne
+import ifj26.*
+@main def main(): Unit =
+  print(1);
+  print(2)

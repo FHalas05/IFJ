@@ -1,0 +1,6 @@
+// OCEKAVANO: ? - demo pouziva '0 - x' a '-5' ukazuje az u rozsireni CONTROL
+import ifj26.*
+@main def main(): Unit =
+  var x = -5
+  x = 3 * -x
+  print(x)

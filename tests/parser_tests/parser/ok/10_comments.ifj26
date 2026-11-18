@@ -1,0 +1,15 @@
+import ifj26.*
+// radkovy komentar na nejvyssi urovni
+/* blokovy komentar
+   pres vic radku */
+def f(x: Int): Int = // komentar za hlavickou
+  // komentar uvnitr bloku
+        // komentar s jinym odsazenim - nesmi zmenit uroven
+  var y = x /* inline komentar */ + 1
+  /* vnoreny /* blokovy */ komentar */
+// komentar uplne vlevo uprostred bloku
+  return y // komentar na konci radku
+@main def main(): Unit =
+  val r = f(1)
+  print(r)
+// komentar na konci souboru

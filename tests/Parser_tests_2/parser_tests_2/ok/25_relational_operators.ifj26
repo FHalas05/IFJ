@@ -1,0 +1,42 @@
+import ifj26.*
+@main def main(): Unit =
+  val a = 1
+  val b = 2
+  if a < b then
+    print(1)
+  else
+    print(0)
+  if a <= b then
+    print(1)
+  else
+    print(0)
+  if a > b then
+    print(1)
+  else
+    print(0)
+  if a >= b then
+    print(1)
+  else
+    print(0)
+  if a == b then
+    print(1)
+  else
+    print(0)
+  if a != b then
+    print(1)
+  else
+    print(0)
+  if a + 1 <= b * 2 - 3 then
+    print(1)
+  else
+    print(0)
+  if (a) < (b) then
+    print(1)
+  else
+    print(0)
+  if (a + b) * 2 != -a then
+    print(1)
+  else
+    print(0)
+  while (a > b) do
+    print(a)

@@ -2,6 +2,8 @@
 // Created by Filip on 04/10/2026.
 //
 
+#include <stdbool.h>
+
 #ifndef IFJ_TOKEN_H
 #define IFJ_TOKEN_H
 
@@ -13,6 +15,7 @@ typedef enum {
     T_NEWLINE,
     T_AT_MAIN,
     T_INDENT,
+    T_DEDENT,
 
     T_INT,
     T_DOUBLE,
@@ -57,7 +60,7 @@ typedef enum {
     T_OP_LESS_EQ,
     T_OP_PLUS_PLUS,
     T_OP_ROCKET,
-    T_OP_BIN_NOT,
+    T_OP_NOT,
     T_OP_BIN_AND,
     T_OP_BIN_OR,
 

@@ -1,0 +1,8 @@
+import ifj26.*
+@main def main(): Unit =
+  val s = """prvni radek
+druhy radek s "uvozovkami" a \n neni escape
+    treti radek odsazeny"""
+  print(s)
+  val t = """"""
+  print(t)

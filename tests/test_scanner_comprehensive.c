@@ -19,7 +19,7 @@
 -Isrc \
 tests/test_scanner_comprehensive.c \
 src/scanner.c src/token.c src/dynamic_string.c src/keywords.c \
-src/library.c src/sym_table.c \
+src/library.c \
 -o tests/test_scanner_comprehensive
 
 // run by:       tests/test_scanner_comprehensive
@@ -236,7 +236,7 @@ TestCase tests[] = {
     { .name = "op_less_eq",         .input = "<=",                  .expected_out_token_type = T_OP_LESS_EQ,    .expected_out_data = NULL },
     { .name = "op_plus_plus",       .input = "++",                  .expected_out_token_type = T_OP_PLUS_PLUS,  .expected_out_data = NULL },
     { .name = "op_rocket",          .input = "=>",                  .expected_out_token_type = T_OP_ROCKET,     .expected_out_data = NULL },
-    { .name = "op_bin_not",         .input = "!",                   .expected_out_token_type = T_OP_BIN_NOT,    .expected_out_data = NULL },
+    { .name = "op_not",         .input = "!",                       .expected_out_token_type = T_OP_NOT,        .expected_out_data = NULL },
     { .name = "op_bin_and",         .input = "&&",                  .expected_out_token_type = T_OP_BIN_AND,    .expected_out_data = NULL },
     { .name = "op_bin_or",          .input = "||",                  .expected_out_token_type = T_OP_BIN_OR,     .expected_out_data = NULL },
 
@@ -338,7 +338,7 @@ static const char *token_type_to_str(TokenType type) {
         case T_OP_LESS_EQ:   return "T_OP_LESS_EQ";
         case T_OP_PLUS_PLUS: return "T_OP_PLUS_PLUS";
         case T_OP_ROCKET:    return "T_OP_ROCKET";
-        case T_OP_BIN_NOT:   return "T_OP_BIN_NOT";
+        case T_OP_NOT:       return "T_OP_NOT";
         case T_OP_BIN_AND:   return "T_OP_BIN_AND";
         case T_OP_BIN_OR:    return "T_OP_BIN_OR";
         case T_EOF:          return "T_EOF";
@@ -475,8 +475,7 @@ static int run_single_test(const TestCase *tc, char *err_buf, size_t err_buf_siz
         close(pipefd[1]);
 
         FILE *fp = create_test_stream(tc->input);
-        Token tok = scanner(fp, NULL, T_NEWLINE);  // There MUST be T_NEWLINE here, to accurately emulate the starting state
-        fclose(fp);
+        Token tok = scanner(fp);  // There MUST be T_NEWLINE here, to accurately emulate the starting state        fclose(fp);
 
         if (tc->expected_out_token_type == NO_TOKEN_FOUND) {
             if (tok.type == NO_TOKEN_FOUND) {

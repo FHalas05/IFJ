@@ -14,7 +14,7 @@
 // tests/RESULT_filetest_latest.txt It is specifically made to be comparable line to line
 
 // compile (from root directory) by:
-// gcc -std=c2x -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough -Isrc tests/test_scanner_files.c src/scanner.c src/token.c src/dynamic_string.c src/keywords.c src/library.c src/sym_table.c -o tests/test_scanner_files
+// gcc -std=c2x -Wall -Wextra -Wno-unused-parameter -Wno-implicit-fallthrough -Isrc tests/test_scanner_files.c src/scanner.c src/token.c src/dynamic_string.c src/keywords.c src/library.c -o tests/test_scanner_files
 // run by:       tests/test_scanner_files {.scala or .ifj26 file} tests/RESULT_filetest_latest.txt
 
 
@@ -114,7 +114,7 @@ static const char *token_type_to_str(TokenType type) {
         case T_OP_LESS_EQ:   return "T_OP_LESS_EQ";
         case T_OP_PLUS_PLUS: return "T_OP_PLUS_PLUS";
         case T_OP_ROCKET:    return "T_OP_ROCKET";
-        case T_OP_BIN_NOT:   return "T_OP_BIN_NOT";
+        case T_OP_NOT:       return "T_OP_NOT";
         case T_OP_BIN_AND:   return "T_OP_BIN_AND";
         case T_OP_BIN_OR:    return "T_OP_BIN_OR";
         case T_EOF:          return "T_EOF";
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
         token_free_data_if_applicable(token);
 
         // get new token
-        token = scanner(working_file, NULL, token.type);
+        token = scanner(working_file);
         fputs(token_type_to_str(token.type), result_file);
 
         // print out indent level if applicable

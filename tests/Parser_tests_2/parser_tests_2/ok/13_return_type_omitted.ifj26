@@ -1,0 +1,11 @@
+import ifj26.*
+def times10(y: Int) =
+  y * 10
+
+def greet() =
+  print("ahoj")
+
+@main def main(): Unit =
+  val a = times10(3)
+  print(a)
+  greet()

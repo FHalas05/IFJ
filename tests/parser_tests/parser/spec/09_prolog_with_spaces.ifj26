@@ -1,0 +1,4 @@
+// OCEKAVANO: ? - slajd 22 oznacuje mezery v prologu otaznikem
+import ifj26 . *
+@main def main(): Unit =
+  print(1)

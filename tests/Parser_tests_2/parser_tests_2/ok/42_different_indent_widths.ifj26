@@ -1,0 +1,14 @@
+import ifj26.*
+def f(x: Int): Int =
+ var y = x
+ while y > 0 do
+         y = y - 1
+         if y == 3 then
+          print(y)
+         else
+                                print(0)
+ return y
+
+@main def main(): Unit =
+    val r = f(5)
+    print(r)

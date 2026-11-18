@@ -1,0 +1,15 @@
+import ifj26.*
+def f(a: Int, b: String, c: Double, d: Int): Int =
+  return a
+
+def g(): Int =
+  return 7
+
+@main def main(): Unit =
+  val x = 1
+  f(1, "a", 2.5, x)
+  val r = f(x, "b", 0.0, x)
+  var q: Int = g()
+  q = f(q, "c", 1.0, 2)
+  q = g()
+  print(q)

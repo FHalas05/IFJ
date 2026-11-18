@@ -1,0 +1,48 @@
+import ifj26.*
+
+// vypocet n-teho Fibonacciho cisla, prvocisla a prace s retezci
+
+def fib(n: Int): Int =
+  if n < 2 then
+    return n
+  else
+    val a = n - 1
+    val b = n - 2
+    val fa = fib(a)
+    val fb = fib(b)
+    return fa + fb
+
+def isPrime(n: Int): Int =
+  if n < 2 then
+    return 0
+  else
+    var d = 2
+    while d * d <= n do
+      val q = n / d
+      if q * d == n then
+        return 0
+      else
+        d = d + 1
+    return 1
+
+def repeat(s: String, n: Int): String =
+  var res = ""
+  var i = 0
+  while i < n do
+    res = res + s
+    i = i + 1
+  return res
+
+@main def main(): Unit =
+  val f = fib(10)
+  print(f)
+  var k = 0
+  while k < 20 do
+    val p = isPrime(k)
+    if p == 1 then
+      print(k)
+    else
+      ()
+    k = k + 1
+  val line = repeat("-", 10)
+  print(line)

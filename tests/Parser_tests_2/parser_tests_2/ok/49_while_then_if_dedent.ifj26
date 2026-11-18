@@ -1,0 +1,9 @@
+import ifj26.*
+@main def main(): Unit =
+  var x = 3
+  if x > 0 then
+    while x > 0 do
+      x = x - 1
+  else
+    while x < 0 do
+      x = x + 1

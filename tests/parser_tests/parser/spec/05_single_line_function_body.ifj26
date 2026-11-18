@@ -1,0 +1,5 @@
+// OCEKAVANO: 2 v zakladu (slajd 22: po '=' je <NL+>), 0 s rozsirenim (slajd 56)
+import ifj26.*
+def f(): Int = 42
+@main def main(): Unit =
+  print(1)

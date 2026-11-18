@@ -1,0 +1,9 @@
+import ifj26.*
+def fun(x: Int): Int =
+  val y = x * 3
+  print(y)
+  y - 10
+
+@main def main(): Unit =
+  val r = fun(4)
+  print(r)

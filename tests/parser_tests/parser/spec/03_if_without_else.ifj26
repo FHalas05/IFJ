@@ -1,0 +1,6 @@
+// OCEKAVANO: 0 ve Scale; overit v zadani, zda je else povinne
+import ifj26.*
+@main def main(): Unit =
+  if 1 < 2 then
+    print(1)
+  print(2)

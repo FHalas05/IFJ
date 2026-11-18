@@ -1,0 +1,6 @@
+// OCEKAVANO: ? - viceradkovy retezec """...""" (Scala), overit v zadani
+import ifj26.*
+@main def main(): Unit =
+  val s = """prvni radek
+druhy radek"""
+  print(s)
