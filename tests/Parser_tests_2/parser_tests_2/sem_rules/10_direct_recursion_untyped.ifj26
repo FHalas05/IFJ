@@ -1,0 +1,5 @@
+import ifj26.*
+def loop(n: Int) =
+  loop(n)
+@main def main(): Unit =
+  print(0)

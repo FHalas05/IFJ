@@ -1,0 +1,5 @@
+import ifj26.*
+@main def main(): Unit =
+  print(true)
+  val s: String = toStr(1 < 2)
+  print(s)

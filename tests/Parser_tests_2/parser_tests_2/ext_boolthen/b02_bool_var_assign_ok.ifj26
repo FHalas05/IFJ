@@ -1,0 +1,6 @@
+import ifj26.*
+@main def main(): Unit =
+  var f = true
+  f = false
+  f = 1 < 2
+  print(f)

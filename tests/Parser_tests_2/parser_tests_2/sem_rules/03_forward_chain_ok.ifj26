@@ -1,0 +1,6 @@
+import ifj26.*
+@main def main(): Unit =
+  val n: Int = g()
+  print(n)
+def g() = h()
+def h() = 5

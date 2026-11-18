@@ -1,0 +1,6 @@
+import ifj26.*
+def f(): Int =
+  return 1
+  val s: Int = "x"
+@main def main(): Unit =
+  print(0)

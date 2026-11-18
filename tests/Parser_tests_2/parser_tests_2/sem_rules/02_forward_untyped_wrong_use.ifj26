@@ -1,0 +1,5 @@
+import ifj26.*
+@main def main(): Unit =
+  val s: String = f(2)
+  print(s)
+def f(a: Int) = a * 2

@@ -2,7 +2,7 @@ import ifj26.*
 def add(
   x: Int,
   y: Int
-): Int =
+  ): Int =
   return x + y
 
 @main def main(): Unit =
