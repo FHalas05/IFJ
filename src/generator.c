@@ -678,8 +678,8 @@ static void builtin_substr() {
     print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@start", "LF@end");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
-    print_formatted_3("GT", "LF@check", "LF@start", "LF@str_length");
-    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_3("LT", "LF@check", "LF@start", "LF@str_length");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@false", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@end", "LF@str_length");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_1("DEFVAR", "LF@fin_string");
