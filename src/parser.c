@@ -508,6 +508,9 @@ DataType parse_type (Parser *p){
         case T_KW_BOOLEAN:
             advance(p);
             return TYPE_BOOL;
+        case T_IDENT:
+            throw_fatal_error(3, "Undefined type");
+            break;
     default:
         throw_fatal_error(2, "Expected type (Int, Double, String, Unit or Boolean)");    
     }
