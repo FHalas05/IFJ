@@ -1,0 +1,6 @@
+import ifj26.*
+def neg(x: Boolean): Boolean =
+  return !x
+@main def main(): Unit =
+  val r = neg(true)
+  print(r)

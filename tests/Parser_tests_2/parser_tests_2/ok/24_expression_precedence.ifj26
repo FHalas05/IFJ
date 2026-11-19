@@ -9,12 +9,11 @@ import ifj26.*
   val r2 = (a + b) * (c - d)
   val r3 = -a
   val r4 = - -a
-  val r5 = +a
   val r6 = a * -b
   val r7 = -(a + b) * 2
   val r8 = ((((a))))
   val r9 = a - - b
-  val r10 = a - -b + +c
+  val r10 = a - -b + c
   val r11 = (a)
   val r12 = 10 - 2 - 3
   val r13 = 100 / 10 / 2

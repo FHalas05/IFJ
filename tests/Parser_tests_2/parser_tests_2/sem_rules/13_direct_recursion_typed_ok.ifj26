@@ -1,0 +1,8 @@
+import ifj26.*
+def count(n: Int): Int =
+  if n < 1 then
+    return 0
+  else
+    return count(n - 1)
+@main def main(): Unit =
+  print(0)

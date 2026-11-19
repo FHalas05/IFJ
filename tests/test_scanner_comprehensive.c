@@ -159,7 +159,7 @@ TestCase tests[] = {
     /* 9. DOUBLE LITERALS (VALID FORMATS)                                     */
     /* ====================================================================== */
     { .name = "double_zero_frac",   .input = "0.0",                 .expected_out_token_type = T_DOUBLE,        .expected_out_data = "0.0" },
-    { .name = "double_leading_zero_dot",.input = "01.5",           .expected_out_token_type = T_DOUBLE,        .expected_out_data = "01.5" },
+    { .name = "double_leading_zero_dot", .input = "01.5",           .expected_out_token_type = T_DOUBLE,        .expected_out_data = "01.5" },
     { .name = "double_pi",          .input = "3.14159",             .expected_out_token_type = T_DOUBLE,        .expected_out_data = "3.14159" },
     { .name = "double_exp_lower_e", .input = "1.0e10",              .expected_out_token_type = T_DOUBLE,        .expected_out_data = "1.0e10" },
     { .name = "double_exp_upper_E", .input = "2.5E-3",              .expected_out_token_type = T_DOUBLE,        .expected_out_data = "2.5E-3" },

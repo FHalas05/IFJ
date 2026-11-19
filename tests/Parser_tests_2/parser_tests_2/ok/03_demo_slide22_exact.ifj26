@@ -6,7 +6,7 @@ def add(x: Int, y: Int): Int =
 @main def main(): Unit =
   var x: Int = 3 + 11
   val y = add(x, 1,
-  )
+    )
   x = (x + y)
   while x > 0 do
     if (x < 10) then

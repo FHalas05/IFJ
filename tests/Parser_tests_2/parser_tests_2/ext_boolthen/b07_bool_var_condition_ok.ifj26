@@ -1,0 +1,9 @@
+import ifj26.*
+@main def main(): Unit =
+  val ok = 1 < 2
+  if ok then
+    print(1)
+  else
+    print(2)
+  while false do
+    print(3)
