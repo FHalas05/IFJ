@@ -518,8 +518,8 @@ Token HANDLER_main(FILE *file) {
     if (fgetc(file) == 'm' && fgetc(file) == 'a' && fgetc(file) == 'i' && fgetc(file) == 'n') {
         // make sure its followed by whitespace
         int c = fgetc(file);
-        if(c == EOF || c == '/' || string_contains(" \t\n\v\f\r", c)) {
-            if(c != EOF) {
+        if (c == EOF || c == '/' || string_contains(" \t\n\v\f\r", c)) {
+            if (c != EOF) {
                 ungetc(c, file);
             }
             Token token = {T_AT_MAIN, NULL};
@@ -669,14 +669,22 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
     Token token = {NO_TOKEN_FOUND, NULL};
 
     if (c == '\r') {
-        return token;  // just always discard
+        return token; // just always discard
     }
 
     if (c == '\t' && last_token_type == T_NEWLINE) { // if the line starts with a tab
-        while (string_contains(" \t\r\v\f\r", c)){c = fgetc(file);} // skip all whitespace if the line starts with a tab - to find out whether it is empty
-        if (c == EOF) {token.type = T_EOF; return token;}
-        if (c != '\n') {throw_lexical_error("HANDLER_whitespace - tab at the start if an unempty line");}
-        else {return token;}  // discarding line if it starts with tab and is empty
+        while (string_contains(" \t\r\v\f\r", c)) {
+            c = fgetc(file);
+        } // skip all whitespace if the line starts with a tab - to find out whether it is empty
+        if (c == EOF) {
+            token.type = T_EOF;
+            return token;
+        }
+        if (c != '\n') {
+            throw_lexical_error("HANDLER_whitespace - tab at the start if an unempty line");
+        } else {
+            return token;
+        } // discarding line if it starts with tab and is empty
     }
 
     if (c == ' ' && last_token_type == T_NEWLINE) {
@@ -687,22 +695,23 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
 
         // skip remaining whitespaces and remember if it contains a tab
         while (string_contains(" \t\v\f\r", c)) {
-            if(c == '\t')
+            if (c == '\t')
                 has_tab = true;
 
             c = fgetc(file);
         }
 
-        // if theres newline right after indent and or other whitespace, the whole line can be discarded
+        // if theres newline right after indent and or other whitespace, the whole line can be
+        // discarded
         if (c == '\n')
             return token;
-        
-        if(c == EOF) {
+
+        if (c == EOF) {
             token.type = T_EOF;
             return token;
         }
 
-        if(has_tab) {
+        if (has_tab) {
             throw_lexical_error("Tab in indentation of a nonempty line");
         }
 
@@ -710,7 +719,8 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
         token.type = T_INDENT;
         token_set_indent_count(&token, spaces);
     } else if (last_token_type == T_NEWLINE) { // no non-space whitespace is allowed after a newline
-        throw_lexical_error("HANDLER_whitespace - Disallowed whitespace after newline - (probably a tab)");
+        throw_lexical_error(
+            "HANDLER_whitespace - Disallowed whitespace after newline - (probably a tab)");
     }
 
     return token;
@@ -765,7 +775,6 @@ Token scanner(FILE *file) {
             fprintf(stderr, "The ASCII number of the char causing the following error is: %d", c);
             throw_lexical_error("scanner() - newest char does not match any token type");
         }
-
 
         if (token.type == NO_TOKEN_FOUND)
             continue;

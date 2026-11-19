@@ -4,10 +4,10 @@
 
 #include "token.h"
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <stdbool.h>
 
 // returns the indent count stored in a INDENT token
 // Incompatible Token type -> -1
@@ -43,10 +43,10 @@ char *token_get_data_IDENT_INT_DOUBLE_STRING(Token token) {
     return NULL;
 }
 
-
 bool token_free_data_if_applicable(Token token) {
     if ((token.type == T_IDENT || token.type == T_INT || token.type == T_DOUBLE ||
-       token.type == T_STRING) && token.data != NULL) {
+         token.type == T_STRING) &&
+        token.data != NULL) {
         free(token.data);
         return true;
     }

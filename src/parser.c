@@ -1,38 +1,36 @@
 /**
  * @file parser.c
  * @brief Syntax analysis of IFJ26 (LL(1)).
- * 
- * The parser reads tokens and checks that the program follows the grammar. 
+ *
+ * The parser reads tokens and checks that the program follows the grammar.
  * It uses recursive descent: every non-terminal has its own function parse_<name>.
  * Rule numbers match LL_Table.xlsx (rules 1-48).
  * Expressions are parsed by parse_expression (precedence parser).
  * While parsing, the parser builds the AST.
- * 
+ *
  * next_token is a small layer between the scanner and parser.
- * It makes INDENT and DEDENT tokens from the indentation, skips empty lines, 
+ * It makes INDENT and DEDENT tokens from the indentation, skips empty lines,
  * ignores newlines inside brackets and does not allow '-' or '!' at the start of a line.
- * 
+ *
  * @author Jakub Juřík (xjurikj00)
  * @date 4.10.2026
  */
-
-
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "scanner.h"
-#include "token.h"
-#include "library.h"
-#include "symtable.h"
-#include "parser.h"
 #include "ast.h"
 #include "expression_parser.h"
+#include "library.h"
+#include "parser.h"
+#include "scanner.h"
+#include "symtable.h"
+#include "token.h"
 
 /**
  * @brief Prints a syntax error and ends the program with code 2.
- * 
+ *
  * @param msg Error message.
  */
 static void syntax_error(const char *msg) {
@@ -42,8 +40,8 @@ static void syntax_error(const char *msg) {
 
 /**
  * @brief Initialize parser - sets to its start state.
- * 
- * @param p Parser 
+ *
+ * @param p Parser
  * @param file Input file
  * @param table Symbol table
  */
@@ -62,7 +60,7 @@ static void init_parser(Parser *p, FILE *file, SymTable *table) {
     p->pending_lf = false;
 
     p->indent_stack = (int *)malloc(p->indent_capacity * sizeof(int));
-    if(p->indent_stack == NULL) {
+    if (p->indent_stack == NULL) {
         throw_fatal_error(99, "Could not allocate memory!");
     }
 
@@ -71,17 +69,17 @@ static void init_parser(Parser *p, FILE *file, SymTable *table) {
 
 /**
  * @brief Adds a new indentation level to the stack.
- * 
+ *
  * Makes the stack bigger when it's full.
- * 
+ *
  * @param p Parser
- * @param level Number of spaces of the new block 
+ * @param level Number of spaces of the new block
  */
 static void push_indent(Parser *p, int level) {
-    if(p->indent_count == p->indent_capacity) {
+    if (p->indent_count == p->indent_capacity) {
         size_t new_capacity = p->indent_capacity * 2;
         int *new_stack = realloc(p->indent_stack, new_capacity * sizeof(int));
-        if(new_stack == NULL) {
+        if (new_stack == NULL) {
             throw_fatal_error(99, "Could not allocate memory!");
         }
         p->indent_stack = new_stack;
@@ -93,31 +91,31 @@ static void push_indent(Parser *p, int level) {
 
 /**
  * @brief Makes a new token without data.
- * 
+ *
  * Used for tokens made by parser (INDENT, DEDENT, NEWLINE).
- * 
+ *
  * @param type Token type
- * 
+ *
  * @return New token
  */
-static Token make_token(TokenType type) { 
-    Token t = {type, NULL}; 
-    return t; 
+static Token make_token(TokenType type) {
+    Token t = {type, NULL};
+    return t;
 }
 
 /**
  * @brief Gets the new token from the scanner.
- * 
+ *
  * If a token was saved for late, it returns that token first.
- * 
+ *
  * @param p Parser
- * 
- * @return Next token from the scanner  
+ *
+ * @return Next token from the scanner
  */
 static Token raw_scan(Parser *p) {
-    if (p->has_pending_token) { 
+    if (p->has_pending_token) {
         p->has_pending_token = false;
-        return p->pending_token; 
+        return p->pending_token;
     }
     Token t = scanner(p->src);
     return t;
@@ -125,21 +123,22 @@ static Token raw_scan(Parser *p) {
 
 /**
  * @brief Gets the next token for the parser.
- * 
+ *
  * - makes INDENT/DEDENT tokens from the indentation,
  * - skips empty lines and lines with only comments,
- * - inside brackets a newline is only a space, the next line must be indented more than the start of the statement,
+ * - inside brackets a newline is only a space, the next line must be indented more than the start
+ * of the statement,
  * - a line cannot start with '-' or '!',
  * - adds NEWLINE before EOF if it is missing.
- * 
+ *
  * @param p Parser
  *
  * @return Next token
  */
 static Token next_token(Parser *p) {
-    if (p->pending_dedent > 0) { 
-        p->pending_dedent--; 
-        return make_token(T_DEDENT); 
+    if (p->pending_dedent > 0) {
+        p->pending_dedent--;
+        return make_token(T_DEDENT);
     }
     Token t = raw_scan(p);
 
@@ -147,14 +146,14 @@ static Token next_token(Parser *p) {
         if (t.type == T_NEWLINE) {
             p->line_start = true;
 
-            if(p->paren_depth > 0) {
+            if (p->paren_depth > 0) {
                 p->pending_lf = true;
                 return next_token(p);
             }
         } else if (t.type == T_EOF && !p->eof_newline_done) {
-            p->eof_newline_done = true; 
-            p->pending_token = t; 
-            p->has_pending_token = true; 
+            p->eof_newline_done = true;
+            p->pending_token = t;
+            p->has_pending_token = true;
             p->line_start = true;
             return make_token(T_NEWLINE);
         }
@@ -162,12 +161,12 @@ static Token next_token(Parser *p) {
         if (t.type == T_PAR_L) {
             p->paren_depth++;
         } else if (t.type == T_PAR_R) {
-            if(p->paren_depth == 0) {
+            if (p->paren_depth == 0) {
                 throw_fatal_error(2, "Unexpected ')'!");
             }
             p->paren_depth--;
         }
-        
+
         return t;
     }
 
@@ -181,10 +180,9 @@ static Token next_token(Parser *p) {
     if (t.type == T_NEWLINE) {
         return next_token(p);
     }
-        
 
     if (p->paren_depth > 0) {
-        if(level > p->logical_indent) {
+        if (level > p->logical_indent) {
             p->line_start = false;
             p->pending_token = t;
             p->has_pending_token = true;
@@ -202,13 +200,13 @@ static Token next_token(Parser *p) {
 
     p->logical_indent = level;
 
-    if (t.type == T_EOF) { 
-        level = 0; 
-        p->eof_newline_done = true; 
+    if (t.type == T_EOF) {
+        level = 0;
+        p->eof_newline_done = true;
     }
 
-    p->line_start = false; 
-    p->pending_token = t; 
+    p->line_start = false;
+    p->pending_token = t;
     p->has_pending_token = true;
 
     if (level > p->indent_stack[p->indent_count - 1]) {
@@ -217,9 +215,9 @@ static Token next_token(Parser *p) {
     }
 
     // Keep the base indentation 0 on the stack when removing levels
-    while (p->indent_count > 1 && level < p->indent_stack[p->indent_count - 1]) { 
-        p->indent_count--; 
-        p->pending_dedent++; 
+    while (p->indent_count > 1 && level < p->indent_stack[p->indent_count - 1]) {
+        p->indent_count--;
+        p->pending_dedent++;
     }
 
     if (level != p->indent_stack[p->indent_count - 1]) {
@@ -231,11 +229,11 @@ static Token next_token(Parser *p) {
 
 void advance(Parser *p) {
     token_free_data_if_applicable(p->token);
-    if(p->has_peek) {
+    if (p->has_peek) {
         p->token = p->peek_token;
         p->has_peek = false;
     } else {
-        p->token = next_token(p);                   
+        p->token = next_token(p);
     }
 }
 
@@ -246,11 +244,11 @@ void expect(Parser *p, TokenType type, char *msg) {
 }
 
 TokenType peek_token_type(Parser *p) {
-    if(!p->has_peek) {
+    if (!p->has_peek) {
         p->peek_token = next_token(p);
         p->has_peek = true;
     }
-    
+
     return p->peek_token.type;
 }
 
@@ -302,21 +300,20 @@ static void parse_else_stmt(Parser *p, ASTNode *if_node);
 
 ASTNode *parse_else_body(Parser *p);
 
-
 ASTNode *parse_program(FILE *file, SymTable *table) {
     Parser p;
     init_parser(&p, file, table);
 
-    p.token = next_token(&p);     
-    ASTNode *program = create_node(NODE_PROGRAM);     
-    switch (p.token.type){
-        case T_KW_IMPORT:
-            parse_prolog(&p);
-            parse_function_list(&p, program);
-            expect(&p, T_EOF, "expected end of file after last function");
-            break;
-        default:
-            throw_fatal_error(2, "Program must start with 'import ifj26.*'");
+    p.token = next_token(&p);
+    ASTNode *program = create_node(NODE_PROGRAM);
+    switch (p.token.type) {
+    case T_KW_IMPORT:
+        parse_prolog(&p);
+        parse_function_list(&p, program);
+        expect(&p, T_EOF, "expected end of file after last function");
+        break;
+    default:
+        throw_fatal_error(2, "Program must start with 'import ifj26.*'");
     }
 
     free(p.indent_stack);
@@ -324,132 +321,135 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
 }
 
 /**
- * @brief Parses the first line "import ifj26.*".   
- * 
+ * @brief Parses the first line "import ifj26.*".
+ *
  * Rule 2: PROLOG -> T_KW_IMPORT T_IDENT T_DOT T_OP_MUL T_NEWLINE
- * 
+ *
  * @param p Parser
  */
-static void parse_prolog(Parser *p){
-    switch (p->token.type){
-        case T_KW_IMPORT:
-            advance(p);
-            if ((p->token.type != T_IDENT) || (strcmp((char*) p->token.data, "ifj26") != 0)){
-                syntax_error("prolog: expected 'ifj26'");
-            }
-            advance(p);
-            expect(p, T_DOT, "prolog: expected '.'");
-            expect(p, T_OP_MUL, "prolog: expected '*'");
-            expect(p, T_NEWLINE,"prolog: expected 'import ifj26.*'");
-            break;
-        default:
-            throw_fatal_error(2, "Program must start with 'import'");
+static void parse_prolog(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_IMPORT:
+        advance(p);
+        if ((p->token.type != T_IDENT) || (strcmp((char *)p->token.data, "ifj26") != 0)) {
+            syntax_error("prolog: expected 'ifj26'");
+        }
+        advance(p);
+        expect(p, T_DOT, "prolog: expected '.'");
+        expect(p, T_OP_MUL, "prolog: expected '*'");
+        expect(p, T_NEWLINE, "prolog: expected 'import ifj26.*'");
+        break;
+    default:
+        throw_fatal_error(2, "Program must start with 'import'");
     }
 }
 
 /**
  * @brief Parses all functions and adds them to the program.
- * 
+ *
  * Rule 3: FUNCTION_LIST -> FUNCTION_DEF FUNCTION_LIST
  * Rule 4: FUNCTION_LIST -> ε
- * 
+ *
  * @param p Parser
  * @param program Program node
  */
-static void parse_function_list(Parser *p, ASTNode *program){
-    switch (p->token.type){
-        case T_AT_MAIN:
-        case T_KW_DEF:{
-            ASTNode *func = parse_function_def(p);
-            ast_array_append(&program->data.program.functions, &program->data.program.count, &program->data.program.capacity, func);
-            parse_function_list(p, program);
-            break;
-        }
-        case T_EOF:
-            break;
-        default:
-            throw_fatal_error(2, "Expected function definition ('def' or '@main') or end of file");
-    }   
+static void parse_function_list(Parser *p, ASTNode *program) {
+    switch (p->token.type) {
+    case T_AT_MAIN:
+    case T_KW_DEF: {
+        ASTNode *func = parse_function_def(p);
+        ast_array_append(&program->data.program.functions, &program->data.program.count,
+                         &program->data.program.capacity, func);
+        parse_function_list(p, program);
+        break;
+    }
+    case T_EOF:
+        break;
+    default:
+        throw_fatal_error(2, "Expected function definition ('def' or '@main') or end of file");
+    }
 }
 
 /**
  * @brief Parses one function.
- * 
- * Rule 5: FUNCTION_DEF -> ANNOTATION_OPT T_KW_DEF T_IDENT T_PAR_L PARAMS T_PAR_R RETURN_TYPE T_OP_ASSIGN FUNCTION_BODY
- * 
+ *
+ * Rule 5: FUNCTION_DEF -> ANNOTATION_OPT T_KW_DEF T_IDENT T_PAR_L PARAMS T_PAR_R RETURN_TYPE
+ * T_OP_ASSIGN FUNCTION_BODY
+ *
  * @param p Parser
- * 
+ *
  * @return Function node (NODE_FUNCTION_DEF)
  */
-ASTNode *parse_function_def(Parser *p){
+ASTNode *parse_function_def(Parser *p) {
     ASTNode *function_def = create_node(NODE_FUNCTION_DEF);
-    switch (p->token.type){
-        case T_AT_MAIN:
-        case T_KW_DEF:
-            function_def->data.function_def.is_main = parse_annotation_opt(p);
-            expect(p, T_KW_DEF, "function definition: expected 'def'");
+    switch (p->token.type) {
+    case T_AT_MAIN:
+    case T_KW_DEF:
+        function_def->data.function_def.is_main = parse_annotation_opt(p);
+        expect(p, T_KW_DEF, "function definition: expected 'def'");
 
-            if(p->token.type != T_IDENT){
-                throw_fatal_error(2, "function definition: expected function name after 'def'");
-            }
-            function_def->data.function_def.name = p->token.data;
-            p->token.data = NULL;
-            advance(p);
+        if (p->token.type != T_IDENT) {
+            throw_fatal_error(2, "function definition: expected function name after 'def'");
+        }
+        function_def->data.function_def.name = p->token.data;
+        p->token.data = NULL;
+        advance(p);
 
-            expect(p, T_PAR_L, "function definition: expected '(' after function name");
-            parse_params(p, function_def);
-            expect(p, T_PAR_R, "function definition: expected ')' after parameters");
+        expect(p, T_PAR_L, "function definition: expected '(' after function name");
+        parse_params(p, function_def);
+        expect(p, T_PAR_R, "function definition: expected ')' after parameters");
 
-            function_def->data.function_def.return_type = parse_return_type(p);
-            function_def->data.function_def.has_explicit_return_type = (function_def->data.function_def.return_type != TYPE_UNKNOWN);
-            expect(p, T_OP_ASSIGN, "function definition: expected '=' before function body");
-            function_def->data.function_def.body = parse_function_body(p);
-            break;
-        default:
-            throw_fatal_error(2, "Function definition: expected 'def' or '@main'");
+        function_def->data.function_def.return_type = parse_return_type(p);
+        function_def->data.function_def.has_explicit_return_type =
+            (function_def->data.function_def.return_type != TYPE_UNKNOWN);
+        expect(p, T_OP_ASSIGN, "function definition: expected '=' before function body");
+        function_def->data.function_def.body = parse_function_body(p);
+        break;
+    default:
+        throw_fatal_error(2, "Function definition: expected 'def' or '@main'");
     }
     return function_def;
 }
 
 /**
  * @brief Parses the optional @main before def.
- * 
+ *
  * Rule 6: ANNOTATION_OPT -> T_AT_MAIN ANNOTATION_REMAINING
  * Rule 7: ANNOTATION_OPT -> ε
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return True if the function has @main
  */
-static bool parse_annotation_opt(Parser *p){
-    switch (p->token.type){
-        case T_AT_MAIN:
-            advance(p);
-            parse_annotation_remaining(p);
-            return true;
-        case T_KW_DEF:
-            return false;
-        default:
-            throw_fatal_error(2, "Expected '@main' or 'def'");
+static bool parse_annotation_opt(Parser *p) {
+    switch (p->token.type) {
+    case T_AT_MAIN:
+        advance(p);
+        parse_annotation_remaining(p);
+        return true;
+    case T_KW_DEF:
+        return false;
+    default:
+        throw_fatal_error(2, "Expected '@main' or 'def'");
     }
     return false;
 }
 
 /**
  * @brief Parses the optional new line after @main.
- * 
+ *
  * Rule 8: ANNOTATION_REMAINING -> T_NEWLINE
  * Rule 9: ANNOTATION_REMAINING -> ε
- * 
+ *
  * @param p Parser
  */
-static void parse_annotation_remaining(Parser *p){
-    switch (p->token.type){
-        case T_NEWLINE:
-            advance(p);
-            break;
-        case T_KW_DEF:
-            break;
+static void parse_annotation_remaining(Parser *p) {
+    switch (p->token.type) {
+    case T_NEWLINE:
+        advance(p);
+        break;
+    case T_KW_DEF:
+        break;
     default:
         throw_fatal_error(2, "After '@main': expected newline or 'def'");
     }
@@ -457,21 +457,21 @@ static void parse_annotation_remaining(Parser *p){
 
 /**
  * @brief Parses the optional type ": Type".
- * 
+ *
  * Rule 10: RETURN_TYPE -> T_COLON TYPE
  * Rule 11: RETURN_TYPE -> ε
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return The type or TYPE_UNKNOWN if there is no type
  */
-DataType parse_return_type(Parser *p){
-    switch (p->token.type){
-        case T_COLON:
-            advance(p);
-            return parse_type(p);
-        case T_OP_ASSIGN:
-            return TYPE_UNKNOWN;
+DataType parse_return_type(Parser *p) {
+    switch (p->token.type) {
+    case T_COLON:
+        advance(p);
+        return parse_type(p);
+    case T_OP_ASSIGN:
+        return TYPE_UNKNOWN;
     default:
         throw_fatal_error(2, "Function header: expected ':' with return type or '='");
     }
@@ -480,567 +480,575 @@ DataType parse_return_type(Parser *p){
 
 /**
  * @brief Parses a type name.
- * 
+ *
  * Rule 12: TYPE -> T_KW_INT
  * Rule 13: TYPE -> T_KW_DOUBLE
  * Rule 14: TYPE -> T_KW_STRING
  * Rule 15: TYPE -> T_KW_UNIT
  * Rule 16: TYPE -> T_KW_BOOLEAN
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Type
  */
-DataType parse_type (Parser *p){
-    switch (p->token.type){
-        case T_KW_INT:
-            advance(p);
-            return TYPE_INT;
-        case T_KW_DOUBLE:
-            advance(p);
-            return TYPE_DOUBLE;
-        case T_KW_STRING:
-            advance(p);
-            return TYPE_STRING;
-        case T_KW_UNIT:
-            advance(p);
-            return TYPE_UNIT;
-        case T_KW_BOOLEAN:
-            advance(p);
-            return TYPE_BOOL;
-        case T_IDENT:
-            throw_fatal_error(3, "Undefined type");
-            break;
+DataType parse_type(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_INT:
+        advance(p);
+        return TYPE_INT;
+    case T_KW_DOUBLE:
+        advance(p);
+        return TYPE_DOUBLE;
+    case T_KW_STRING:
+        advance(p);
+        return TYPE_STRING;
+    case T_KW_UNIT:
+        advance(p);
+        return TYPE_UNIT;
+    case T_KW_BOOLEAN:
+        advance(p);
+        return TYPE_BOOL;
+    case T_IDENT:
+        throw_fatal_error(3, "Undefined type");
+        break;
     default:
-        throw_fatal_error(2, "Expected type (Int, Double, String, Unit or Boolean)");    
+        throw_fatal_error(2, "Expected type (Int, Double, String, Unit or Boolean)");
     }
     return TYPE_UNKNOWN;
 }
 
 /**
  * @brief Parses the parameters of a function.
- * 
+ *
  * Rule 17: PARAMS -> ONE_PARAM PARAM_TAIL
  * Rule 18: PARAMS -> ε
- * 
+ *
  * @param p Parser
- * @param func Function node 
+ * @param func Function node
  */
-static void parse_params(Parser *p, ASTNode *func){
-    switch (p->token.type){
-        case T_IDENT:{
-            ASTNode *param = parse_one_param(p);
-            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
-            parse_param_tail(p, func);
-            break;
-        }
-        case T_PAR_R:
-            break;
-        default:
-            throw_fatal_error(2, "Parameter list: expected parameter name or ')'");
+static void parse_params(Parser *p, ASTNode *func) {
+    switch (p->token.type) {
+    case T_IDENT: {
+        ASTNode *param = parse_one_param(p);
+        ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count,
+                         &func->data.function_def.capacity, param);
+        parse_param_tail(p, func);
+        break;
+    }
+    case T_PAR_R:
+        break;
+    default:
+        throw_fatal_error(2, "Parameter list: expected parameter name or ')'");
     }
 }
 
 /**
  * @brief Parses one parameter "name: Type".
- * 
+ *
  * Rule 19: ONE_PARAM -> T_IDENT T_COLON TYPE
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Parameter node (NODE_PARAM)
  */
-ASTNode *parse_one_param(Parser *p){
-    switch (p->token.type){
-        case T_IDENT:{
-            ASTNode *param = create_node(NODE_PARAM);
-            param->data.param.name = p->token.data;
-            p->token.data = NULL;
-            advance(p);
-            expect(p, T_COLON, "parameter: expected ':' after parameter name");
-            param->data.param.data = parse_type(p);
-            return param;
-        }
-        default:
-            throw_fatal_error(2, "Parameter: expected parameter name");
+ASTNode *parse_one_param(Parser *p) {
+    switch (p->token.type) {
+    case T_IDENT: {
+        ASTNode *param = create_node(NODE_PARAM);
+        param->data.param.name = p->token.data;
+        p->token.data = NULL;
+        advance(p);
+        expect(p, T_COLON, "parameter: expected ':' after parameter name");
+        param->data.param.data = parse_type(p);
+        return param;
+    }
+    default:
+        throw_fatal_error(2, "Parameter: expected parameter name");
     }
     return NULL;
 }
 
 /**
  * @brief Parses rest of the parameters (after one_param).
- * 
+ *
  * Rule 20: PARAM_TAIL -> T_COMMA NEXT_PARAM
  * Rule 21: PARAM_TAIL -> ε
- * 
+ *
  * @param p Parser
- * @param func Function node 
+ * @param func Function node
  */
-static void parse_param_tail(Parser *p, ASTNode *func){
-    switch (p->token.type){
-        case T_COMMA:{
-            p->pending_lf = false;
-            advance(p);
-            parse_next_param(p, func);
-            break;
-        }    
-        case T_PAR_R:
-            break;
-        default:
-            throw_fatal_error(2, "Parameter list: expected ',' or ')'");
-    } 
+static void parse_param_tail(Parser *p, ASTNode *func) {
+    switch (p->token.type) {
+    case T_COMMA: {
+        p->pending_lf = false;
+        advance(p);
+        parse_next_param(p, func);
+        break;
+    }
+    case T_PAR_R:
+        break;
+    default:
+        throw_fatal_error(2, "Parameter list: expected ',' or ')'");
+    }
 }
 
 /**
  * @brief Parses what comes after a comma in the parameters.
- * 
+ *
  * A comma at the and is allowed only if  ')' is on a new line.
- * 
+ *
  * Rule 22: NEXT_PARAM -> ONE_PARAM PARAM_TAIL
  * Rule 23: NEXT_PARAM -> ε
- * 
+ *
  * @param p Parser
- * @param func Function node 
+ * @param func Function node
  */
-static void parse_next_param(Parser *p, ASTNode *func){
-    switch (p->token.type){
-        case T_IDENT:{
-            ASTNode *param = parse_one_param(p);
-            ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count, &func->data.function_def.capacity, param);
-            parse_param_tail(p, func);
-            break;
+static void parse_next_param(Parser *p, ASTNode *func) {
+    switch (p->token.type) {
+    case T_IDENT: {
+        ASTNode *param = parse_one_param(p);
+        ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count,
+                         &func->data.function_def.capacity, param);
+        parse_param_tail(p, func);
+        break;
+    }
+    case T_PAR_R: {
+        if (!p->pending_lf) {
+            throw_fatal_error(2, "After last comma, ')' must be on a new line!");
         }
-        case T_PAR_R:{
-            if(!p->pending_lf){
-                throw_fatal_error(2, "After last comma, ')' must be on a new line!");
-            }
-            break;
-        }
-        default:
-            throw_fatal_error(2, "Parameter list: expected parameter name or ')' after ','");
+        break;
+    }
+    default:
+        throw_fatal_error(2, "Parameter list: expected parameter name or ')' after ','");
     }
 }
 
 /**
  * @brief Parses the body of a function.
- * 
- * A one-line body is saved as a block with one expression, so both kinds of body look same in the AST.
- * 
+ *
+ * A one-line body is saved as a block with one expression, so both kinds of body look same in the
+ * AST.
+ *
  * Rule 24: FUNCTION_BODY -> EXPR T_NEWLINE
  * Rule 25: FUNCTION_BODY -> BLOCK
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Block node (NODE_BLOCK)
  */
-ASTNode *parse_function_body(Parser *p){
-    switch (p->token.type){
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:{
-            ASTNode *block = create_node(NODE_BLOCK);
-            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
-            expect(p, T_NEWLINE, "function body: expected newline after expression");
-            return block;
-        }    
-        case T_NEWLINE:
-            return parse_block(p);
-        default:
-            throw_fatal_error(2, "Function body: expected expression or newline with indented block");
+ASTNode *parse_function_body(Parser *p) {
+    switch (p->token.type) {
+    case T_IDENT:
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L: {
+        ASTNode *block = create_node(NODE_BLOCK);
+        ast_array_append(&block->data.block.statements, &block->data.block.count,
+                         &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
+        expect(p, T_NEWLINE, "function body: expected newline after expression");
+        return block;
+    }
+    case T_NEWLINE:
+        return parse_block(p);
+    default:
+        throw_fatal_error(2, "Function body: expected expression or newline with indented block");
     }
     return NULL;
 }
 
 /**
- * @brief Parses an indented block. 
- * 
+ * @brief Parses an indented block.
+ *
  * Rule 26: BLOCK -> T_NEWLINE T_INDENT STMT_LIST
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Block node (NODE_BLOCK)
  */
-ASTNode *parse_block(Parser *p){
-    switch (p->token.type){
-        case T_NEWLINE:{
-            advance(p);
-            expect(p, T_INDENT, "block: expected indented block");
-            ASTNode *block = create_node(NODE_BLOCK);
-            parse_stmt_list(p, block);
-            return block;
-        }
-        default:
-            throw_fatal_error(2, "Block: expected newline and indented block");
+ASTNode *parse_block(Parser *p) {
+    switch (p->token.type) {
+    case T_NEWLINE: {
+        advance(p);
+        expect(p, T_INDENT, "block: expected indented block");
+        ASTNode *block = create_node(NODE_BLOCK);
+        parse_stmt_list(p, block);
+        return block;
+    }
+    default:
+        throw_fatal_error(2, "Block: expected newline and indented block");
     }
     return NULL;
 }
 
 /**
  * @brief Parses one statement and then the rest of the block.
- * 
+ *
  * Rule 27: STMT_LIST -> SIMPLE_STMT SIMPLE_END
  * Rule 28: STMT_LIST -> COMPOUND_STMT STMT_LIST_END
- * 
+ *
  * @param p Parser
  * @param block Block node
  */
-static void parse_stmt_list(Parser *p, ASTNode *block){
-    switch (p->token.type){
-        case T_KW_VAL:
-        case T_KW_VAR:
-        case T_KW_RETURN:
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:{   
-            ASTNode *stmt = parse_simple_stmt(p);
-            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, stmt);
-            parse_simple_end(p, block);
-            break;
-        }
-        case T_KW_IF:
-        case T_KW_WHILE:{
-            ASTNode *stmt = parse_compound_stmt(p);
-            ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, stmt);
-            parse_stmt_list_end(p, block);
-            break;
-        }
-        default:
-            throw_fatal_error(2, "Block: expected statement");
+static void parse_stmt_list(Parser *p, ASTNode *block) {
+    switch (p->token.type) {
+    case T_KW_VAL:
+    case T_KW_VAR:
+    case T_KW_RETURN:
+    case T_IDENT:
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L: {
+        ASTNode *stmt = parse_simple_stmt(p);
+        ast_array_append(&block->data.block.statements, &block->data.block.count,
+                         &block->data.block.capacity, stmt);
+        parse_simple_end(p, block);
+        break;
+    }
+    case T_KW_IF:
+    case T_KW_WHILE: {
+        ASTNode *stmt = parse_compound_stmt(p);
+        ast_array_append(&block->data.block.statements, &block->data.block.count,
+                         &block->data.block.capacity, stmt);
+        parse_stmt_list_end(p, block);
+        break;
+    }
+    default:
+        throw_fatal_error(2, "Block: expected statement");
     }
 }
 
 /**
  * @brief Parses ";" or a new line after a simple statement.
- * 
+ *
  * Rule 29: SIMPLE_END -> T_SEMICOLON STMT_LIST
  * Rule 30: SIMPLE_END -> T_NEWLINE STMT_LIST_END
- * 
+ *
  * @param p Parser
  * @param block Block node
  */
-static void parse_simple_end(Parser *p, ASTNode *block){
-    switch (p->token.type){
-        case T_SEMICOLON:
-            advance(p);
-            parse_stmt_list(p, block);
-            break;
-        case T_NEWLINE:
-            advance(p);
-            parse_stmt_list_end(p, block);
-            break;
-        default:
-            throw_fatal_error(2, "Statement: expected ';' or newline after statement");
+static void parse_simple_end(Parser *p, ASTNode *block) {
+    switch (p->token.type) {
+    case T_SEMICOLON:
+        advance(p);
+        parse_stmt_list(p, block);
+        break;
+    case T_NEWLINE:
+        advance(p);
+        parse_stmt_list_end(p, block);
+        break;
+    default:
+        throw_fatal_error(2, "Statement: expected ';' or newline after statement");
     }
 }
 
 /**
  * @brief Parses the next statement or end of the block.
- * 
+ *
  * Rule 31: STMT_LIST_END -> STMT_LIST
  * Rule 32: STMT_LIST_END -> T_DEDENT
- * 
+ *
  * @param p Parser
  * @param block Block node
  */
-static void parse_stmt_list_end(Parser *p, ASTNode *block){
-    switch (p->token.type){
-        case T_KW_VAL:
-        case T_KW_VAR:
-        case T_KW_RETURN:
-        case T_KW_IF:
-        case T_KW_WHILE:
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:
-            parse_stmt_list(p, block);
-            break;
-        case T_DEDENT:
-            advance(p);
-            break;
-        default:
-            throw_fatal_error(2, "Block: expected next statement or end of block");
+static void parse_stmt_list_end(Parser *p, ASTNode *block) {
+    switch (p->token.type) {
+    case T_KW_VAL:
+    case T_KW_VAR:
+    case T_KW_RETURN:
+    case T_KW_IF:
+    case T_KW_WHILE:
+    case T_IDENT:
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L:
+        parse_stmt_list(p, block);
+        break;
+    case T_DEDENT:
+        advance(p);
+        break;
+    default:
+        throw_fatal_error(2, "Block: expected next statement or end of block");
     }
 }
 
 /**
  * @brief Parses a simple statement.
- * 
+ *
  * Rule 33: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN EXPR
  * Rule 34: SIMPLE_STMT -> T_IDENT AFTER_IDENT
  * Rule 35: SIMPLE_STMT -> T_KW_RETURN RETURN_VAL
  * Rule 36: SIMPLE_STMT -> EXPR
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Statement node
  */
-ASTNode *parse_simple_stmt(Parser *p){
-    switch (p->token.type){
-        case T_KW_VAL:
-        case T_KW_VAR:{
-            ASTNode *simple_value = create_node(NODE_DEF_VAR);
-            simple_value->data.def_var.var = parse_def_value(p);
-            if(p->token.type != T_IDENT){
-                throw_fatal_error(2,"variable definition: expected variable name");
-            }
-            simple_value->data.def_var.name = p->token.data;
+ASTNode *parse_simple_stmt(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_VAL:
+    case T_KW_VAR: {
+        ASTNode *simple_value = create_node(NODE_DEF_VAR);
+        simple_value->data.def_var.var = parse_def_value(p);
+        if (p->token.type != T_IDENT) {
+            throw_fatal_error(2, "variable definition: expected variable name");
+        }
+        simple_value->data.def_var.name = p->token.data;
+        p->token.data = NULL;
+        advance(p);
+        simple_value->data.def_var.type = parse_return_type(p);
+        expect(p, T_OP_ASSIGN, "variable definition: expected '='");
+        simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
+        return simple_value;
+    }
+    // id followed by '=' is an assignment, otherwise an expression
+    case T_IDENT: {
+        if (peek_token_type(p) == T_OP_ASSIGN) {
+            char *name = p->token.data;
             p->token.data = NULL;
             advance(p);
-            simple_value->data.def_var.type = parse_return_type(p);
-            expect(p, T_OP_ASSIGN, "variable definition: expected '='");
-            simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
-            return simple_value;
+            return parse_after_ident(p, name);
         }
-        // id followed by '=' is an assignment, otherwise an expression
-        case T_IDENT:{ 
-            if(peek_token_type(p) == T_OP_ASSIGN){
-                char *name = p->token.data;
-                p->token.data = NULL;
-                advance(p);
-                return parse_after_ident(p, name);
-            }  
-            return parse_expression(p, EXPR_STATEMENT);
-        }
-        case T_KW_RETURN:{
-            advance(p);
-            ASTNode *simple_return = create_node(NODE_RETURN);
-            simple_return->data.return_stmt.value = parse_return_val(p);
-            return simple_return;
-        }
-        //Expression or function call
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:{
-            return parse_expression(p, EXPR_STATEMENT);
-        }
-        default:
-            throw_fatal_error(2, "Expected statement (val, var, return, assignment, call or expression)");
+        return parse_expression(p, EXPR_STATEMENT);
+    }
+    case T_KW_RETURN: {
+        advance(p);
+        ASTNode *simple_return = create_node(NODE_RETURN);
+        simple_return->data.return_stmt.value = parse_return_val(p);
+        return simple_return;
+    }
+    // Expression or function call
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L: {
+        return parse_expression(p, EXPR_STATEMENT);
+    }
+    default:
+        throw_fatal_error(2,
+                          "Expected statement (val, var, return, assignment, call or expression)");
     }
     return NULL;
-} 
+}
 
 /**
  * @brief Parses rest of an assignment  "= expression".
- * 
+ *
  * Rule 37: AFTER_IDENT -> T_OP_ASSIGN EXPR
- * 
+ *
  * @param p Parser
  * @param name Name of the variable
- * 
+ *
  * @return Assignment node (NODE_ASSIGN)
  */
-ASTNode *parse_after_ident(Parser *p, char *name){
-    switch (p->token.type){
-        case T_OP_ASSIGN:{
-            advance(p);
-            ASTNode *after_assign = create_node(NODE_ASSIGN);
-            after_assign->data.assign.name = name;
-            after_assign->data.assign.value = parse_expression(p, EXPR_STATEMENT);
-            return after_assign;
-        }
-        default:
-            throw_fatal_error(2, "After identifier: expected '='");
+ASTNode *parse_after_ident(Parser *p, char *name) {
+    switch (p->token.type) {
+    case T_OP_ASSIGN: {
+        advance(p);
+        ASTNode *after_assign = create_node(NODE_ASSIGN);
+        after_assign->data.assign.name = name;
+        after_assign->data.assign.value = parse_expression(p, EXPR_STATEMENT);
+        return after_assign;
+    }
+    default:
+        throw_fatal_error(2, "After identifier: expected '='");
     }
     return NULL;
 }
 
 /**
  * @brief Parses the value after return (can be missing).
- * 
+ *
  * Rule 38: RETURN_VAL -> EXPR
  * Rule 39: RETURN_VAL -> ε
- * 
+ *
  * @param p Parser
- * 
- * @return Expression node, or NULL if there is no value 
+ *
+ * @return Expression node, or NULL if there is no value
  */
-ASTNode *parse_return_val(Parser *p){
-    switch (p->token.type){
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:
-            return parse_expression(p, EXPR_STATEMENT);
-        case T_SEMICOLON:
-        case T_NEWLINE:
-            return NULL;
-        default:
-            throw_fatal_error(2, "Return: expected expression or end of statement");
+ASTNode *parse_return_val(Parser *p) {
+    switch (p->token.type) {
+    case T_IDENT:
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L:
+        return parse_expression(p, EXPR_STATEMENT);
+    case T_SEMICOLON:
+    case T_NEWLINE:
+        return NULL;
+    default:
+        throw_fatal_error(2, "Return: expected expression or end of statement");
     }
     return NULL;
 }
 
 /**
  * @brief Parses val or var.
- * 
+ *
  * Rule 40: DEF_VALUE -> T_KW_VAL
  * Rule 41: DEF_VALUE -> T_KW_VAR
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return True for var, false for val
  */
-static bool parse_def_value(Parser *p){
-    switch (p->token.type){
-        case T_KW_VAL:
-            advance(p);
-            return false;
-        case T_KW_VAR:
-            advance(p);
-            return true;
-        default:
-            throw_fatal_error(2, "Variable definition: expected 'val' or 'var'");
+static bool parse_def_value(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_VAL:
+        advance(p);
+        return false;
+    case T_KW_VAR:
+        advance(p);
+        return true;
+    default:
+        throw_fatal_error(2, "Variable definition: expected 'val' or 'var'");
     }
     return false;
 }
 
 /**
  * @brief Parses if or while.
- * 
+ *
  * Rule 42: COMPOUND_STMT -> IF_STMT
  * Rule 43: COMPOUND_STMT -> T_KW_WHILE EXPR T_KW_DO BLOCK
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return If node or while node
  */
-ASTNode *parse_compound_stmt(Parser *p){
-    switch (p->token.type){
-        case T_KW_IF:{
-            return parse_if_stmt(p);
-        }
-        case T_KW_WHILE:{
-            advance(p);
-            ASTNode *comp_while = create_node(NODE_WHILE);
-            comp_while->data.while_loop.condition = parse_expression(p, EXPR_STATEMENT);
-            expect(p, T_KW_DO, "while: expected 'do' after condition");
-            comp_while->data.while_loop.body = parse_block(p);
-            return comp_while;
-        }
-        default:
-            throw_fatal_error(2, "Expected 'if' or 'while'");
+ASTNode *parse_compound_stmt(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_IF: {
+        return parse_if_stmt(p);
+    }
+    case T_KW_WHILE: {
+        advance(p);
+        ASTNode *comp_while = create_node(NODE_WHILE);
+        comp_while->data.while_loop.condition = parse_expression(p, EXPR_STATEMENT);
+        expect(p, T_KW_DO, "while: expected 'do' after condition");
+        comp_while->data.while_loop.body = parse_block(p);
+        return comp_while;
+    }
+    default:
+        throw_fatal_error(2, "Expected 'if' or 'while'");
     }
     return NULL;
 }
 
 /**
  * @brief Parses an if statement.
- * 
+ *
  * Rule 44: IF_STMT -> T_KW_IF EXPR T_KW_THEN BLOCK ELSE_STMT
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return If node (NODE_IF)
  */
-ASTNode *parse_if_stmt(Parser *p){
-    switch (p->token.type){
-        case T_KW_IF:{
-            advance(p);
+ASTNode *parse_if_stmt(Parser *p) {
+    switch (p->token.type) {
+    case T_KW_IF: {
+        advance(p);
 
-            ASTNode *comp_if = create_node(NODE_IF);
-            comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
+        ASTNode *comp_if = create_node(NODE_IF);
+        comp_if->data.if_stmt.condition = parse_expression(p, EXPR_STATEMENT);
 
-            expect(p, T_KW_THEN, "if: expected 'then' after condition");
-            comp_if->data.if_stmt.then_block = parse_block(p);
-            parse_else_stmt(p, comp_if);
-            return comp_if;
-        }
-        default:
-            throw_fatal_error(2, "Expected 'if'");
+        expect(p, T_KW_THEN, "if: expected 'then' after condition");
+        comp_if->data.if_stmt.then_block = parse_block(p);
+        parse_else_stmt(p, comp_if);
+        return comp_if;
+    }
+    default:
+        throw_fatal_error(2, "Expected 'if'");
     }
     return NULL;
 }
 
 /**
  * @brief Parses an else part of if statement.
- * 
+ *
  * If there is no else, else_block stays NULL.
- * 
+ *
  * Rule 45: ELSE_STMT -> T_KW_ELSE ELSE_BODY
  * Rule 46: ELSE_STMT -> ε
- * 
+ *
  * @param p Parser
  * @param if_node If node
  */
-static void parse_else_stmt(Parser *p, ASTNode *if_node){
-     switch (p->token.type){
-        case T_KW_ELSE:{
-            advance(p);
-            if_node->data.if_stmt.else_block = parse_else_body(p);
-            break;
-        }
-        case T_KW_VAL:
-        case T_KW_VAR:
-        case T_KW_RETURN:
-        case T_KW_IF:
-        case T_KW_WHILE:
-        case T_IDENT:
-        case T_INT:
-        case T_DOUBLE:
-        case T_STRING:
-        case T_OP_MINUS:
-        case T_OP_NOT:
-        case T_KW_TRUE:
-        case T_KW_FALSE:
-        case T_PAR_L:
-        case T_DEDENT:{
-            break;
-        }
-        default:
-            throw_fatal_error(2, "After if block: expected 'else', next statement or end of block");
-     }
+static void parse_else_stmt(Parser *p, ASTNode *if_node) {
+    switch (p->token.type) {
+    case T_KW_ELSE: {
+        advance(p);
+        if_node->data.if_stmt.else_block = parse_else_body(p);
+        break;
+    }
+    case T_KW_VAL:
+    case T_KW_VAR:
+    case T_KW_RETURN:
+    case T_KW_IF:
+    case T_KW_WHILE:
+    case T_IDENT:
+    case T_INT:
+    case T_DOUBLE:
+    case T_STRING:
+    case T_OP_MINUS:
+    case T_OP_NOT:
+    case T_KW_TRUE:
+    case T_KW_FALSE:
+    case T_PAR_L:
+    case T_DEDENT: {
+        break;
+    }
+    default:
+        throw_fatal_error(2, "After if block: expected 'else', next statement or end of block");
+    }
 }
 
 /**
  * @brief Parses what comes after else: a block or another if
- * 
+ *
  * Rule 47: ELSE_BODY -> BLOCK
  * Rule 48: ELSE_BODY -> IF_STMT
- * 
+ *
  * @param p Parser
- * 
+ *
  * @return Block node (NODE_BLOCK)
  */
-ASTNode *parse_else_body(Parser *p){
-    switch(p->token.type){
-        case T_NEWLINE:{
-            return parse_block(p);
-        }
-        case T_KW_IF:{
-            ASTNode *else_block = create_node(NODE_BLOCK);
-            ast_array_append(&else_block->data.block.statements, &else_block->data.block.count, &else_block->data.block.capacity, parse_if_stmt(p));
-            return else_block;
-        }
-        default:
-            throw_fatal_error(2, "After 'else': expected newline with block or 'if'");
+ASTNode *parse_else_body(Parser *p) {
+    switch (p->token.type) {
+    case T_NEWLINE: {
+        return parse_block(p);
     }
-    return NULL;    
+    case T_KW_IF: {
+        ASTNode *else_block = create_node(NODE_BLOCK);
+        ast_array_append(&else_block->data.block.statements, &else_block->data.block.count,
+                         &else_block->data.block.capacity, parse_if_stmt(p));
+        return else_block;
+    }
+    default:
+        throw_fatal_error(2, "After 'else': expected newline with block or 'if'");
+    }
+    return NULL;
 }
