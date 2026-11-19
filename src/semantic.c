@@ -250,6 +250,9 @@ static void check_function(SemContext *ctx, ASTNode *func){
         d.data.variable.is_mutable = false;
         d.data.variable.variable_id = ctx->next_var_id++;
         insert(ctx->current->symbols, param->data.param.name, d);
+
+        // Store the new ID in both the symbol table and the AST
+        param->data.param.variable_id = d.data.variable.variable_id;
     }
 
     // Check the statements of the body (not with check_block,
@@ -399,6 +402,9 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
             d.data.variable.variable_id = ctx->next_var_id++;       // unique number of the variable
 
             insert(ctx->current->symbols, name, d);
+
+            // Store the new ID in both the symbol table and the AST
+            stmt->data.def_var.variable_id = d.data.variable.variable_id;
             break;
         }
 
@@ -414,6 +420,10 @@ static void check_statement(SemContext *ctx, ASTNode *stmt){
                 // val and parameters cannot be changed
                 throw_fatal_error(7, "Assignment to val / parameter");
             }
+
+            // Use the ID of the variable found in the current scope
+            stmt->data.assign.variable_id = var->data.variable.variable_id;
+
             DataType type = check_expression(ctx, stmt->data.assign.value);
             if ((!types_compatible(var->data.variable.type, type))){
                 throw_fatal_error(6, "Wrong type in assign");
@@ -525,6 +535,10 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr){
             if (var == NULL){
                 throw_fatal_error(3, "Undefined variable");
             }
+
+            // Use the ID of the variable found in the current scope
+            expr->data.identifier.variable_id = var->data.variable.variable_id;
+
             result = var->data.variable.type;
             break;
         }
