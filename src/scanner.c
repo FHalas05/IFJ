@@ -260,6 +260,8 @@ Token FSM_strings(FILE *file) {
     }
     dyn_str_free(final_string);
     throw_lexical_error("FSM_strings - end state");
+    // throw_lexical_error exits the program, but the compiler still expects a return here
+    return (Token){NO_TOKEN_FOUND, NULL};
 }
 
 /**
@@ -529,6 +531,8 @@ Token HANDLER_main(FILE *file) {
     }
 
     throw_lexical_error("HANDLER_main - Invalid chars after '@'");
+    // throw_lexical_error exits the program, but the compiler still expects a return here
+    return (Token){NO_TOKEN_FOUND, NULL};
 }
 
 /**
@@ -602,16 +606,20 @@ Token HANDLER_operators(FILE *file, int first_char) {
             return token;
         }
         throw_lexical_error("HANDLER_operators - Invalid char after '&'");
+        break;
     case '|':
         if (second_char == '|') {
             token.type = T_OP_BIN_OR;
             return token;
         }
         throw_lexical_error("HANDLER_operators - Invalid char after '|'");
+        break;
     default:
         throw_lexical_error("HANDLER_operators - Invalid char passed into HANDLER_operators - "
                             "please be smarter next time");
     }
+
+    return token;
 }
 
 /**
