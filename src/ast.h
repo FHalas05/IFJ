@@ -17,6 +17,7 @@
 #define AST_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 /**
  * @brief Types of values in IFJ26
