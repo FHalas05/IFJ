@@ -155,7 +155,7 @@ static ASTNode *reduce_operand(ExprItem *item) {
         return item->node;
     }
 
-    ASTNode *node;
+    ASTNode *node = NULL;
 
     switch (item->token.type) {
     case T_INT:

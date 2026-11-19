@@ -1,9 +1,10 @@
 /**
  * @file generator.c
  * @brief Generates IFJcode26 instructions based from the program's AST representation
- * 
- * Recursively goes through AST to build all function bodies and flow control statements and generates all builtin functions bodies
- * 
+ *
+ * Recursively goes through AST to build all function bodies and flow control statements and
+ * generates all builtin functions bodies
+ *
  * @author Šimon Hejl (xhejlsi00)
  * @date 3.11.2026
  */
@@ -29,7 +30,9 @@ typedef enum { LABEL_IF, LABEL_WHILE, LABEL_AND, LABEL_OR } labels;
  *
  * @param instruction printed instruction
  */
-static void print_formatted_0(const char *instruction) { fprintf(stdout, "%s\n", instruction); }
+static void print_formatted_0(const char *instruction) {
+    fprintf(stdout, "%s\n", instruction);
+}
 
 /**
  * @brief Prints formatted line of code for one-operand instructions
@@ -458,7 +461,7 @@ static void instruction_generator(ASTNode *body) {
     }
     default: {
         throw_fatal_error(404, "generator error - invalid node type");
-        //break;
+        // break;
     }
     }
 }
@@ -678,8 +681,8 @@ static void builtin_substr() {
     print_formatted_3("JUMPIFNEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@start", "LF@end");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
-    print_formatted_3("GT", "LF@check", "LF@start", "LF@str_length");
-    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
+    print_formatted_3("LT", "LF@check", "LF@start", "LF@str_length");
+    print_formatted_3("JUMPIFEQ", "$substr_err", "bool@false", "LF@check");
     print_formatted_3("GT", "LF@check", "LF@end", "LF@str_length");
     print_formatted_3("JUMPIFEQ", "$substr_err", "bool@true", "LF@check");
     print_formatted_1("DEFVAR", "LF@fin_string");

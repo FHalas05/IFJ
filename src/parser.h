@@ -42,7 +42,7 @@ typedef struct {
     bool eof_newline_done;              //true when the NEWLINE before EOF was added
 
     size_t paren_depth;                 //how deep we are inside bracket
-    size_t logical_indent;              //indentation of the current statement
+    int logical_indent;                 //indentation of the current statement
     bool pending_lf;                    //true if there was a new line inside brackets
 }Parser;
 
