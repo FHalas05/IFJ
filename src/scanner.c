@@ -311,7 +311,7 @@ Token FSM_numerals(FILE *file, int first_char) {
                     isalpha(c)) {
                     // cannot be a letter (except {E,e} - handled above)
                     dyn_str_free(result);
-                    throw_lexical_error("FSM_numerals - F1 - Nonzero number starts with 0, OR an "
+                    throw_fatal_error(2, "SYNTACTIC ERROR: Nonzero number starts with 0, OR an "
                                         "invalid letter follows the number");
                 } else {
                     // return result
