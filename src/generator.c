@@ -464,6 +464,10 @@ static void instruction_generator(ASTNode *body) {
         // break;
     }
     }
+
+    if (body->widen_to_double) {
+        print_formatted_0("INT2FLOATS");
+    }
 }
 /**
  * @brief a function that performs concatenation two top string on the data stack

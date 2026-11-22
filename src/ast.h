@@ -74,6 +74,7 @@ struct Scope;
 typedef struct ASTNode{
     DataType data_type;     // Type of the value (set by the semantic analysis for expressions)
     NodeType type;          // Kind of the node (says which part of the union is used)
+    bool widen_to_double;   // Convert the expression result from Int to Double
     int line;               // Line in the source code
     int column;             // Column in the source code
 
