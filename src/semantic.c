@@ -488,6 +488,8 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
 
             mark_int_to_double_conversion(stmt->data.return_stmt.value,
                                           ctx->current_function->data.function_def.return_type);
+
+            stmt->data.return_stmt.discard_value = ctx->current_function->data.function_def.return_type == TYPE_UNIT;
         }
 
         break;

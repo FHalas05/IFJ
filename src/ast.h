@@ -164,6 +164,7 @@ typedef struct ASTNode{
         // NODE_RETURN
         struct{
             struct ASTNode *value;              // Returned value; NULL for "return" without a value
+            bool discard_value;                 // Discard the expression result when the function returns Unit 
         } return_stmt;
 
         // NODE_IDENTIFIER
