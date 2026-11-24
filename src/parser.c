@@ -58,6 +58,7 @@ static void init_parser(Parser *p, FILE *file, SymTable *table) {
     p->paren_depth = 0;
     p->logical_indent = 0;
     p->pending_lf = false;
+    p->ended_with_block = false;
 
     p->indent_stack = (int *)malloc(p->indent_capacity * sizeof(int));
     if (p->indent_stack == NULL) {
@@ -707,6 +708,10 @@ ASTNode *parse_function_body(Parser *p) {
         ASTNode *block = create_node(NODE_BLOCK);
         ast_array_append(&block->data.block.statements, &block->data.block.count,
                          &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
+        if (p->ended_with_block){
+            p->ended_with_block = false;
+            return block;
+        }
         expect(p, T_NEWLINE, "function body: expected newline after expression");
         return block;
     }
@@ -718,15 +723,6 @@ ASTNode *parse_function_body(Parser *p) {
     return NULL;
 }
 
-/**
- * @brief Parses an indented block.
- *
- * Rule 26: BLOCK -> T_NEWLINE T_INDENT STMT_LIST
- *
- * @param p Parser
- *
- * @return Block node (NODE_BLOCK)
- */
 ASTNode *parse_block(Parser *p) {
     switch (p->token.type) {
     case T_NEWLINE: {
@@ -786,6 +782,9 @@ static void parse_stmt_list(Parser *p, ASTNode *block) {
 
 /**
  * @brief Parses ";" or a new line after a simple statement.
+ * 
+ * If the statement ended with a lambda block body (p->ended_with_block),
+ * there is no ';' or newline, the next statement or end of block follows directly.
  *
  * Rule 29: SIMPLE_END -> T_SEMICOLON STMT_LIST
  * Rule 30: SIMPLE_END -> T_NEWLINE STMT_LIST_END
@@ -794,6 +793,11 @@ static void parse_stmt_list(Parser *p, ASTNode *block) {
  * @param block Block node
  */
 static void parse_simple_end(Parser *p, ASTNode *block) {
+    if(p->ended_with_block){
+        p->ended_with_block = false;
+        parse_stmt_list_end(p, block);
+        return;
+    }
     switch (p->token.type) {
     case T_SEMICOLON:
         advance(p);
@@ -847,9 +851,15 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block) {
  * @brief Parses a simple statement.
  *
  * Rule 33: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN EXPR
+ * Rule 33b: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN
+ *                          T_NEWLINE T_INDENT LAMBDA T_NEWLINE T_DEDENT      (LAMBDAS)
  * Rule 34: SIMPLE_STMT -> T_IDENT AFTER_IDENT
  * Rule 35: SIMPLE_STMT -> T_KW_RETURN RETURN_VAL
  * Rule 36: SIMPLE_STMT -> EXPR
+ *
+ * A newline after '=' is allowed only when a lambda follows on the next
+ * (indented) line. If the lambda has a block body, its block already ends
+ * the line, so T_NEWLINE is not expected there.
  *
  * @param p Parser
  *
@@ -869,7 +879,29 @@ ASTNode *parse_simple_stmt(Parser *p) {
         advance(p);
         simple_value->data.def_var.type = parse_return_type(p, &simple_value->data.def_var.type_fun);
         expect(p, T_OP_ASSIGN, "variable definition: expected '='");
-        simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
+        if (p->token.type == T_NEWLINE){
+            advance(p);
+            expect(p, T_INDENT, "variable definition: expected indented value after '='");
+
+            simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
+            if (simple_value->data.def_var.value->type   != NODE_LAMBDA){
+                throw_fatal_error(2, "variable definition: newline after '=' is allowed only before a lambda");
+            }
+
+            if (p->ended_with_block){
+                p->ended_with_block = false;
+            }
+            else{
+                expect (p, T_NEWLINE, "variable definition: expected newline after lambda");
+            }
+
+            expect(p, T_DEDENT, "variable definition: expected end of indented value after lambda");
+            p->ended_with_block = true;
+        }
+        else{
+            simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
+        }
+
         return simple_value;
     }
     // id followed by '=' is an assignment, otherwise an expression

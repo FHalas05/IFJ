@@ -15,8 +15,10 @@
 #include "library.h"
 #include "parser.h"
 #include "token.h"
+
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /**
  * @brief Number of terminal categories in the precedence table
@@ -330,10 +332,37 @@ static ASTNode *parse_function_call(Parser *parser) {
     }
 }
 
+
 static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
-    ASTNode *func = 
-    throw_fatal_error(2, "Lambda: not implemented yet");
-    return NULL;
+    static size_t lambda_count = 0;
+    ASTNode *func = create_node (NODE_FUNCTION_DEF);
+    char *name = malloc (32);
+    if (name == NULL){
+        throw_fatal_error(99, "Allocation error");
+    }
+    snprintf(name, 32, "lambda$%zu", lambda_count++);
+    func->data.function_def.name = name;
+
+    parse_params(parser, func);
+    expect(parser, T_PAR_R, "Lambda: expected ')' after parameters");
+    expect(parser, T_OP_ROCKET, "Lambda: expected '=>' after ')'");
+
+    if(parser->token.type == T_NEWLINE){
+        func->data.function_def.body = parse_block(parser);
+        parser->ended_with_block = true;    
+    }
+    else {
+        ASTNode *block = create_node(NODE_BLOCK);
+        ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, parse_expression(parser, mode));
+        func->data.function_def.body = block;
+    }
+
+    func->data.function_def.is_lambda = true;
+    ast_array_append(&parser->program->data.program.functions, &parser->program->data.program.count, &parser->program->data.program.capacity, func);
+
+    ASTNode *lambda = create_node(NODE_LAMBDA);
+    lambda->data.lambda.function = func;
+    return lambda;
 }
 
 ASTNode *parse_expression(Parser *parser, ExprMode mode) {

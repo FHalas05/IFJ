@@ -45,6 +45,7 @@ typedef struct {
     size_t paren_depth;                 //how deep we are inside bracket
     int logical_indent;                 //indentation of the current statement
     bool pending_lf;                    //true if there was a new line inside brackets
+    bool ended_with_block               //true if the last expression was a lambda with a block body (no NEWLINE follows)
 }Parser;
 
 
@@ -70,6 +71,19 @@ ASTNode *parse_program(FILE *file, SymTable *table);
  * @param func Function node
  */
 void parse_params(Parser *p, ASTNode *func);
+
+/**
+ * @brief Parses an indented block.
+ *
+ * Used for function bodies, if/while bodies and lambda bodies.
+ *
+ * Rule 26: BLOCK -> T_NEWLINE T_INDENT STMT_LIST
+ *
+ * @param p Parser
+ *
+ * @return Block node (NODE_BLOCK)
+ */
+ASTNode *parse_block(Parser *p);
 
 /**
  * @brief Moves to the next token
