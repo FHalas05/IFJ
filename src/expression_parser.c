@@ -330,10 +330,17 @@ static ASTNode *parse_function_call(Parser *parser) {
     }
 }
 
+static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
+    ASTNode *func = 
+    throw_fatal_error(2, "Lambda: not implemented yet");
+    return NULL;
+}
+
 ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     ExprStack stack;
     init_expr_stack(&stack);
     bool expected_operand = true;
+    size_t expr_paren_depth = 0;
 
     // The end symbol stays at the bottom until one complete expression remains.
     ExprItem start_symbol = {
@@ -343,9 +350,31 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     };
     expr_stack_push(&stack, start_symbol);
 
-    ExprHandle handle;
+    //lambda or ()
+    if (parser->token.type == T_PAR_L){
+        advance(parser);
+        
+        TokenType next = peek_token_type(parser);
+        bool is_lambda = ((parser->token.type == T_IDENT && next == T_COLON) || (parser->token.type ==  T_PAR_R && next == T_OP_ROCKET));
 
-    size_t expr_paren_depth = 0;
+        if (is_lambda){
+            clear_expr_stack (&stack);
+            return parse_lambda(parser, mode);
+        }
+
+        // Not a lambda: do the same as the '<' step does for '('
+        expr_stack_insert_marker(&stack);
+        ExprItem lparen = {
+            .type = EXPR_TERMINAL,
+            .terminal = P_LPAREN,
+            .token = {.type = T_PAR_L},
+        };
+        expr_stack_push(&stack, lparen);
+        expr_paren_depth = 1;
+        expected_operand = true;
+    }
+    
+    ExprHandle handle;
 
     while (true) {
         PrecTerminal top_t = expr_stack_top_terminal(&stack);

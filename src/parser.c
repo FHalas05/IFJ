@@ -262,11 +262,11 @@ static bool parse_annotation_opt(Parser *p);
 
 static void parse_annotation_remaining(Parser *p);
 
-DataType parse_return_type(Parser *p);
+DataType parse_return_type(Parser *p, FunType **fun);
 
-DataType parse_type(Parser *p);
+DataType parse_type(Parser *p, FunType **fun);
 
-static void parse_params(Parser *p, ASTNode *func);
+void parse_params(Parser *p, ASTNode *func);
 
 ASTNode *parse_one_param(Parser *p);
 
@@ -306,6 +306,7 @@ ASTNode *parse_program(FILE *file, SymTable *table) {
 
     p.token = next_token(&p);
     ASTNode *program = create_node(NODE_PROGRAM);
+    p.program = program;
     switch (p.token.type) {
     case T_KW_IMPORT:
         parse_prolog(&p);
@@ -399,7 +400,7 @@ ASTNode *parse_function_def(Parser *p) {
         parse_params(p, function_def);
         expect(p, T_PAR_R, "function definition: expected ')' after parameters");
 
-        function_def->data.function_def.return_type = parse_return_type(p);
+        function_def->data.function_def.return_type = parse_return_type(p, &function_def->data.function_def.return_fun);
         function_def->data.function_def.has_explicit_return_type =
             (function_def->data.function_def.return_type != TYPE_UNKNOWN);
         expect(p, T_OP_ASSIGN, "function definition: expected '=' before function body");
@@ -462,15 +463,17 @@ static void parse_annotation_remaining(Parser *p) {
  * Rule 11: RETURN_TYPE -> ε
  *
  * @param p Parser
+ * @param fun Output: the function type if the type is a function type, otherwise NULL
  *
  * @return The type or TYPE_UNKNOWN if there is no type
  */
-DataType parse_return_type(Parser *p) {
+DataType parse_return_type(Parser *p, FunType **fun) {
     switch (p->token.type) {
     case T_COLON:
         advance(p);
-        return parse_type(p);
+        return parse_type(p, fun);
     case T_OP_ASSIGN:
+        *fun = NULL;
         return TYPE_UNKNOWN;
     default:
         throw_fatal_error(2, "Function header: expected ':' with return type or '='");
@@ -479,54 +482,108 @@ DataType parse_return_type(Parser *p) {
 }
 
 /**
- * @brief Parses a type name.
+ * @brief Parses a type name or a function type.
  *
  * Rule 12: TYPE -> T_KW_INT
  * Rule 13: TYPE -> T_KW_DOUBLE
  * Rule 14: TYPE -> T_KW_STRING
  * Rule 15: TYPE -> T_KW_UNIT
  * Rule 16: TYPE -> T_KW_BOOLEAN
+ * Rule 16a: TYPE -> T_PAR_L TYPE_LIST T_PAR_R T_OP_ROCKET TYPE      (LAMBDAS)
+ * Rule 16b: TYPE_LIST -> TYPE { T_COMMA TYPE }
+ * Rule 16c: TYPE_LIST -> ε
+ *
+ * A function type can have function types inside it,
+ * e.g. (Int) => (Int) => Int, so it is parsed recursively.
  *
  * @param p Parser
+ * @param fun Output: new function type if the type is TYPE_FUNCTION
+ *            (the caller owns it), otherwise NULL
  *
- * @return Type
+ * @return Type (TYPE_FUNCTION for a function type)
  */
-DataType parse_type(Parser *p) {
+DataType parse_type(Parser *p, FunType **fun) {
     switch (p->token.type) {
     case T_KW_INT:
         advance(p);
+        *fun = NULL;
         return TYPE_INT;
     case T_KW_DOUBLE:
         advance(p);
+        *fun = NULL;
         return TYPE_DOUBLE;
     case T_KW_STRING:
         advance(p);
+        *fun = NULL;
         return TYPE_STRING;
     case T_KW_UNIT:
         advance(p);
+        *fun = NULL;
         return TYPE_UNIT;
     case T_KW_BOOLEAN:
         advance(p);
+        *fun = NULL;
         return TYPE_BOOL;
     case T_IDENT:
         throw_fatal_error(3, "Undefined type");
         break;
+    case T_PAR_L:{
+        advance(p);
+        TypeRef *params = NULL;
+        size_t count = 0;
+        size_t capacity = 0;
+        if (p->token.type != T_PAR_R){
+            while(true){
+                if (count == capacity){
+                    size_t new_capacity;
+                    if (capacity == 0){
+                        new_capacity = 4;
+                    }
+                    else{
+                        new_capacity = capacity * 2;
+                    }
+                    TypeRef *array = realloc (params, new_capacity * sizeof(TypeRef));
+                    if (array == NULL){
+                        throw_fatal_error(99, "reallocation error");
+                    }
+                    params = array;
+                    capacity = new_capacity;
+                }
+                FunType *param_fun = NULL;
+                params[count].kind = parse_type (p, &param_fun);
+                params[count].fun = param_fun;
+                count ++;
+
+                if (p->token.type == T_COMMA){
+                    advance(p);
+                    continue;
+                }
+                else{
+                    break;
+                }
+            }    
+        }
+        expect(p, T_PAR_R, "Function type: expected ')' after parameter types");
+        expect(p, T_OP_ROCKET, "Function type: expected '=>' after ')'");   
+        FunType *ret_fun = NULL;
+        DataType ret_kind = parse_type (p, &ret_fun);
+        FunType *result = create_fun_type(count);
+        for (size_t i = 0; i < count; i++){
+            result->params[i] = params [i];
+        }
+        result->ret.kind = ret_kind;
+        result->ret.fun = ret_fun;
+        free (params);
+        *fun = result;
+        return TYPE_FUNCTION;
+    }
     default:
         throw_fatal_error(2, "Expected type (Int, Double, String, Unit or Boolean)");
     }
     return TYPE_UNKNOWN;
 }
 
-/**
- * @brief Parses the parameters of a function.
- *
- * Rule 17: PARAMS -> ONE_PARAM PARAM_TAIL
- * Rule 18: PARAMS -> ε
- *
- * @param p Parser
- * @param func Function node
- */
-static void parse_params(Parser *p, ASTNode *func) {
+void parse_params(Parser *p, ASTNode *func) {
     switch (p->token.type) {
     case T_IDENT: {
         ASTNode *param = parse_one_param(p);
@@ -559,7 +616,7 @@ ASTNode *parse_one_param(Parser *p) {
         p->token.data = NULL;
         advance(p);
         expect(p, T_COLON, "parameter: expected ':' after parameter name");
-        param->data.param.data = parse_type(p);
+        param->data.param.data = parse_type(p, &param->data.param.fun);
         return param;
     }
     default:
@@ -810,7 +867,7 @@ ASTNode *parse_simple_stmt(Parser *p) {
         simple_value->data.def_var.name = p->token.data;
         p->token.data = NULL;
         advance(p);
-        simple_value->data.def_var.type = parse_return_type(p);
+        simple_value->data.def_var.type = parse_return_type(p, &simple_value->data.def_var.type_fun);
         expect(p, T_OP_ASSIGN, "variable definition: expected '='");
         simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
         return simple_value;

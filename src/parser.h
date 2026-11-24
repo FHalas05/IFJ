@@ -24,6 +24,7 @@
 typedef struct {
     FILE *src;                          //input file
     SymTable *symtab;                   //symbol table
+    ASTNode *program;                   //program node; lambdas are added to its function list
 
     Token token;                        //current token
 
@@ -59,6 +60,16 @@ typedef struct {
  */
 ASTNode *parse_program(FILE *file, SymTable *table);
 
+/**
+ * @brief Parses the parameters of a function or a lambda.
+ *
+ * Rule 17: PARAMS -> ONE_PARAM PARAM_TAIL
+ * Rule 18: PARAMS -> ε
+ *
+ * @param p Parser
+ * @param func Function node
+ */
+void parse_params(Parser *p, ASTNode *func);
 
 /**
  * @brief Moves to the next token
