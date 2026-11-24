@@ -251,20 +251,30 @@ static void operation_formatter(Operator operation) {
  *
  * @param body body of the currently processed function
  */
-static void instruction_generator(ASTNode *body) {
+static void instruction_generator(ASTNode *body, bool is_return) {
     if (body == NULL) {
         return;
     }
     switch (body->type) {
     case NODE_BLOCK: {
-        for (size_t i = 0; i < body->data.block.count; i++) {
-            instruction_generator(body->data.block.statements[i]);
+        size_t count = body->data.block.count;
+        if (count == 0)
+            break;
+        for (size_t i = 0; i < count; i++) {
+            bool statement_is_return = is_return && (i == body->data.block.count - 1);
+            ASTNode *statement = body->data.block.statements[i];
+            instruction_generator(statement, statement_is_return);
+            if (statement->type != NODE_DEF_VAR && statement->type != NODE_ASSIGN &&
+                statement->type != NODE_IF && statement->type != NODE_WHILE &&
+                statement->type != NODE_RETURN && !statement_is_return) {
+                print_formatted_1("POPS", "LF@discard");
+            }
         }
         break;
     }
     case NODE_FUNCTION_CALL: {
         for (size_t i = 0; i < body->data.function_call.arg_count; i++) {
-            instruction_generator(body->data.function_call.arguments[i]);
+            instruction_generator(body->data.function_call.arguments[i], false);
         }
         DynamicString *label = dyn_str_init();
         fun_label_formatter(label, body->data.function_call.name);
@@ -273,7 +283,7 @@ static void instruction_generator(ASTNode *body) {
         break;
     }
     case NODE_DEF_VAR: {
-        instruction_generator(body->data.def_var.value);
+        instruction_generator(body->data.def_var.value, false);
         DynamicString *variable = dyn_str_init();
         variable_formatter(variable, body->data.def_var.name, body->data.def_var.variable_id);
         print_formatted_1("POPS", variable->string);
@@ -283,7 +293,7 @@ static void instruction_generator(ASTNode *body) {
     case NODE_UNOP: {
         Operator op = body->data.un_op.operation;
         ASTNode *operand = body->data.un_op.operand;
-        instruction_generator(operand);
+        instruction_generator(operand, false);
         if (op == OP_UNARY_MINUS && operand->data_type == TYPE_DOUBLE) {
             print_formatted_1("PUSHS", "float@-0x1p+0");
             print_formatted_0("MULS");
@@ -305,10 +315,10 @@ static void instruction_generator(ASTNode *body) {
             cond_label_formatter(and_label_failed, LABEL_AND, and_label_count, "failed");
             DynamicString *and_label_end = dyn_str_init();
             cond_label_formatter(and_label_end, LABEL_AND, and_label_count, "end");
-            instruction_generator(left);
+            instruction_generator(left, false);
             print_formatted_1("PUSHS", "bool@false");
             print_formatted_1("JUMPIFEQS", and_label_failed->string);
-            instruction_generator(right);
+            instruction_generator(right, false);
             print_formatted_1("PUSHS", "bool@false");
             print_formatted_1("JUMPIFEQS", and_label_failed->string);
             print_formatted_1("PUSHS", "bool@true");
@@ -325,10 +335,10 @@ static void instruction_generator(ASTNode *body) {
             cond_label_formatter(or_label_success, LABEL_OR, or_label_count, "success");
             DynamicString *or_label_end = dyn_str_init();
             cond_label_formatter(or_label_end, LABEL_OR, or_label_count, "end");
-            instruction_generator(left);
+            instruction_generator(left, false);
             print_formatted_1("PUSHS", "bool@true");
             print_formatted_1("JUMPIFEQS", or_label_success->string);
-            instruction_generator(right);
+            instruction_generator(right, false);
             print_formatted_1("PUSHS", "bool@true");
             print_formatted_1("JUMPIFEQS", or_label_success->string);
             print_formatted_1("PUSHS", "bool@false");
@@ -340,11 +350,11 @@ static void instruction_generator(ASTNode *body) {
             dyn_str_free(or_label_end);
             break;
         }
-        instruction_generator(left);
+        instruction_generator(left, false);
         if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
             print_formatted_0("INT2FLOATS");
         }
-        instruction_generator(right);
+        instruction_generator(right, false);
         if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
             print_formatted_0("INT2FLOATS");
         }
@@ -364,7 +374,7 @@ static void instruction_generator(ASTNode *body) {
         break;
     }
     case NODE_ASSIGN: {
-        instruction_generator(body->data.assign.value);
+        instruction_generator(body->data.assign.value, false);
         DynamicString *variable = dyn_str_init();
         variable_formatter(variable, body->data.assign.name, body->data.assign.variable_id);
         print_formatted_1("POPS", variable->string);
@@ -373,29 +383,31 @@ static void instruction_generator(ASTNode *body) {
     }
     case NODE_RETURN: {
         if (body->data.return_stmt.value != NULL) {
-            instruction_generator(body->data.return_stmt.value);
-        } else {
-            print_formatted_1("PUSHS", "nil@nil");
+            instruction_generator(body->data.return_stmt.value, false);
+            if (body->data.return_stmt.discard_value)
+                print_formatted_1("POPS", "LF@discard");
         }
+        if (body->data.return_stmt.value == NULL || body->data.return_stmt.discard_value)
+            print_formatted_1("PUSHS", "nil@nil");
         print_formatted_0("POPFRAME");
         print_formatted_0("RETURN");
         break;
     }
     case NODE_IF: {
-        instruction_generator(body->data.if_stmt.condition);
+        instruction_generator(body->data.if_stmt.condition, false);
         DynamicString *label = dyn_str_init();
         size_t label_count = get_label_count_and_increment_it();
         cond_label_formatter(label, LABEL_IF, label_count, "else");
         print_formatted_1("PUSHS", "bool@false");
         print_formatted_1("JUMPIFEQS", label->string);
-        instruction_generator(body->data.if_stmt.then_block);
+        instruction_generator(body->data.if_stmt.then_block, is_return);
         DynamicString *label_end = dyn_str_init();
         cond_label_formatter(label_end, LABEL_IF, label_count, "end");
         print_formatted_1("JUMP", label_end->string);
         print_formatted_1("LABEL", label->string);
         dyn_str_free(label);
         if (body->data.if_stmt.else_block != NULL) {
-            instruction_generator(body->data.if_stmt.else_block);
+            instruction_generator(body->data.if_stmt.else_block, is_return);
         }
         print_formatted_1("LABEL", label_end->string);
         dyn_str_free(label_end);
@@ -406,12 +418,12 @@ static void instruction_generator(ASTNode *body) {
         size_t label_count = get_label_count_and_increment_it();
         cond_label_formatter(label_start, LABEL_WHILE, label_count, "start");
         print_formatted_1("LABEL", label_start->string);
-        instruction_generator(body->data.while_loop.condition);
+        instruction_generator(body->data.while_loop.condition, false);
         print_formatted_1("PUSHS", "bool@false");
         DynamicString *label_end = dyn_str_init();
         cond_label_formatter(label_end, LABEL_WHILE, label_count, "end");
         print_formatted_1("JUMPIFEQS", label_end->string);
-        instruction_generator(body->data.while_loop.body);
+        instruction_generator(body->data.while_loop.body, false);
         print_formatted_1("JUMP", label_start->string);
         print_formatted_1("LABEL", label_end->string);
         dyn_str_free(label_start);
@@ -464,6 +476,10 @@ static void instruction_generator(ASTNode *body) {
         // break;
     }
     }
+
+    if (body->widen_to_double) {
+        print_formatted_0("INT2FLOATS");
+    }
 }
 /**
  * @brief a function that performs concatenation two top string on the data stack
@@ -500,6 +516,7 @@ static void builtin_print() {
     print_formatted_1("LABEL", "$print_nil");
     print_formatted_1("WRITE", "string@()");
     print_formatted_1("LABEL", "$print_end");
+    print_formatted_1("PUSHS", "nil@nil");
     print_formatted_0("POPFRAME");
     print_formatted_0("RETURN");
 }
@@ -783,6 +800,7 @@ int generator(ASTNode *ast) {
         print_formatted_0("CREATEFRAME");
         print_formatted_0("PUSHFRAME");
 
+        print_formatted_1("DEFVAR", "LF@discard");
         // for every function parameter: define a variable, then set its value from the data stack
         for (size_t x = cur_fun->data.function_def.param_count; x > 0; x--) {
             ASTNode *param = cur_fun->data.function_def.parameters[x - 1];
@@ -799,7 +817,8 @@ int generator(ASTNode *ast) {
         ASTNode *body = cur_fun->data.function_def.body;
 
         variable_generator(body);
-        instruction_generator(body);
+        bool is_return = (cur_fun->data.function_def.return_type != TYPE_UNIT);
+        instruction_generator(body, is_return);
 
         if (cur_fun->data.function_def.return_type == TYPE_UNIT) {
             print_formatted_1("PUSHS", "nil@nil");

@@ -30,7 +30,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ast.h"
 #include "library.h"
+#include "parser.h"
 #include "semantic.h"
 #include "symtable.h"
 
@@ -60,6 +62,8 @@ static DataType block_result(ASTNode *block);
 static bool ends_with_return(ASTNode *block);
 
 static bool all_branches_unit(ASTNode *block);
+
+static void mark_int_to_double_conversion(ASTNode *expr, DataType expected);
 
 static bool types_compatible_fun(DataType expected, const FunType *expected_fun, DataType actual, const FunType *actual_fun);
 
@@ -287,6 +291,8 @@ static void check_function(SemContext *ctx, ASTNode *func) {
             if ((ret != TYPE_UNIT) && (!types_compatible_fun(ret, func->data.function_def.return_fun, type, last->fun_type))) {
                 throw_fatal_error(6, "Implicit return value type mismatch");
             }
+
+            mark_int_to_double_conversion(last, ret);
         } else {
             // Type not written: the function gets the type of the last value.
             // Save it into the AST and into the function table.
@@ -404,6 +410,8 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
             throw_fatal_error(6, "Type mismatch in variable initialization");
         }
 
+        mark_int_to_double_conversion(stmt->data.def_var.value, var_type);
+
         // Only the current block is searched: the same name in an outer
         // block is allowed (shadowing), in the same block it is not
         char *name = stmt->data.def_var.name;
@@ -445,6 +453,8 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
         if ((!types_compatible_fun(var->data.variable.type, var->data.variable.fun_type , type, stmt->data.assign.value->fun_type))) {
             throw_fatal_error(6, "Wrong type in assign");
         }
+
+        mark_int_to_double_conversion(stmt->data.assign.value, var->data.variable.type);
         break;
     }
 
@@ -500,6 +510,12 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
                 (!types_compatible_fun(ctx->current_function->data.function_def.return_type, ctx->current_function->data.function_def.return_fun, type, stmt->data.return_stmt.value->fun_type))) {
                 throw_fatal_error(6, "Wrong type in return");
             }
+
+            mark_int_to_double_conversion(stmt->data.return_stmt.value,
+                                          ctx->current_function->data.function_def.return_type);
+
+            stmt->data.return_stmt.discard_value =
+                ctx->current_function->data.function_def.return_type == TYPE_UNIT;
         }
         break;
     }
@@ -753,6 +769,8 @@ static DataType check_call(SemContext *ctx, ASTNode *call) {
         if (!types_compatible_fun(expected, expected_fun, type, arg->fun_type)) {
             throw_fatal_error(5, "Wrong argument type");
         }
+
+        mark_int_to_double_conversion(arg, expected);
     }
 
     // Tell the code generator if this is a built-in function
@@ -796,6 +814,8 @@ static DataType check_indirect_call(SemContext *ctx, ASTNode *call, TData *var){
         if (!types_compatible_fun(fun->params[i].kind, fun->params[i].fun, type, arg->fun_type)){
             throw_fatal_error(5, "Wrong argument type");
         }
+
+        mark_int_to_double_conversion(arg, fun->params[i].kind);
     }
 
     if (fun->ret.kind == TYPE_FUNCTION){
@@ -971,4 +991,14 @@ static void ensure_checked(SemContext *ctx, ASTNode *def){
             a = a->data.function_def.caller;
         }
     }
+}
+
+/**
+ * @brief Marks an Int expression when a Double result is expected
+ *
+ * @param expr Checked expression; must not be NULL
+ * @param expected Expected type of the expression result
+ */
+static void mark_int_to_double_conversion(ASTNode *expr, DataType expected) {
+    expr->widen_to_double = expected == TYPE_DOUBLE && expr->data_type == TYPE_INT;
 }
