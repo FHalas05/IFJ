@@ -47,6 +47,7 @@ typedef enum {
  */
 typedef struct {
     DataType type;      //Data type of the variable
+    FunType *fun_type;  //Function type if type == TYPE_FUNCTION (borrowed from the AST, not freed)
     bool is_mutable;    //Whether the variable can be reassigned
     size_t variable_id; //Identifier assigned to the variable
 } VariableData;
