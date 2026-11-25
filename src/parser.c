@@ -4,7 +4,8 @@
  *
  * The parser reads tokens and checks that the program follows the grammar.
  * It uses recursive descent: every non-terminal has its own function parse_<name>.
- * Rule numbers match LL_Table.xlsx (rules 1-48).
+ * Rule numbers match LL_Table.xlsx (rules 1-62, numbered in the order of the functions
+ * in this file, extension rules LAMBDAS and EXTKW included).
  * Expressions are parsed by parse_expression (precedence parser).
  * While parsing, the parser builds the AST.
  *
@@ -257,6 +258,12 @@ static void parse_prolog(Parser *p);
 
 static void parse_function_list(Parser *p, ASTNode *program);
 
+static const char *receiver_type_name(DataType type);
+
+static void parse_extension(Parser *p, ASTNode *program);
+
+static ASTNode *parse_extension_method(Parser *p, ASTNode *receiver);
+
 ASTNode *parse_function_def(Parser *p);
 
 static bool parse_annotation_opt(Parser *p);
@@ -301,6 +308,8 @@ static void parse_else_stmt(Parser *p, ASTNode *if_node);
 
 ASTNode *parse_else_body(Parser *p);
 
+// Parses a whole program and returns its AST (see parser.h)
+// Rule 1: PROGRAM -> PROLOG FUNCTION_LIST
 ASTNode *parse_program(FILE *file, SymTable *table) {
     Parser p;
     init_parser(&p, file, table);
@@ -350,7 +359,8 @@ static void parse_prolog(Parser *p) {
  * @brief Parses all functions and adds them to the program.
  *
  * Rule 3: FUNCTION_LIST -> FUNCTION_DEF FUNCTION_LIST
- * Rule 4: FUNCTION_LIST -> ε
+ * Rule 4: FUNCTION_LIST -> EXTENSION FUNCTION_LIST                    (EXTKW)
+ * Rule 5: FUNCTION_LIST -> ε
  *
  * @param p Parser
  * @param program Program node
@@ -367,15 +377,154 @@ static void parse_function_list(Parser *p, ASTNode *program) {
     }
     case T_EOF:
         break;
-    default:
-        throw_fatal_error(2, "Expected function definition ('def' or '@main') or end of file");
+    // extension (value: Type) with methods (EXTKW)
+    case T_KW_EXTENSION: {
+        parse_extension(p, program);
+        parse_function_list(p, program);
+        break;
     }
+    default:
+        throw_fatal_error(
+            2, "Expected function definition ('def', '@main' or 'extension') or end of file");
+    }
+}
+
+/**
+ * @brief Gives the name of a type, used in names of extension methods.
+ *
+ * @param type Type of the receiver
+ *
+ * @return Name of the type (Int, Double, String, Boolean, Unit)
+ */
+static const char *receiver_type_name(DataType type) {
+    switch (type) {
+    case TYPE_INT:
+        return "Int";
+    case TYPE_DOUBLE:
+        return "Double";
+    case TYPE_STRING:
+        return "String";
+    case TYPE_BOOL:
+        return "Boolean";
+    case TYPE_UNIT:
+        return "Unit";
+    default:
+        throw_fatal_error(2, "extension: unsupported receiver type");
+    }
+    return "";
+}
+
+/**
+ * @brief Parses an extension block with its methods (EXTKW).
+ *
+ * Rule 6: EXTENSION -> T_KW_EXTENSION T_PAR_L ONE_PARAM T_PAR_R T_NEWLINE T_INDENT
+ *                     METHOD METHOD_LIST T_DEDENT
+ * Rule 7: METHOD_LIST -> METHOD METHOD_LIST
+ * Rule 8: METHOD_LIST -> ε
+ *
+ * Every method is saved as a normal function "<Type>$<method>" with the receiver
+ * as its first parameter, e.g. "def twice: Int" on Int becomes Int$twice(value: Int).
+ *
+ * @param p Parser
+ * @param program Program node (the methods are added to its functions)
+ */
+static void parse_extension(Parser *p, ASTNode *program) {
+    switch (p->token.type) {
+    case T_KW_EXTENSION: {
+        expect(p, T_KW_EXTENSION, "extension: expected 'extension'");
+        expect(p, T_PAR_L, "extension: expected '(' before the receiver");
+        ASTNode *receiver = parse_one_param(p);
+        expect(p, T_PAR_R, "extension: expected ')' after the receiver");
+        expect(p, T_NEWLINE, "extension: expected newline after the receiver");
+        expect(p, T_INDENT, "extension: expected indented methods");
+        do {
+            ASTNode *method = parse_extension_method(p, receiver);
+            ast_array_append(&program->data.program.functions, &program->data.program.count,
+                             &program->data.program.capacity, method);
+        } while (p->token.type == T_KW_DEF);
+        expect(p, T_DEDENT, "extension: expected 'def' or end of the extension block");
+        free_ast(receiver);
+        break;
+    }
+    default:
+        throw_fatal_error(2, "Expected 'extension'");
+    }
+}
+
+/**
+ * @brief Parses one method inside an extension block (EXTKW).
+ *
+ * Rule 9: METHOD -> T_KW_DEF T_IDENT METHOD_PARAMS RETURN_TYPE T_OP_ASSIGN FUNCTION_BODY
+ * Rule 10: METHOD_PARAMS -> T_PAR_L PARAMS T_PAR_R   (called with parentheses, also for "()")
+ * Rule 11: METHOD_PARAMS -> ε                         (paramless method, called without "()")
+ *
+ * @param p Parser
+ * @param receiver Receiver parameter of the extension block
+ *
+ * @return Function node "<Type>$<name>" with the receiver as the first parameter
+ */
+static ASTNode *parse_extension_method(Parser *p, ASTNode *receiver) {
+    switch (p->token.type) {
+    case T_KW_DEF: {
+        expect(p, T_KW_DEF, "extension: expected 'def'");
+        if (p->token.type != T_IDENT) {
+            throw_fatal_error(2, "extension: expected method name after 'def'");
+        }
+
+        // Function node for the method
+        ASTNode *func = create_node(NODE_FUNCTION_DEF);
+        func->data.function_def.is_extension = true;
+
+        // Name "<Type>$<method>", '$' cannot be in a user name
+        const char *type_name = receiver_type_name(receiver->data.param.data);
+        char *method_name = p->token.data;
+        size_t len = (strlen(type_name) + 1) + (strlen(method_name) + 1);
+        char *name = malloc(len);
+        if (name == NULL) {
+            throw_fatal_error(99, "Allocation error");
+        }
+        snprintf(name, len, "%s$%s", type_name, method_name);
+        func->data.function_def.name = name;
+        advance(p);
+
+        // Receiver as a first parameter
+        ASTNode *recv = create_node(NODE_PARAM);
+        recv->data.param.name = strdup(receiver->data.param.name);
+        if (recv->data.param.name == NULL) {
+            throw_fatal_error(99, "Allocation error");
+        }
+        recv->data.param.data = receiver->data.param.data;
+        ast_array_append(&func->data.function_def.parameters, &func->data.function_def.param_count,
+                         &func->data.function_def.capacity, recv);
+
+        // Parameters
+        if (p->token.type == T_PAR_L) {
+            advance(p);
+            parse_params(p, func);
+            expect(p, T_PAR_R, "extension: expected ')' after parameters");
+        } else {
+            func->data.function_def.is_paramless = true;
+        }
+
+        // Return type (optional) and body, the same as in parse_function_def
+        func->data.function_def.return_type =
+            parse_return_type(p, &func->data.function_def.return_fun);
+        func->data.function_def.has_explicit_return_type =
+            (func->data.function_def.return_type != TYPE_UNKNOWN);
+        expect(p, T_OP_ASSIGN, "extension: expected '=' before method body");
+        func->data.function_def.body = parse_function_body(p);
+        return func;
+    }
+    default:
+        throw_fatal_error(2, "extension: expected 'def'");
+    }
+    return NULL;
 }
 
 /**
  * @brief Parses one function.
  *
- * Rule 5: FUNCTION_DEF -> ANNOTATION_OPT T_KW_DEF T_IDENT T_PAR_L PARAMS T_PAR_R RETURN_TYPE
+ * Rule 12: FUNCTION_DEF -> ANNOTATION_OPT T_KW_DEF T_IDENT T_PAR_L PARAMS T_PAR_R RETURN_TYPE
  * T_OP_ASSIGN FUNCTION_BODY
  *
  * @param p Parser
@@ -401,7 +550,8 @@ ASTNode *parse_function_def(Parser *p) {
         parse_params(p, function_def);
         expect(p, T_PAR_R, "function definition: expected ')' after parameters");
 
-        function_def->data.function_def.return_type = parse_return_type(p, &function_def->data.function_def.return_fun);
+        function_def->data.function_def.return_type =
+            parse_return_type(p, &function_def->data.function_def.return_fun);
         function_def->data.function_def.has_explicit_return_type =
             (function_def->data.function_def.return_type != TYPE_UNKNOWN);
         expect(p, T_OP_ASSIGN, "function definition: expected '=' before function body");
@@ -416,8 +566,8 @@ ASTNode *parse_function_def(Parser *p) {
 /**
  * @brief Parses the optional @main before def.
  *
- * Rule 6: ANNOTATION_OPT -> T_AT_MAIN ANNOTATION_REMAINING
- * Rule 7: ANNOTATION_OPT -> ε
+ * Rule 13: ANNOTATION_OPT -> T_AT_MAIN ANNOTATION_REMAINING
+ * Rule 14: ANNOTATION_OPT -> ε
  *
  * @param p Parser
  *
@@ -440,8 +590,8 @@ static bool parse_annotation_opt(Parser *p) {
 /**
  * @brief Parses the optional new line after @main.
  *
- * Rule 8: ANNOTATION_REMAINING -> T_NEWLINE
- * Rule 9: ANNOTATION_REMAINING -> ε
+ * Rule 15: ANNOTATION_REMAINING -> T_NEWLINE
+ * Rule 16: ANNOTATION_REMAINING -> ε
  *
  * @param p Parser
  */
@@ -460,8 +610,8 @@ static void parse_annotation_remaining(Parser *p) {
 /**
  * @brief Parses the optional type ": Type".
  *
- * Rule 10: RETURN_TYPE -> T_COLON TYPE
- * Rule 11: RETURN_TYPE -> ε
+ * Rule 17: RETURN_TYPE -> T_COLON TYPE
+ * Rule 18: RETURN_TYPE -> ε
  *
  * @param p Parser
  * @param fun Output: the function type if the type is a function type, otherwise NULL
@@ -485,14 +635,17 @@ DataType parse_return_type(Parser *p, FunType **fun) {
 /**
  * @brief Parses a type name or a function type.
  *
- * Rule 12: TYPE -> T_KW_INT
- * Rule 13: TYPE -> T_KW_DOUBLE
- * Rule 14: TYPE -> T_KW_STRING
- * Rule 15: TYPE -> T_KW_UNIT
- * Rule 16: TYPE -> T_KW_BOOLEAN
- * Rule 16a: TYPE -> T_PAR_L TYPE_LIST T_PAR_R T_OP_ROCKET TYPE      (LAMBDAS)
- * Rule 16b: TYPE_LIST -> TYPE { T_COMMA TYPE }
- * Rule 16c: TYPE_LIST -> ε
+ * Rule 19: TYPE -> T_KW_INT
+ * Rule 20: TYPE -> T_KW_DOUBLE
+ * Rule 21: TYPE -> T_KW_STRING
+ * Rule 22: TYPE -> T_KW_UNIT
+ * Rule 23: TYPE -> T_KW_BOOLEAN
+ * Rule 24: TYPE -> T_PAR_L TYPE_LIST T_PAR_R T_OP_ROCKET TYPE        (LAMBDAS)
+ * Rule 25: TYPE_LIST -> TYPE TYPE_LIST_TAIL
+ * Rule 26: TYPE_LIST -> ε
+ * Rule 27: TYPE_LIST_TAIL -> T_COMMA TYPE TYPE_LIST_TAIL
+ * Rule 28: TYPE_LIST_TAIL -> ε
+ * (TYPE_LIST and TYPE_LIST_TAIL are done by the loop in the T_PAR_L case.)
  *
  * A function type can have function types inside it,
  * e.g. (Int) => (Int) => Int, so it is parsed recursively.
@@ -528,53 +681,51 @@ DataType parse_type(Parser *p, FunType **fun) {
     case T_IDENT:
         throw_fatal_error(3, "Undefined type");
         break;
-    case T_PAR_L:{
+    case T_PAR_L: {
         advance(p);
         TypeRef *params = NULL;
         size_t count = 0;
         size_t capacity = 0;
-        if (p->token.type != T_PAR_R){
-            while(true){
-                if (count == capacity){
+        if (p->token.type != T_PAR_R) {
+            while (true) {
+                if (count == capacity) {
                     size_t new_capacity;
-                    if (capacity == 0){
+                    if (capacity == 0) {
                         new_capacity = 4;
-                    }
-                    else{
+                    } else {
                         new_capacity = capacity * 2;
                     }
-                    TypeRef *array = realloc (params, new_capacity * sizeof(TypeRef));
-                    if (array == NULL){
+                    TypeRef *array = realloc(params, new_capacity * sizeof(TypeRef));
+                    if (array == NULL) {
                         throw_fatal_error(99, "reallocation error");
                     }
                     params = array;
                     capacity = new_capacity;
                 }
                 FunType *param_fun = NULL;
-                params[count].kind = parse_type (p, &param_fun);
+                params[count].kind = parse_type(p, &param_fun);
                 params[count].fun = param_fun;
-                count ++;
+                count++;
 
-                if (p->token.type == T_COMMA){
+                if (p->token.type == T_COMMA) {
                     advance(p);
                     continue;
-                }
-                else{
+                } else {
                     break;
                 }
-            }    
+            }
         }
         expect(p, T_PAR_R, "Function type: expected ')' after parameter types");
-        expect(p, T_OP_ROCKET, "Function type: expected '=>' after ')'");   
+        expect(p, T_OP_ROCKET, "Function type: expected '=>' after ')'");
         FunType *ret_fun = NULL;
-        DataType ret_kind = parse_type (p, &ret_fun);
+        DataType ret_kind = parse_type(p, &ret_fun);
         FunType *result = create_fun_type(count);
-        for (size_t i = 0; i < count; i++){
-            result->params[i] = params [i];
+        for (size_t i = 0; i < count; i++) {
+            result->params[i] = params[i];
         }
         result->ret.kind = ret_kind;
         result->ret.fun = ret_fun;
-        free (params);
+        free(params);
         *fun = result;
         return TYPE_FUNCTION;
     }
@@ -584,6 +735,15 @@ DataType parse_type(Parser *p, FunType **fun) {
     return TYPE_UNKNOWN;
 }
 
+/**
+ * @brief Parses the parameters of a function (can be empty).
+ *
+ * Rule 29: PARAMS -> ONE_PARAM PARAM_TAIL
+ * Rule 30: PARAMS -> ε
+ *
+ * @param p Parser
+ * @param func Function node (the parameters are added to it)
+ */
 void parse_params(Parser *p, ASTNode *func) {
     switch (p->token.type) {
     case T_IDENT: {
@@ -603,7 +763,7 @@ void parse_params(Parser *p, ASTNode *func) {
 /**
  * @brief Parses one parameter "name: Type".
  *
- * Rule 19: ONE_PARAM -> T_IDENT T_COLON TYPE
+ * Rule 31: ONE_PARAM -> T_IDENT T_COLON TYPE
  *
  * @param p Parser
  *
@@ -629,8 +789,8 @@ ASTNode *parse_one_param(Parser *p) {
 /**
  * @brief Parses rest of the parameters (after one_param).
  *
- * Rule 20: PARAM_TAIL -> T_COMMA NEXT_PARAM
- * Rule 21: PARAM_TAIL -> ε
+ * Rule 32: PARAM_TAIL -> T_COMMA NEXT_PARAM
+ * Rule 33: PARAM_TAIL -> ε
  *
  * @param p Parser
  * @param func Function node
@@ -655,8 +815,8 @@ static void parse_param_tail(Parser *p, ASTNode *func) {
  *
  * A comma at the and is allowed only if  ')' is on a new line.
  *
- * Rule 22: NEXT_PARAM -> ONE_PARAM PARAM_TAIL
- * Rule 23: NEXT_PARAM -> ε
+ * Rule 34: NEXT_PARAM -> ONE_PARAM PARAM_TAIL
+ * Rule 35: NEXT_PARAM -> ε
  *
  * @param p Parser
  * @param func Function node
@@ -687,8 +847,8 @@ static void parse_next_param(Parser *p, ASTNode *func) {
  * A one-line body is saved as a block with one expression, so both kinds of body look same in the
  * AST.
  *
- * Rule 24: FUNCTION_BODY -> EXPR T_NEWLINE
- * Rule 25: FUNCTION_BODY -> BLOCK
+ * Rule 36: FUNCTION_BODY -> EXPR T_NEWLINE
+ * Rule 37: FUNCTION_BODY -> BLOCK
  *
  * @param p Parser
  *
@@ -708,7 +868,7 @@ ASTNode *parse_function_body(Parser *p) {
         ASTNode *block = create_node(NODE_BLOCK);
         ast_array_append(&block->data.block.statements, &block->data.block.count,
                          &block->data.block.capacity, parse_expression(p, EXPR_STATEMENT));
-        if (p->ended_with_block){
+        if (p->ended_with_block) {
             p->ended_with_block = false;
             return block;
         }
@@ -723,6 +883,15 @@ ASTNode *parse_function_body(Parser *p) {
     return NULL;
 }
 
+/**
+ * @brief Parses an indented block of statements.
+ *
+ * Rule 38: BLOCK -> T_NEWLINE T_INDENT STMT_LIST
+ *
+ * @param p Parser
+ *
+ * @return Block node (NODE_BLOCK)
+ */
 ASTNode *parse_block(Parser *p) {
     switch (p->token.type) {
     case T_NEWLINE: {
@@ -741,8 +910,8 @@ ASTNode *parse_block(Parser *p) {
 /**
  * @brief Parses one statement and then the rest of the block.
  *
- * Rule 27: STMT_LIST -> SIMPLE_STMT SIMPLE_END
- * Rule 28: STMT_LIST -> COMPOUND_STMT STMT_LIST_END
+ * Rule 39: STMT_LIST -> SIMPLE_STMT SIMPLE_END
+ * Rule 40: STMT_LIST -> COMPOUND_STMT STMT_LIST_END
  *
  * @param p Parser
  * @param block Block node
@@ -782,18 +951,18 @@ static void parse_stmt_list(Parser *p, ASTNode *block) {
 
 /**
  * @brief Parses ";" or a new line after a simple statement.
- * 
+ *
  * If the statement ended with a lambda block body (p->ended_with_block),
  * there is no ';' or newline, the next statement or end of block follows directly.
  *
- * Rule 29: SIMPLE_END -> T_SEMICOLON STMT_LIST
- * Rule 30: SIMPLE_END -> T_NEWLINE STMT_LIST_END
+ * Rule 41: SIMPLE_END -> T_SEMICOLON STMT_LIST
+ * Rule 42: SIMPLE_END -> T_NEWLINE STMT_LIST_END
  *
  * @param p Parser
  * @param block Block node
  */
 static void parse_simple_end(Parser *p, ASTNode *block) {
-    if(p->ended_with_block){
+    if (p->ended_with_block) {
         p->ended_with_block = false;
         parse_stmt_list_end(p, block);
         return;
@@ -815,8 +984,8 @@ static void parse_simple_end(Parser *p, ASTNode *block) {
 /**
  * @brief Parses the next statement or end of the block.
  *
- * Rule 31: STMT_LIST_END -> STMT_LIST
- * Rule 32: STMT_LIST_END -> T_DEDENT
+ * Rule 43: STMT_LIST_END -> STMT_LIST
+ * Rule 44: STMT_LIST_END -> T_DEDENT
  *
  * @param p Parser
  * @param block Block node
@@ -850,12 +1019,12 @@ static void parse_stmt_list_end(Parser *p, ASTNode *block) {
 /**
  * @brief Parses a simple statement.
  *
- * Rule 33: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN EXPR
- * Rule 33b: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN
- *                          T_NEWLINE T_INDENT LAMBDA T_NEWLINE T_DEDENT      (LAMBDAS)
- * Rule 34: SIMPLE_STMT -> T_IDENT AFTER_IDENT
- * Rule 35: SIMPLE_STMT -> T_KW_RETURN RETURN_VAL
- * Rule 36: SIMPLE_STMT -> EXPR
+ * Rule 45: SIMPLE_STMT -> DEF_VALUE T_IDENT RETURN_TYPE T_OP_ASSIGN VALUE_INIT
+ * Rule 46: SIMPLE_STMT -> T_IDENT AFTER_IDENT
+ * Rule 47: SIMPLE_STMT -> T_KW_RETURN RETURN_VAL
+ * Rule 48: SIMPLE_STMT -> EXPR
+ * Rule 49: VALUE_INIT -> EXPR
+ * Rule 50: VALUE_INIT -> T_NEWLINE T_INDENT EXPR T_NEWLINE T_DEDENT      (LAMBDAS)
  *
  * A newline after '=' is allowed only when a lambda follows on the next
  * (indented) line. If the lambda has a block body, its block already ends
@@ -877,28 +1046,28 @@ ASTNode *parse_simple_stmt(Parser *p) {
         simple_value->data.def_var.name = p->token.data;
         p->token.data = NULL;
         advance(p);
-        simple_value->data.def_var.type = parse_return_type(p, &simple_value->data.def_var.type_fun);
+        simple_value->data.def_var.type =
+            parse_return_type(p, &simple_value->data.def_var.type_fun);
         expect(p, T_OP_ASSIGN, "variable definition: expected '='");
-        if (p->token.type == T_NEWLINE){
+        if (p->token.type == T_NEWLINE) {
             advance(p);
             expect(p, T_INDENT, "variable definition: expected indented value after '='");
 
             simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
-            if (simple_value->data.def_var.value->type   != NODE_LAMBDA){
-                throw_fatal_error(2, "variable definition: newline after '=' is allowed only before a lambda");
+            if (simple_value->data.def_var.value->type != NODE_LAMBDA) {
+                throw_fatal_error(
+                    2, "variable definition: newline after '=' is allowed only before a lambda");
             }
 
-            if (p->ended_with_block){
+            if (p->ended_with_block) {
                 p->ended_with_block = false;
-            }
-            else{
-                expect (p, T_NEWLINE, "variable definition: expected newline after lambda");
+            } else {
+                expect(p, T_NEWLINE, "variable definition: expected newline after lambda");
             }
 
             expect(p, T_DEDENT, "variable definition: expected end of indented value after lambda");
             p->ended_with_block = true;
-        }
-        else{
+        } else {
             simple_value->data.def_var.value = parse_expression(p, EXPR_STATEMENT);
         }
 
@@ -941,7 +1110,7 @@ ASTNode *parse_simple_stmt(Parser *p) {
 /**
  * @brief Parses rest of an assignment  "= expression".
  *
- * Rule 37: AFTER_IDENT -> T_OP_ASSIGN EXPR
+ * Rule 51: AFTER_IDENT -> T_OP_ASSIGN EXPR
  *
  * @param p Parser
  * @param name Name of the variable
@@ -966,8 +1135,8 @@ ASTNode *parse_after_ident(Parser *p, char *name) {
 /**
  * @brief Parses the value after return (can be missing).
  *
- * Rule 38: RETURN_VAL -> EXPR
- * Rule 39: RETURN_VAL -> ε
+ * Rule 52: RETURN_VAL -> EXPR
+ * Rule 53: RETURN_VAL -> ε
  *
  * @param p Parser
  *
@@ -997,8 +1166,8 @@ ASTNode *parse_return_val(Parser *p) {
 /**
  * @brief Parses val or var.
  *
- * Rule 40: DEF_VALUE -> T_KW_VAL
- * Rule 41: DEF_VALUE -> T_KW_VAR
+ * Rule 54: DEF_VALUE -> T_KW_VAL
+ * Rule 55: DEF_VALUE -> T_KW_VAR
  *
  * @param p Parser
  *
@@ -1021,8 +1190,8 @@ static bool parse_def_value(Parser *p) {
 /**
  * @brief Parses if or while.
  *
- * Rule 42: COMPOUND_STMT -> IF_STMT
- * Rule 43: COMPOUND_STMT -> T_KW_WHILE EXPR T_KW_DO BLOCK
+ * Rule 56: COMPOUND_STMT -> IF_STMT
+ * Rule 57: COMPOUND_STMT -> T_KW_WHILE EXPR T_KW_DO BLOCK
  *
  * @param p Parser
  *
@@ -1050,7 +1219,7 @@ ASTNode *parse_compound_stmt(Parser *p) {
 /**
  * @brief Parses an if statement.
  *
- * Rule 44: IF_STMT -> T_KW_IF EXPR T_KW_THEN BLOCK ELSE_STMT
+ * Rule 58: IF_STMT -> T_KW_IF EXPR T_KW_THEN BLOCK ELSE_STMT
  *
  * @param p Parser
  *
@@ -1080,8 +1249,8 @@ ASTNode *parse_if_stmt(Parser *p) {
  *
  * If there is no else, else_block stays NULL.
  *
- * Rule 45: ELSE_STMT -> T_KW_ELSE ELSE_BODY
- * Rule 46: ELSE_STMT -> ε
+ * Rule 59: ELSE_STMT -> T_KW_ELSE ELSE_BODY
+ * Rule 60: ELSE_STMT -> ε
  *
  * @param p Parser
  * @param if_node If node
@@ -1118,8 +1287,8 @@ static void parse_else_stmt(Parser *p, ASTNode *if_node) {
 /**
  * @brief Parses what comes after else: a block or another if
  *
- * Rule 47: ELSE_BODY -> BLOCK
- * Rule 48: ELSE_BODY -> IF_STMT
+ * Rule 61: ELSE_BODY -> BLOCK
+ * Rule 62: ELSE_BODY -> IF_STMT
  *
  * @param p Parser
  *
