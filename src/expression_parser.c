@@ -17,8 +17,8 @@
 #include "token.h"
 
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /**
  * @brief Number of terminal categories in the precedence table
@@ -34,17 +34,17 @@
  */
 static const char precedence_table[PREC_TERMINAL_COUNT][PREC_TERMINAL_COUNT] = {
     //                +    *    <   ==   &&   ||    (    )    ~    i    $
-    [P_ADD] =       {'>', '<', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_MUL] =       {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_REL] =       {'<', '<', ' ', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_EQ] =        {'<', '<', '<', ' ', '>', '>', '<', '>', '<', '<', '>'},
-    [P_AND] =       {'<', '<', '<', '<', '>', '>', '<', '>', '<', '<', '>'},
-    [P_OR] =        {'<', '<', '<', '<', '<', '>', '<', '>', '<', '<', '>'},
-    [P_LPAREN] =    {'<', '<', '<', '<', '<', '<', '<', '=', '<', '<', ' '},
-    [P_RPAREN] =    {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
-    [P_UNARY] =     {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_OPERAND] =   {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
-    [P_END] =       {'<', '<', '<', '<', '<', '<', '<', ' ', '<', '<', ' '},
+    [P_ADD] = {'>', '<', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_MUL] = {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_REL] = {'<', '<', ' ', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_EQ] = {'<', '<', '<', ' ', '>', '>', '<', '>', '<', '<', '>'},
+    [P_AND] = {'<', '<', '<', '<', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OR] = {'<', '<', '<', '<', '<', '>', '<', '>', '<', '<', '>'},
+    [P_LPAREN] = {'<', '<', '<', '<', '<', '<', '<', '=', '<', '<', ' '},
+    [P_RPAREN] = {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_UNARY] = {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OPERAND] = {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_END] = {'<', '<', '<', '<', '<', '<', '<', ' ', '<', '<', ' '},
 };
 
 /**
@@ -332,12 +332,11 @@ static ASTNode *parse_function_call(Parser *parser) {
     }
 }
 
-
-static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
+static ASTNode *parse_lambda(Parser *parser, ExprMode mode) {
     static size_t lambda_count = 0;
-    ASTNode *func = create_node (NODE_FUNCTION_DEF);
-    char *name = malloc (32);
-    if (name == NULL){
+    ASTNode *func = create_node(NODE_FUNCTION_DEF);
+    char *name = malloc(32);
+    if (name == NULL) {
         throw_fatal_error(99, "Allocation error");
     }
     snprintf(name, 32, "lambda$%zu", lambda_count++);
@@ -347,18 +346,19 @@ static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
     expect(parser, T_PAR_R, "Lambda: expected ')' after parameters");
     expect(parser, T_OP_ROCKET, "Lambda: expected '=>' after ')'");
 
-    if(parser->token.type == T_NEWLINE){
+    if (parser->token.type == T_NEWLINE) {
         func->data.function_def.body = parse_block(parser);
-        parser->ended_with_block = true;    
-    }
-    else {
+        parser->ended_with_block = true;
+    } else {
         ASTNode *block = create_node(NODE_BLOCK);
-        ast_array_append(&block->data.block.statements, &block->data.block.count, &block->data.block.capacity, parse_expression(parser, mode));
+        ast_array_append(&block->data.block.statements, &block->data.block.count,
+                         &block->data.block.capacity, parse_expression(parser, mode));
         func->data.function_def.body = block;
     }
 
     func->data.function_def.is_lambda = true;
-    ast_array_append(&parser->program->data.program.functions, &parser->program->data.program.count, &parser->program->data.program.capacity, func);
+    ast_array_append(&parser->program->data.program.functions, &parser->program->data.program.count,
+                     &parser->program->data.program.capacity, func);
 
     ASTNode *lambda = create_node(NODE_LAMBDA);
     lambda->data.lambda.function = func;
@@ -376,17 +376,50 @@ static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
  *
  * @return The value with all members (NODE_MEMBER), or object if there is no '.'
  */
-static ASTNode *parse_member_suffix(Parser *parser, ASTNode *object){
-    while (parser->token.type == T_DOT){
+static ASTNode *parse_member_suffix(Parser *parser, ASTNode *object) {
+    while (parser->token.type == T_DOT) {
         advance(parser);
-        if (parser->token.type != T_IDENT){
+        if (parser->token.type != T_IDENT) {
             throw_fatal_error(2, "Expected member name after '.'");
         }
         ASTNode *member = create_node(NODE_MEMBER);
         member->data.member.object = object;
         member->data.member.name = parser->token.data;
-        parser->token.data = NULL;                              // the AST owns the name now
+        parser->token.data = NULL; // the AST owns the name now
         advance(parser);
+        if (parser->token.type == T_PAR_L) {
+            member->data.member.has_parens = true;
+            advance(parser);
+            if (parser->token.type == T_PAR_R) {
+                advance(parser);
+            } else {
+                while (true) {
+                    ASTNode *argument = parse_expression(parser, EXPR_ARGUMENT);
+
+                    ast_array_append(&member->data.member.arguments, &member->data.member.arg_count,
+                                     &member->data.member.arg_capacity, argument);
+
+                    if (parser->token.type == T_COMMA) {
+                        // Track only a newline occurring after this comma.
+                        parser->pending_lf = false;
+                        advance(parser);
+
+                        if (parser->token.type == T_PAR_R) {
+                            // A trailing comma is allowed only if ')' is on a new line.
+                            if (!parser->pending_lf) {
+                                throw_fatal_error(2,
+                                                  "After last comma, ')' must be on a new line!");
+                            }
+                            advance(parser);
+                            break;
+                        }
+                    } else {
+                        expect(parser, T_PAR_R, "Expected ',' or ')' after argument!");
+                        break;
+                    }
+                }
+            }
+        }
         object = member;
     }
     return object;
@@ -406,15 +439,16 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     };
     expr_stack_push(&stack, start_symbol);
 
-    //lambda or ()
-    if (parser->token.type == T_PAR_L){
+    // lambda or ()
+    if (parser->token.type == T_PAR_L) {
         advance(parser);
-        
-        TokenType next = peek_token_type(parser);
-        bool is_lambda = ((parser->token.type == T_IDENT && next == T_COLON) || (parser->token.type ==  T_PAR_R && next == T_OP_ROCKET));
 
-        if (is_lambda){
-            clear_expr_stack (&stack);
+        TokenType next = peek_token_type(parser);
+        bool is_lambda = ((parser->token.type == T_IDENT && next == T_COLON) ||
+                          (parser->token.type == T_PAR_R && next == T_OP_ROCKET));
+
+        if (is_lambda) {
+            clear_expr_stack(&stack);
             return parse_lambda(parser, mode);
         }
 
@@ -429,7 +463,7 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
         expr_paren_depth = 1;
         expected_operand = true;
     }
-    
+
     ExprHandle handle;
 
     while (true) {
@@ -487,8 +521,8 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
                 advance(parser);
             }
 
-            if ((input_terminal == P_OPERAND) && (parser->token.type == T_DOT)){
-                ASTNode *object = reduce_operand (&input_data);
+            if ((input_terminal == P_OPERAND) && (parser->token.type == T_DOT)) {
+                ASTNode *object = reduce_operand(&input_data);
                 input_data.node = parse_member_suffix(parser, object);
             }
 
@@ -505,12 +539,12 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
 
-            if ((input_terminal == P_RPAREN) && (parser->token.type == T_DOT)){
-                if (!expr_stack_get_handle(&stack, &handle)){
+            if ((input_terminal == P_RPAREN) && (parser->token.type == T_DOT)) {
+                if (!expr_stack_get_handle(&stack, &handle)) {
                     throw_fatal_error(2, "Invalid expression reduction!");
                 }
                 ExprItem inner = {
-                    .type = EXPR_NONTERMINAL,   
+                    .type = EXPR_NONTERMINAL,
                     .node = reduce_handle(&handle),
                 };
                 inner.node = parse_member_suffix(parser, inner.node);

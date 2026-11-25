@@ -50,31 +50,31 @@ ASTNode *create_node(NodeType type) {
     return one_node;
 }
 
-FunType *create_fun_type(size_t param_count){
-    FunType *new_type = calloc (1, sizeof(FunType));
-    if (new_type == NULL){
+FunType *create_fun_type(size_t param_count) {
+    FunType *new_type = calloc(1, sizeof(FunType));
+    if (new_type == NULL) {
         fprintf(stderr, "reallocation error\n");
         exit(99);
     }
     new_type->param_count = param_count;
-    if (param_count > 0){
-        new_type->params = calloc (param_count, sizeof(TypeRef));
-        if (new_type->params == NULL){
+    if (param_count > 0) {
+        new_type->params = calloc(param_count, sizeof(TypeRef));
+        if (new_type->params == NULL) {
             exit(99);
         }
-        for (size_t i = 0; i < param_count; i++){
-            new_type->params[i].kind = TYPE_UNKNOWN;  
+        for (size_t i = 0; i < param_count; i++) {
+            new_type->params[i].kind = TYPE_UNKNOWN;
         }
     }
-    new_type->ret.kind = TYPE_UNKNOWN;  
+    new_type->ret.kind = TYPE_UNKNOWN;
     return new_type;
 }
 
-void free_fun_type(FunType *fun){
-    if (fun == NULL){
+void free_fun_type(FunType *fun) {
+    if (fun == NULL) {
         return;
     }
-    for (size_t i = 0; i < fun->param_count; i++){
+    for (size_t i = 0; i < fun->param_count; i++) {
         free_fun_type(fun->params[i].fun);
     }
     free(fun->params);
@@ -82,12 +82,12 @@ void free_fun_type(FunType *fun){
     free(fun);
 }
 
-FunType *fun_type_copy(const FunType *src){
-    if (src == NULL){
+FunType *fun_type_copy(const FunType *src) {
+    if (src == NULL) {
         return NULL;
     }
     FunType *copy = create_fun_type(src->param_count);
-    for (size_t i = 0; i < src->param_count; i++){
+    for (size_t i = 0; i < src->param_count; i++) {
         copy->params[i].kind = src->params[i].kind;
         copy->params[i].fun = fun_type_copy(src->params[i].fun);
     }
@@ -106,28 +106,26 @@ FunType *fun_type_copy(const FunType *src){
  * @param b Second type
  * @return true if both types are the same
  */
-static bool type_ref_equal(TypeRef a, TypeRef b){
-    if(a.kind != b.kind){
+static bool type_ref_equal(TypeRef a, TypeRef b) {
+    if (a.kind != b.kind) {
         return false;
     }
-    if(a.kind == TYPE_FUNCTION){
+    if (a.kind == TYPE_FUNCTION) {
         return fun_type_equal(a.fun, b.fun);
     }
     return true;
 }
 
-bool fun_type_equal(const FunType *a, const FunType *b){
-    if ((a == NULL) && (b == NULL)){
+bool fun_type_equal(const FunType *a, const FunType *b) {
+    if ((a == NULL) && (b == NULL)) {
         return true;
-    }
-    else if ((a == NULL) || (b == NULL)){
+    } else if ((a == NULL) || (b == NULL)) {
+        return false;
+    } else if (a->param_count != b->param_count) {
         return false;
     }
-    else if (a->param_count != b->param_count){
-        return false;
-    }
-    for (size_t i = 0; i < a->param_count; i++){
-        if(!type_ref_equal(a->params[i], b->params[i])){
+    for (size_t i = 0; i < a->param_count; i++) {
+        if (!type_ref_equal(a->params[i], b->params[i])) {
             return false;
         }
     }
@@ -220,6 +218,10 @@ void free_ast(ASTNode *node) {
     case NODE_MEMBER:
         free_ast(node->data.member.object);
         free(node->data.member.name);
+        for (size_t i = 0; i < node->data.member.arg_count; i++) {
+            free_ast(node->data.member.arguments[i]);
+        }
+        free(node->data.member.arguments);
         break;
     default:
         break;

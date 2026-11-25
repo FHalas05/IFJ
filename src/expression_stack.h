@@ -12,11 +12,11 @@
 #ifndef IFJ_EXPRESSION_STACK_H
 #define IFJ_EXPRESSION_STACK_H
 
-#include <stdbool.h>
-#include <stddef.h>
+#include "ast.h"
 #include "expression_parser.h"
 #include "token.h"
-#include "ast.h"
+#include <stdbool.h>
+#include <stddef.h>
 
 /**
  * @brief Maximum number of items in one expression handle
@@ -27,9 +27,9 @@
  * @brief Type of item stored on the expression stack
  */
 typedef enum {
-    EXPR_TERMINAL,      // Input symbol used in precedence comparisons
-    EXPR_NONTERMINAL,   // Reduced expression represented by an AST node
-    EXPR_MARKER,        // Marks the start of a group of items to reduce
+    EXPR_TERMINAL,    // Input symbol used in precedence comparisons
+    EXPR_NONTERMINAL, // Reduced expression represented by an AST node
+    EXPR_MARKER,      // Marks the start of a group of items to reduce
 } ExprItemType;
 
 /**
@@ -38,10 +38,10 @@ typedef enum {
  * Only fields needed for the given item type should be used.
  */
 typedef struct {
-    ExprItemType type;      // Determines how the item is used
-    PrecTerminal terminal;  // Precedence category of a terminal item
-    Token token;            // Token associated with a terminal item
-    ASTNode *node;          // AST node for a parsed operand or reduced expression
+    ExprItemType type;     // Determines how the item is used
+    PrecTerminal terminal; // Precedence category of a terminal item
+    Token token;           // Token associated with a terminal item
+    ASTNode *node;         // AST node for a parsed operand or reduced expression
 } ExprItem;
 
 /**

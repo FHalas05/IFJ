@@ -25,8 +25,8 @@ typedef struct SymTable SymTable;
  * @brief Scope containing a symbol table and a reference to its parent
  */
 typedef struct Scope {
-    SymTable *symbols; //Symbols declared in this scope
-    struct Scope *parent; //Parent scope, or NULL for the outermost scope
+    SymTable *symbols;    // Symbols declared in this scope
+    struct Scope *parent; // Parent scope, or NULL for the outermost scope
 } Scope;
 
 /**
@@ -46,22 +46,22 @@ typedef enum {
  * @brief Semantic information associated with a variable
  */
 typedef struct {
-    DataType type;      //Data type of the variable
-    FunType *fun_type;  //Function type if type == TYPE_FUNCTION (borrowed from the AST, not freed)
-    bool is_mutable;    //Whether the variable can be reassigned
-    size_t variable_id; //Identifier assigned to the variable
+    DataType type;      // Data type of the variable
+    FunType *fun_type;  // Function type if type == TYPE_FUNCTION (borrowed from the AST, not freed)
+    bool is_mutable;    // Whether the variable can be reassigned
+    size_t variable_id; // Identifier assigned to the variable
 } VariableData;
 
 /**
  * @brief Semantic information associated with a function
  */
 typedef struct {
-    DataType return_type;        //Return type of the function
-    DataType *param_types;       //Parameter types in declaration order
-    size_t param_count;          //Number of function parameters
-    bool is_builtin;             //Whether the function is built in
-    ASTNode *definition_node;     //Function definition in the AST, or NULL for built-in functions
-    Scope *local_scope;          //Optional scope reference; not freed by the symbol table
+    DataType return_type;     // Return type of the function
+    DataType *param_types;    // Parameter types in declaration order
+    size_t param_count;       // Number of function parameters
+    bool is_builtin;          // Whether the function is built in
+    ASTNode *definition_node; // Function definition in the AST, or NULL for built-in functions
+    Scope *local_scope;       // Optional scope reference; not freed by the symbol table
 } FunctionData;
 
 /**

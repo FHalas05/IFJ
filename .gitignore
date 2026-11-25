@@ -8,3 +8,4 @@ ifj26
 *Zone.Identifier
 ic26int
 tests/valmem_tests/
+tests/extkw_tests/

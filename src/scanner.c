@@ -264,7 +264,7 @@ Token FSM_strings(FILE *file) {
     return (Token){NO_TOKEN_FOUND, NULL};
 }
 
-static bool pending_dot = false;         // '.' after a number, returned on the next call (VALMEM)
+static bool pending_dot = false; // '.' after a number, returned on the next call (VALMEM)
 
 /**
  * @brief FSM for numerals (int, double)
@@ -315,7 +315,7 @@ Token FSM_numerals(FILE *file, int first_char, bool *pending_dot) {
                     // cannot be a letter (except {E,e} - handled above)
                     dyn_str_free(result);
                     throw_fatal_error(1, "LEXICAL ERROR: Nonzero number starts with 0, OR an "
-                                        "invalid letter follows the number");
+                                         "invalid letter follows the number");
                 } else {
                     // return result
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
@@ -357,11 +357,11 @@ Token FSM_numerals(FILE *file, int first_char, bool *pending_dot) {
                 }
                 // Number followed by a member (42.toString): the '.' is not a decimal point.
                 // Return the number without the '.', the '.' is returned on the next call.
-                if ((first_char != '.') && (isalpha(c))){
+                if ((first_char != '.') && (isalpha(c))) {
                     ungetc(c, file);
-                    result->len--;                                          // remove the '.'
+                    result->len--; // remove the '.'
                     result->string[result->len] = '\0';
-                    if ((first_char == '0') && (result->len != 1)){
+                    if ((first_char == '0') && (result->len != 1)) {
                         dyn_str_free(result);
                         throw_fatal_error(1, "LEXICAL ERROR: Nonzero number starts with 0");
                     }
@@ -781,11 +781,11 @@ Token scanner(FILE *file) {
     int c;
 
     static TokenType last_token_type = T_NEWLINE;
-    static bool pending_dot = false;                        // '.' after a number, returned on the next call (VALMEM)
+    static bool pending_dot = false; // '.' after a number, returned on the next call (VALMEM)
 
     Token token = {T_EOF, NULL};
-    if (pending_dot){
-        pending_dot =false;
+    if (pending_dot) {
+        pending_dot = false;
         last_token_type = T_DOT;
         Token dot = {T_DOT, NULL};
         return dot;
