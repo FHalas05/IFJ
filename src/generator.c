@@ -470,6 +470,23 @@ static void instruction_generator(ASTNode *body, bool is_return) {
         push_function_value(body->data.lambda.function->data.function_def.name);
         break;
     }
+    case NODE_MEMBER:{
+        instruction_generator(body->data.member.object, false);
+        const char *name = body->data.member.name;
+        if (strcmp(name, "toString") == 0){
+            print_formatted_1("CALL", "$toStr");
+        }
+        else if (strcmp(name, "toInt") == 0){
+            print_formatted_1("CALL", "$toInt");
+        }
+        else if (strcmp(name, "floor") == 0){
+            print_formatted_1("CALL", "$valmem$floor");
+        }
+        else{
+            print_formatted_1("CALL", "$strLength");
+        }
+        break;
+    }
     case NODE_INT_LITERAL: {
         char int_buffer[INT_CHAR_PREFIX_COUNT];
         snprintf(int_buffer, sizeof(int_buffer), "int@%ld", body->data.int_lit.value);
@@ -805,6 +822,33 @@ static void builtin_chr() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of the floor function for the member .floor (VALMEM)
+ *
+ * FLOAT2INT cuts the decimal part (towards zero), so for a negative
+ * number with a decimal part the result is one smaller.
+ * The label has '$' inside, so it cannot clash with a user function.
+ */
+static void builtin_floor(){
+    print_formatted_1("LABEL", "$valmem$floor");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@value");
+    print_formatted_1("POPS", "LF@value");
+    print_formatted_1("DEFVAR", "LF@int");
+    print_formatted_2("FLOAT2INT", "LF@int", "LF@value");
+    print_formatted_1("DEFVAR", "LF@result");
+    print_formatted_2("INT2FLOAT", "LF@result", "LF@int");
+    print_formatted_1("DEFVAR", "LF@check");
+    print_formatted_3("LT", "LF@check", "LF@value", "LF@result");
+    print_formatted_3("JUMPIFEQ", "$valmem$floor_end", "LF@check", "bool@false");
+    print_formatted_3("SUB", "LF@result", "LF@result", "float@0x1p+0");
+    print_formatted_1("LABEL", "$valmem$floor_end");
+    print_formatted_1("PUSHS", "LF@result");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
 
@@ -872,5 +916,6 @@ int generator(ASTNode *ast) {
     builtin_substr();
     builtin_ord();
     builtin_chr();
+    builtin_floor();
     return 0;
 }

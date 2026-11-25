@@ -217,6 +217,10 @@ void free_ast(ASTNode *node) {
         break;
     case NODE_LAMBDA:
         break;
+    case NODE_MEMBER:
+        free_ast(node->data.member.object);
+        free(node->data.member.name);
+        break;
     default:
         break;
     }

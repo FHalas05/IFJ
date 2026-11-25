@@ -708,6 +708,40 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr) {
         result = TYPE_FUNCTION;
         break; 
     }
+    // Member of a value: object.name (VALMEM)
+    case NODE_MEMBER:{
+        DataType object = check_expression(ctx, expr->data.member.object);
+        char *name = expr->data.member.name;
+
+        if (strcmp(name, "toString") == 0){
+            if (object == TYPE_FUNCTION){
+                throw_fatal_error(6, "Member toString cannot be used on a function");
+            }
+            result = TYPE_STRING;
+        }
+        else if (strcmp(name, "toInt") == 0){
+            if (object != TYPE_DOUBLE){
+                throw_fatal_error(6, "Member toInt needs a Double");
+            }
+            result = TYPE_INT;
+        }
+        else if (strcmp(name, "floor") == 0){
+            if (object != TYPE_DOUBLE){
+                throw_fatal_error(6, "Member floor needs a Double");
+            }
+            result = TYPE_DOUBLE;
+        }
+        else if (strcmp(name, "length") == 0){
+            if (object != TYPE_STRING){
+                throw_fatal_error(6, "Member length needs a String");
+            }
+            result = TYPE_INT;
+        }
+        else{
+            throw_fatal_error(3, "Unknown member");
+        }
+        break;   
+    }
     default:
         break;
     }

@@ -365,6 +365,33 @@ static ASTNode *parse_lambda (Parser *parser, ExprMode mode){
     return lambda;
 }
 
+/**
+ * @brief Parses members after a value: object.name.name ... (VALMEM)
+ *
+ * The parser is on the '.' after the value. Every ".name" wraps
+ * the value into a NODE_MEMBER, so chains like number.floor.toInt work.
+ *
+ * @param parser Parser positioned at '.'
+ * @param object Value the first member is used on
+ *
+ * @return The value with all members (NODE_MEMBER), or object if there is no '.'
+ */
+static ASTNode *parse_member_suffix(Parser *parser, ASTNode *object){
+    while (parser->token.type == T_DOT){
+        advance(parser);
+        if (parser->token.type != T_IDENT){
+            throw_fatal_error(2, "Expected member name after '.'");
+        }
+        ASTNode *member = create_node(NODE_MEMBER);
+        member->data.member.object = object;
+        member->data.member.name = parser->token.data;
+        parser->token.data = NULL;                              // the AST owns the name now
+        advance(parser);
+        object = member;
+    }
+    return object;
+}
+
 ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     ExprStack stack;
     init_expr_stack(&stack);
@@ -455,6 +482,15 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
                 // Keep operand data for reduction instead of freeing it in advance().
                 parser->token.data = NULL;
             }
+            if (!is_call) {
+                // Function call parsing has already moved to the next token.
+                advance(parser);
+            }
+
+            if ((input_terminal == P_OPERAND) && (parser->token.type == T_DOT)){
+                ASTNode *object = reduce_operand (&input_data);
+                input_data.node = parse_member_suffix(parser, object);
+            }
 
             expr_stack_push(&stack, input_data);
 
@@ -469,11 +505,17 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
 
-            if (!is_call) {
-                // Function call parsing has already moved to the next token.
-                advance(parser);
+            if ((input_terminal == P_RPAREN) && (parser->token.type == T_DOT)){
+                if (!expr_stack_get_handle(&stack, &handle)){
+                    throw_fatal_error(2, "Invalid expression reduction!");
+                }
+                ExprItem inner = {
+                    .type = EXPR_NONTERMINAL,   
+                    .node = reduce_handle(&handle),
+                };
+                inner.node = parse_member_suffix(parser, inner.node);
+                expr_stack_replace_handle(&stack, inner);
             }
-
             break;
         }
         case '>':

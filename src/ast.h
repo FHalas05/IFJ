@@ -79,7 +79,8 @@ typedef enum{
     NODE_BOOL_LITERAL,           // true / false
     NODE_UNIT_LITERAL,           // ()
     NODE_PARAM,                  // Function parameter
-    NODE_LAMBDA                  // Lambdas
+    NODE_LAMBDA,                 // Lambdas extension
+    NODE_MEMBER                  // Valmem extension
 } NodeType;
 
 /**
@@ -237,7 +238,12 @@ typedef struct ASTNode{
         // NODE_LAMBDA
         struct {
             struct ASTNode *function;           // NODE_FUNCTION_DEF "lambda$N" (owned by the program list, not freed here)
-        } lambda;                               
+        } lambda; 
+        //NODE_MEMBER
+        struct {
+            struct ASTNode *object;             // Value the member is used on
+            char *name;                         // Member name (toString, toInt, floor, length)
+        } member;                               
 
     } data;
 
