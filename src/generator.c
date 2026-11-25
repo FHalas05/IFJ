@@ -163,6 +163,24 @@ static size_t get_label_count_and_increment_it(void) {
 }
 
 /**
+ * @brief Pushes a function as a value: the string with its label ("$<fun_name>")
+ *
+ * Used for lambdas and for function names used as values (LAMBDAS).
+ * The value can be called later by CALL with a variable (indirect call).
+ *
+ * @param fun_name name of the function from AST
+ */
+static void push_function_value (const char *fun_name){
+    DynamicString *label = dyn_str_init();
+    fun_label_formatter(label, fun_name);
+    DynamicString*value = dyn_str_init();
+    string_formatter(value, label->string);
+    print_formatted_1("PUSHS", value->string);
+    dyn_str_free(label);
+    dyn_str_free(value);
+}
+
+/**
  * @brief generates all variables in a function body
  *
  * Recursively goes through AST to locate all local variables of the function
@@ -277,7 +295,12 @@ static void instruction_generator(ASTNode *body, bool is_return) {
             instruction_generator(body->data.function_call.arguments[i], false);
         }
         DynamicString *label = dyn_str_init();
-        fun_label_formatter(label, body->data.function_call.name);
+        if (body->data.function_call.is_indirect){
+            variable_formatter(label, body->data.function_call.name, body->data.function_call.variable_id);
+        }
+        else{
+            fun_label_formatter(label, body->data.function_call.name);
+        }
         print_formatted_1("CALL", label->string);
         dyn_str_free(label);
         break;
@@ -431,11 +454,20 @@ static void instruction_generator(ASTNode *body, bool is_return) {
         break;
     }
     case NODE_IDENTIFIER: {
+        // Name of a function used as a value (val f: (Int) => Int = foo)
+        if (body->data.identifier.is_function_ref){
+            push_function_value(body->data.identifier.name);
+            break;
+        }
         DynamicString *identifier = dyn_str_init();
-        variable_formatter(identifier, body->data.identifier.name,
-                           body->data.identifier.variable_id);
+        variable_formatter(identifier, body->data.identifier.name, body->data.identifier.variable_id);
         print_formatted_1("PUSHS", identifier->string);
         dyn_str_free(identifier);
+        break;
+    }
+    // Lambda: its body is generated as a normal function "lambda$N", here only its label
+    case NODE_LAMBDA:{
+        push_function_value(body->data.lambda.function->data.function_def.name);
         break;
     }
     case NODE_INT_LITERAL: {
