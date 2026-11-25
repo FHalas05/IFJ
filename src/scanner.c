@@ -310,12 +310,14 @@ Token FSM_numerals(FILE *file, int first_char, bool *pending_dot) {
             } else {
                 // handle invalid last tokens, return result when valid
                 if ((first_char == '0' &&
-                     result->len != 1) || // cannot start with 0 and be something else than 0
-                    isalpha(c)) {
-                    // cannot be a letter (except {E,e} - handled above)
+                     result->len != 1)) { // cannot start with 0 and be something else than 0) {
                     dyn_str_free(result);
-                    throw_fatal_error(1, "LEXICAL ERROR: Nonzero number starts with 0, OR an "
-                                         "invalid letter follows the number");
+                    throw_lexical_error( "LEXICAL ERROR: Nonzero number starts with 0, OR an "
+                                        "invalid letter follows the number");
+                } else if(isalpha(c)) { // cannot be a letter (except {E,e} - handled above)
+                    dyn_str_free(result);
+                    throw_fatal_error(2, "SYNTACTIC ERROR: Nonzero number starts with 0, OR an "
+                                        "invalid letter follows the number");
                 } else {
                     // return result
                     ungetc(c, file); // cannot be left unhandled (could be an operator etc.)
