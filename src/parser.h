@@ -45,7 +45,7 @@ typedef struct {
     size_t paren_depth;                 //how deep we are inside bracket
     int logical_indent;                 //indentation of the current statement
     bool pending_lf;                    //true if there was a new line inside brackets
-    bool ended_with_block               //true if the last expression was a lambda with a block body (no NEWLINE follows)
+    bool ended_with_block;               //true if the last expression was a lambda with a block body (no NEWLINE follows)
 }Parser;
 
 
