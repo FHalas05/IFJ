@@ -51,6 +51,8 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr);
 
 static DataType check_call(SemContext *ctx, ASTNode *call);
 
+static DataType check_indirect_call(SemContext *ctx, ASTNode *call, TData *var);
+
 bool types_compatible(DataType expected, DataType actual);
 
 static bool is_numeric(DataType t);
@@ -62,6 +64,15 @@ static bool ends_with_return(ASTNode *block);
 static bool all_branches_unit(ASTNode *block);
 
 static void mark_int_to_double_conversion(ASTNode *expr, DataType expected);
+
+static bool types_compatible_fun(DataType expected, const FunType *expected_fun, DataType actual,
+                                 const FunType *actual_fun);
+
+static FunType *function_signature(ASTNode *func);
+
+static void ensure_checked(SemContext *ctx, ASTNode *def);
+
+static const char *method_type_name(DataType type);
 
 /**
  * @brief Runs the whole semantic analysis on the AST.
@@ -251,6 +262,7 @@ static void check_function(SemContext *ctx, ASTNode *func) {
         TData d = {0};
         d.kind = SYMBOL_VARIABLE;
         d.data.variable.type = param->data.param.data;
+        d.data.variable.fun_type = param->data.param.fun;
         d.data.variable.is_mutable = false;
         d.data.variable.variable_id = ctx->next_var_id++;
         insert(ctx->current->symbols, param->data.param.name, d);
@@ -279,7 +291,9 @@ static void check_function(SemContext *ctx, ASTNode *func) {
         DataType ret = func->data.function_def.return_type;
         if (func->data.function_def.has_explicit_return_type) {
             // Written type: the last value must fit it (Unit function throws it away)
-            if ((ret != TYPE_UNIT) && (!types_compatible(ret, type))) {
+            if ((ret != TYPE_UNIT) &&
+                (!types_compatible_fun(ret, func->data.function_def.return_fun, type,
+                                       last->fun_type))) {
                 throw_fatal_error(6, "Implicit return value type mismatch");
             }
 
@@ -289,6 +303,11 @@ static void check_function(SemContext *ctx, ASTNode *func) {
             // Save it into the AST and into the function table.
             func->data.function_def.return_type = type;
             search(ctx->functions, func->data.function_def.name)->data.function.return_type = type;
+            // Function type: the function needs its own copy
+            // (last->fun_type belongs to the last expression, both are freed by free_ast)
+            if (type == TYPE_FUNCTION) {
+                func->data.function_def.return_fun = fun_type_copy(last->fun_type);
+            }
         }
     }
 
@@ -376,15 +395,23 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
         // Check the value first. The new variable does not exist yet,
         // so "val x = x + 1" reports x as undefined (3).
         DataType value_type = check_expression(ctx, stmt->data.def_var.value);
+        FunType *value_fun = stmt->data.def_var.value->fun_type;
+
         DataType var_type = stmt->data.def_var.type;
+        FunType *var_fun = stmt->data.def_var.type_fun;
 
         if (var_type == TYPE_UNKNOWN) {
             // Type is not written -> the variable gets the type of the value
             if (value_type == TYPE_UNKNOWN) {
                 throw_fatal_error(6, "Cannot infer variable type");
             }
+            if ((stmt->data.def_var.value->type == NODE_IDENTIFIER) &&
+                (stmt->data.def_var.value->data.identifier.is_function_ref)) {
+                throw_fatal_error(6, "Function used as a value needs a written variable type");
+            }
             var_type = value_type;
-        } else if (!types_compatible(var_type, value_type)) {
+            var_fun = value_fun;
+        } else if (!types_compatible_fun(var_type, var_fun, value_type, value_fun)) {
             // Type is written -> the value must fit it
             throw_fatal_error(6, "Type mismatch in variable initialization");
         }
@@ -402,6 +429,7 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
         TData d = {0};
         d.kind = SYMBOL_VARIABLE;
         d.data.variable.type = var_type;
+        d.data.variable.fun_type = var_fun;
         d.data.variable.is_mutable = stmt->data.def_var.var; // true for var, false for val
         d.data.variable.variable_id = ctx->next_var_id++;    // unique number of the variable
 
@@ -428,12 +456,12 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
         stmt->data.assign.variable_id = var->data.variable.variable_id;
 
         DataType type = check_expression(ctx, stmt->data.assign.value);
-        if ((!types_compatible(var->data.variable.type, type))) {
+        if ((!types_compatible_fun(var->data.variable.type, var->data.variable.fun_type, type,
+                                   stmt->data.assign.value->fun_type))) {
             throw_fatal_error(6, "Wrong type in assign");
         }
 
         mark_int_to_double_conversion(stmt->data.assign.value, var->data.variable.type);
-
         break;
     }
 
@@ -467,8 +495,12 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
 
     // return / return value
     case NODE_RETURN: {
+        // A lambda gives the value of its last expression, return is not allowed
+        if (ctx->current_function->data.function_def.is_lambda) {
+            throw_fatal_error(10, "Return is not allowed in a lambda");
+        }
         // A function with return must have a written return type
-        if (ctx->current_function->data.function_def.has_explicit_return_type == false) {
+        else if (ctx->current_function->data.function_def.has_explicit_return_type == false) {
             throw_fatal_error(6, "Wrong return type");
         }
         // "return" without a value is allowed only in a Unit function
@@ -482,16 +514,18 @@ static void check_statement(SemContext *ctx, ASTNode *stmt) {
         else if (stmt->data.return_stmt.value != NULL) {
             DataType type = check_expression(ctx, stmt->data.return_stmt.value);
             if ((ctx->current_function->data.function_def.return_type != TYPE_UNIT) &&
-                (!types_compatible(ctx->current_function->data.function_def.return_type, type))) {
+                (!types_compatible_fun(ctx->current_function->data.function_def.return_type,
+                                       ctx->current_function->data.function_def.return_fun, type,
+                                       stmt->data.return_stmt.value->fun_type))) {
                 throw_fatal_error(6, "Wrong type in return");
             }
 
             mark_int_to_double_conversion(stmt->data.return_stmt.value,
                                           ctx->current_function->data.function_def.return_type);
 
-            stmt->data.return_stmt.discard_value = ctx->current_function->data.function_def.return_type == TYPE_UNIT;
+            stmt->data.return_stmt.discard_value =
+                ctx->current_function->data.function_def.return_type == TYPE_UNIT;
         }
-
         break;
     }
 
@@ -526,6 +560,10 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr) {
     if (expr == NULL) {
         return TYPE_UNIT;
     }
+
+    free_fun_type(expr->fun_type);
+    expr->fun_type = NULL;
+
     DataType result = TYPE_UNKNOWN;
     switch (expr->type) {
     // Literals: the type is clear
@@ -542,17 +580,33 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr) {
         result = TYPE_UNIT;
         break;
 
-    // Variable: find it in the scopes, the type is the type of the variable
+    // Variable, or a function name used as a value
     case NODE_IDENTIFIER: {
-        TData *var = search_scope(ctx->current, expr->data.identifier.name);
-        if (var == NULL) {
+        char *name = expr->data.identifier.name;
+        TData *var = search_scope(ctx->current, name);
+        if (var != NULL) {
+            expr->data.identifier.variable_id = var->data.variable.variable_id;
+            result = var->data.variable.type;
+            if (result == TYPE_FUNCTION) {
+                expr->fun_type = fun_type_copy(var->data.variable.fun_type);
+            }
+            break;
+        }
+
+        // Not a variable: it can be a user function used as a value (val f: (Int) => Int = foo)
+        TData *func = search(ctx->functions, name);
+        if ((func == NULL) || (func->data.function.is_builtin)) {
             throw_fatal_error(3, "Undefined variable");
         }
 
-        // Use the ID of the variable found in the current scope
-        expr->data.identifier.variable_id = var->data.variable.variable_id;
+        ASTNode *def = func->data.function.definition_node;
+        ensure_checked(ctx, def);
 
-        result = var->data.variable.type;
+        // Mark it for the generator (it pushes the function label) and for val/var (needs a written
+        // type)
+        expr->data.identifier.is_function_ref = true;
+        expr->fun_type = function_signature(def);
+        result = TYPE_FUNCTION;
         break;
     }
 
@@ -660,6 +714,88 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr) {
     case NODE_BOOL_LITERAL:
         result = TYPE_BOOL;
         break;
+    // Lambda: it is a normal function "lambda$N", the value has its function type
+    case NODE_LAMBDA: {
+        ASTNode *def = expr->data.lambda.function;
+        ensure_checked(ctx, def);
+        expr->fun_type = function_signature(def);
+        result = TYPE_FUNCTION;
+        break;
+    }
+    // Member of a value: object.name (VALMEM)
+    case NODE_MEMBER: {
+        DataType object = check_expression(ctx, expr->data.member.object);
+        char *name = expr->data.member.name;
+
+        if ((!expr->data.member.has_parens) && (strcmp(name, "toString") == 0)) {
+            if (object == TYPE_FUNCTION) {
+                throw_fatal_error(6, "Member toString cannot be used on a function");
+            }
+            result = TYPE_STRING;
+        } else if ((!expr->data.member.has_parens) && (strcmp(name, "toInt") == 0)) {
+            if (object != TYPE_DOUBLE) {
+                throw_fatal_error(6, "Member toInt needs a Double");
+            }
+            result = TYPE_INT;
+        } else if ((!expr->data.member.has_parens) && (strcmp(name, "floor") == 0)) {
+            if (object != TYPE_DOUBLE) {
+                throw_fatal_error(6, "Member floor needs a Double");
+            }
+            result = TYPE_DOUBLE;
+        } else if ((!expr->data.member.has_parens) && (strcmp(name, "length") == 0)) {
+            if (object != TYPE_STRING) {
+                throw_fatal_error(6, "Member length needs a String");
+            }
+            result = TYPE_INT;
+        } else {
+            const char *tname = method_type_name(object);
+            if (tname == NULL) {
+                throw_fatal_error(3, "Unknown member");
+            }
+
+            size_t len = (strlen(tname) + 1) + (strlen(name) + 1);
+            char *method = malloc(len);
+            if (method == NULL) {
+                throw_fatal_error(99, "Allocation error");
+            }
+            snprintf(method, len, "%s$%s", tname, name);
+
+            TData *func = search(ctx->functions, method);
+            if (func == NULL) {
+                free(method);
+                throw_fatal_error(3, "Unknown member");
+            }
+
+            ASTNode *def = func->data.function.definition_node;
+
+            if ((def->data.function_def.is_paramless) && (expr->data.member.has_parens)) {
+                throw_fatal_error(6, "Paramless extension method cannot be called with ()");
+            } else if ((!def->data.function_def.is_paramless) && (!expr->data.member.has_parens)) {
+                throw_fatal_error(6, "Extension method must be called with ()");
+            }
+
+            ASTNode *receiver = expr->data.member.object;
+            ASTNode **args = expr->data.member.arguments;
+            size_t arg_count = expr->data.member.arg_count;
+            free(expr->data.member.name); // 'name' cannot be used after this line
+
+            expr->type = NODE_FUNCTION_CALL;
+            memset(&expr->data, 0, sizeof(expr->data));
+            expr->data.function_call.name = method;
+            ast_array_append(&expr->data.function_call.arguments,
+                             &expr->data.function_call.arg_count,
+                             &expr->data.function_call.arg_capacity, receiver);
+            for (size_t i = 0; i < arg_count; i++) {
+                ast_array_append(&expr->data.function_call.arguments,
+                                 &expr->data.function_call.arg_count,
+                                 &expr->data.function_call.arg_capacity, args[i]);
+            }
+            free(args);
+
+            result = check_call(ctx, expr);
+        }
+        break;
+    }
     default:
         break;
     }
@@ -686,6 +822,10 @@ static DataType check_expression(SemContext *ctx, ASTNode *expr) {
  * @return Return type of the called function
  */
 static DataType check_call(SemContext *ctx, ASTNode *call) {
+    TData *var = search_scope(ctx->current, call->data.function_call.name);
+    if ((var != NULL) && (var->data.variable.type == TYPE_FUNCTION)) {
+        return check_indirect_call(ctx, call, var);
+    }
     TData *func = search(ctx->functions, call->data.function_call.name);
     if (func == NULL) {
         throw_fatal_error(3, "Undefined function");
@@ -693,42 +833,83 @@ static DataType check_call(SemContext *ctx, ASTNode *call) {
         throw_fatal_error(5, "Wrong count of parameters");
     }
 
+    bool is_builtin = func->data.function.is_builtin;
+    ASTNode *def = func->data.function.definition_node;
+
     // Check every argument and compare it with the parameter type
     for (size_t i = 0; i < call->data.function_call.arg_count; i++) {
-        DataType type = check_expression(ctx, call->data.function_call.arguments[i]);
-        if (!types_compatible(func->data.function.param_types[i], type)) {
+        ASTNode *arg = call->data.function_call.arguments[i];
+        DataType type = check_expression(ctx, arg);
+
+        DataType expected;
+        const FunType *expected_fun;
+        if (is_builtin) {
+            // Built-in functions have no function parameters.
+            // A function value is not accepted even for Any (print, toStr).
+            expected = func->data.function.param_types[i];
+            expected_fun = NULL;
+        } else {
+            // User function: the parameter in the AST knows its function type
+            ASTNode *param = def->data.function_def.parameters[i];
+            expected = param->data.param.data;
+            expected_fun = param->data.param.fun;
+        }
+        if (!types_compatible_fun(expected, expected_fun, type, arg->fun_type)) {
             throw_fatal_error(5, "Wrong argument type");
         }
 
-        mark_int_to_double_conversion(call->data.function_call.arguments[i],
-                                      func->data.function.param_types[i]);
+        mark_int_to_double_conversion(arg, expected);
     }
 
     // Tell the code generator if this is a built-in function
-    call->data.function_call.is_builtin = func->data.function.is_builtin;
+    call->data.function_call.is_builtin = is_builtin;
 
-    if (!func->data.function.is_builtin) {
-        ASTNode *def = func->data.function.definition_node;
-        if (def->data.function_def.check_state == 0) {
-            // Not checked yet -> check it now to know its return type
-            check_function(ctx, def);
-        } else if (def->data.function_def.check_state == 1) {
-            // Being checked now -> recursion.
-            // Go back from the current function through the callers
-            // to the called function: these are all functions in the circle.
-            ASTNode *a = ctx->current_function;
-            while (a != NULL) {
-                if (!a->data.function_def.has_explicit_return_type) {
-                    throw_fatal_error(6, "Recursive function must have explicit return type");
-                }
-                if (a == def) {
-                    break; // whole circle checked
-                }
-                a = a->data.function_def.caller;
-            }
+    if (!is_builtin) {
+        // The return type must be known (checks the function now, or recursion rules)
+        ensure_checked(ctx, def);
+        // The function returns a function: the call needs its own copy of the type
+        if (def->data.function_def.return_type == TYPE_FUNCTION) {
+            call->fun_type = fun_type_copy(def->data.function_def.return_fun);
         }
     }
     return func->data.function.return_type;
+}
+
+/**
+ * @brief Checks a call of a variable of function type, e.g. f(5).
+ *
+ * The number and types of the arguments are taken from the function type
+ * of the variable (5 if they do not fit). The call is marked as indirect,
+ * so the generator jumps to the label stored in the variable.
+ *
+ * @param ctx Semantic state
+ * @param call Call node (NODE_FUNCTION_CALL)
+ * @param var Variable of function type with the same name as the call
+ * @return Return type of the function type
+ */
+static DataType check_indirect_call(SemContext *ctx, ASTNode *call, TData *var) {
+    const FunType *fun = var->data.variable.fun_type;
+    call->data.function_call.is_indirect = true;
+    call->data.function_call.variable_id = var->data.variable.variable_id;
+
+    if ((fun == NULL) || (fun->param_count != call->data.function_call.arg_count)) {
+        throw_fatal_error(5, "Wrong count of parameters");
+    }
+
+    for (size_t i = 0; i < call->data.function_call.arg_count; i++) {
+        ASTNode *arg = call->data.function_call.arguments[i];
+        DataType type = check_expression(ctx, arg);
+        if (!types_compatible_fun(fun->params[i].kind, fun->params[i].fun, type, arg->fun_type)) {
+            throw_fatal_error(5, "Wrong argument type");
+        }
+
+        mark_int_to_double_conversion(arg, fun->params[i].kind);
+    }
+
+    if (fun->ret.kind == TYPE_FUNCTION) {
+        call->fun_type = fun_type_copy(fun->ret.fun);
+    }
+    return fun->ret.kind;
 }
 
 /**
@@ -831,11 +1012,103 @@ static bool all_branches_unit(ASTNode *block) {
 }
 
 /**
- * @brief Marks an Int expression when a Double result is exprected
+ * @brief Checks if a value can be used where a type is needed (also function types).
+ *
+ * If at least one of the types is a function type, both must be function types
+ * with the same parameters and return type (no conversion between function types).
+ * Otherwise the normal rules of types_compatible are used (e.g. Int -> Double).
+ *
+ * @param expected Type that is needed
+ * @param expected_fun Function type that is needed (NULL if expected is not TYPE_FUNCTION)
+ * @param actual Type of the value
+ * @param actual_fun Function type of the value (NULL if actual is not TYPE_FUNCTION)
+ * @return true if the value can be used
+ */
+static bool types_compatible_fun(DataType expected, const FunType *expected_fun, DataType actual,
+                                 const FunType *actual_fun) {
+    if ((expected == TYPE_FUNCTION) || (actual == TYPE_FUNCTION)) {
+        return (expected == actual) && fun_type_equal(expected_fun, actual_fun);
+    }
+    return types_compatible(expected, actual);
+}
+
+/**
+ * @brief Makes the function type (signature) of a function definition.
+ *
+ * Used when a function is used as a value: a lambda, or a normal function
+ * given by its name (val f: (Int) => Int = foo).
+ * The return type must be known, so the function must be checked before.
+ *
+ * @param func Function definition (NODE_FUNCTION_DEF)
+ * @return New function type (the caller owns it and must free it)
+ */
+static FunType *function_signature(ASTNode *func) {
+    FunType *sig = create_fun_type(func->data.function_def.param_count);
+    for (size_t i = 0; i < func->data.function_def.param_count; i++) {
+        sig->params[i].kind = func->data.function_def.parameters[i]->data.param.data;
+        sig->params[i].fun = fun_type_copy(func->data.function_def.parameters[i]->data.param.fun);
+    }
+    sig->ret.kind = func->data.function_def.return_type;
+    sig->ret.fun = fun_type_copy(func->data.function_def.return_fun);
+    return sig;
+}
+
+/**
+ * @brief Makes sure the return type of a function is known.
+ *
+ * - not checked yet: it is checked now,
+ * - being checked now: it is recursion, all functions in the circle
+ *   must have a written return type (6),
+ * - already checked: nothing to do.
+ *
+ * @param ctx Semantic state
+ * @param def Function definition (NODE_FUNCTION_DEF)
+ */
+static void ensure_checked(SemContext *ctx, ASTNode *def) {
+    if (def->data.function_def.check_state == 0) {
+        check_function(ctx, def);
+    } else if (def->data.function_def.check_state == 1) {
+        ASTNode *a = ctx->current_function;
+        while (a != NULL) {
+            if (!a->data.function_def.has_explicit_return_type) {
+                throw_fatal_error(6, "Recursive function must have explicit return type");
+            }
+            if (a == def) {
+                break;
+            }
+            a = a->data.function_def.caller;
+        }
+    }
+}
+
+/**
+ * @brief Marks an Int expression when a Double result is expected
  *
  * @param expr Checked expression; must not be NULL
  * @param expected Expected type of the expression result
  */
 static void mark_int_to_double_conversion(ASTNode *expr, DataType expected) {
     expr->widen_to_double = expected == TYPE_DOUBLE && expr->data_type == TYPE_INT;
+}
+
+/**
+ * @brief Gives the name of a type for names of extension methods (EXTKW).
+ *
+ * @param type Type of the receiver
+ * @return "Int", "Double", "String", "Boolean", "Unit", or NULL for other types
+ */
+static const char *method_type_name(DataType type) {
+    if (type == TYPE_INT) {
+        return "Int";
+    } else if (type == TYPE_DOUBLE) {
+        return "Double";
+    } else if (type == TYPE_STRING) {
+        return "String";
+    } else if (type == TYPE_BOOL) {
+        return "Boolean";
+    } else if (type == TYPE_UNIT) {
+        return "Unit";
+    } else {
+        return NULL;
+    }
 }

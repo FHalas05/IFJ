@@ -264,6 +264,8 @@ Token FSM_strings(FILE *file) {
     return (Token){NO_TOKEN_FOUND, NULL};
 }
 
+static bool pending_dot = false; // '.' after a number, returned on the next call (VALMEM)
+
 /**
  * @brief FSM for numerals (int, double)
  *
@@ -271,10 +273,11 @@ Token FSM_strings(FILE *file) {
  *
  * @param file The program source file
  * @param first_char The first char of the supposed numeral
+ * @param pending_dot Set to true when a '.' after the number belongs to a member (42.toString)
  *
  * @return Token of numeral with its content
  */
-Token FSM_numerals(FILE *file, int first_char) {
+Token FSM_numerals(FILE *file, int first_char, bool *pending_dot) {
     typedef enum { F1, F2, F3, F4, F5, F6, F7, F8, F9, F10 } State;
 
     State state = first_char == '.'
@@ -307,9 +310,11 @@ Token FSM_numerals(FILE *file, int first_char) {
             } else {
                 // handle invalid last tokens, return result when valid
                 if ((first_char == '0' &&
-                     result->len != 1) || // cannot start with 0 and be something else than 0
-                    isalpha(c)) {
-                    // cannot be a letter (except {E,e} - handled above)
+                     result->len != 1)) { // cannot start with 0 and be something else than 0) {
+                    dyn_str_free(result);
+                    throw_lexical_error( "LEXICAL ERROR: Nonzero number starts with 0, OR an "
+                                        "invalid letter follows the number");
+                } else if(isalpha(c)) { // cannot be a letter (except {E,e} - handled above)
                     dyn_str_free(result);
                     throw_fatal_error(2, "SYNTACTIC ERROR: Nonzero number starts with 0, OR an "
                                         "invalid letter follows the number");
@@ -352,6 +357,21 @@ Token FSM_numerals(FILE *file, int first_char) {
                     dyn_str_free(result);
                     return token;
                 }
+                // Number followed by a member (42.toString): the '.' is not a decimal point.
+                // Return the number without the '.', the '.' is returned on the next call.
+                if ((first_char != '.') && (isalpha(c))) {
+                    ungetc(c, file);
+                    result->len--; // remove the '.'
+                    result->string[result->len] = '\0';
+                    if ((first_char == '0') && (result->len != 1)) {
+                        dyn_str_free(result);
+                        throw_fatal_error(1, "LEXICAL ERROR: Nonzero number starts with 0");
+                    }
+                    *pending_dot = true;
+                    Token token = {T_INT, dyn_str_get_string_copy(result)};
+                    dyn_str_free(result);
+                    return token;
+                }
                 throw_lexical_error(
                     "FSM_numerals - F3 - there is no digit after a decimal point"); // if it's
                                                                                     // something
@@ -377,6 +397,18 @@ Token FSM_numerals(FILE *file, int first_char) {
                 state = F10;
                 dyn_str_add(result, c);
             } else {
+                // Double followed by a member (3.7.floor): look at the char after the '.'
+                if (c == '.') {
+                    int next = fgetc(file);
+                    if (isalpha(next)) {
+                        ungetc(next, file);
+                        *pending_dot = true;
+                        Token token = {T_DOUBLE, dyn_str_get_string_copy(result)};
+                        dyn_str_free(result);
+                        return token;
+                    }
+                    ungetc(next, file);
+                }
                 if (c == '.' || isalpha(c)) {
                     // if is a "." or a letter except "eEdD" throw error
                     dyn_str_free(result);
@@ -751,8 +783,15 @@ Token scanner(FILE *file) {
     int c;
 
     static TokenType last_token_type = T_NEWLINE;
+    static bool pending_dot = false; // '.' after a number, returned on the next call (VALMEM)
 
     Token token = {T_EOF, NULL};
+    if (pending_dot) {
+        pending_dot = false;
+        last_token_type = T_DOT;
+        Token dot = {T_DOT, NULL};
+        return dot;
+    }
 
     while ((c = fgetc(file)) != EOF) {
         if (string_contains(ENTRY_COMMENTS, c))
@@ -762,7 +801,7 @@ Token scanner(FILE *file) {
             token = FSM_strings(file);
 
         else if (string_contains(ENTRY_NUMERALS, c))
-            token = FSM_numerals(file, c);
+            token = FSM_numerals(file, c, &pending_dot);
 
         else if (string_contains(ENTRY_MAIN, c))
             token = HANDLER_main(file);

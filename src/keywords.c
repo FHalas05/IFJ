@@ -14,12 +14,25 @@ typedef struct {
 } KeyWordItem;
 
 static const KeyWordItem keywords[] = {
-    {"def", T_KW_DEF},   {"do", T_KW_DO},         {"Double", T_KW_DOUBLE},
-    {"else", T_KW_ELSE}, {"if", T_KW_IF},         {"import", T_KW_IMPORT},
-    {"Int", T_KW_INT},   {"return", T_KW_RETURN}, {"String", T_KW_STRING},
-    {"then", T_KW_THEN}, {"Unit", T_KW_UNIT},     {"val", T_KW_VAL},
-    {"var", T_KW_VAR},   {"while", T_KW_WHILE},   {"Boolean", T_KW_BOOLEAN},
-    {"true", T_KW_TRUE}, {"false", T_KW_FALSE},   {"List", T_KW_LIST},
+    {"def", T_KW_DEF},
+    {"do", T_KW_DO},
+    {"Double", T_KW_DOUBLE},
+    {"else", T_KW_ELSE},
+    {"if", T_KW_IF},
+    {"import", T_KW_IMPORT},
+    {"Int", T_KW_INT},
+    {"return", T_KW_RETURN},
+    {"String", T_KW_STRING},
+    {"then", T_KW_THEN},
+    {"Unit", T_KW_UNIT},
+    {"val", T_KW_VAL},
+    {"var", T_KW_VAR},
+    {"while", T_KW_WHILE},
+    {"Boolean", T_KW_BOOLEAN},
+    {"true", T_KW_TRUE},
+    {"false", T_KW_FALSE},
+    {"List", T_KW_LIST},
+    {"extension", T_KW_EXTENSION},
 };
 
 #define KEYWORDS_COUNT (sizeof(keywords) / sizeof(keywords[0]))

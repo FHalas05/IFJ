@@ -163,6 +163,24 @@ static size_t get_label_count_and_increment_it(void) {
 }
 
 /**
+ * @brief Pushes a function as a value: the string with its label ("$<fun_name>")
+ *
+ * Used for lambdas and for function names used as values (LAMBDAS).
+ * The value can be called later by CALL with a variable (indirect call).
+ *
+ * @param fun_name name of the function from AST
+ */
+static void push_function_value(const char *fun_name) {
+    DynamicString *label = dyn_str_init();
+    fun_label_formatter(label, fun_name);
+    DynamicString *value = dyn_str_init();
+    string_formatter(value, label->string);
+    print_formatted_1("PUSHS", value->string);
+    dyn_str_free(label);
+    dyn_str_free(value);
+}
+
+/**
  * @brief generates all variables in a function body
  *
  * Recursively goes through AST to locate all local variables of the function
@@ -277,7 +295,12 @@ static void instruction_generator(ASTNode *body, bool is_return) {
             instruction_generator(body->data.function_call.arguments[i], false);
         }
         DynamicString *label = dyn_str_init();
-        fun_label_formatter(label, body->data.function_call.name);
+        if (body->data.function_call.is_indirect) {
+            variable_formatter(label, body->data.function_call.name,
+                               body->data.function_call.variable_id);
+        } else {
+            fun_label_formatter(label, body->data.function_call.name);
+        }
         print_formatted_1("CALL", label->string);
         dyn_str_free(label);
         break;
@@ -431,11 +454,35 @@ static void instruction_generator(ASTNode *body, bool is_return) {
         break;
     }
     case NODE_IDENTIFIER: {
+        // Name of a function used as a value (val f: (Int) => Int = foo)
+        if (body->data.identifier.is_function_ref) {
+            push_function_value(body->data.identifier.name);
+            break;
+        }
         DynamicString *identifier = dyn_str_init();
         variable_formatter(identifier, body->data.identifier.name,
                            body->data.identifier.variable_id);
         print_formatted_1("PUSHS", identifier->string);
         dyn_str_free(identifier);
+        break;
+    }
+    // Lambda: its body is generated as a normal function "lambda$N", here only its label
+    case NODE_LAMBDA: {
+        push_function_value(body->data.lambda.function->data.function_def.name);
+        break;
+    }
+    case NODE_MEMBER: {
+        instruction_generator(body->data.member.object, false);
+        const char *name = body->data.member.name;
+        if (strcmp(name, "toString") == 0) {
+            print_formatted_1("CALL", "$toStr");
+        } else if (strcmp(name, "toInt") == 0) {
+            print_formatted_1("CALL", "$toInt");
+        } else if (strcmp(name, "floor") == 0) {
+            print_formatted_1("CALL", "$valmem$floor");
+        } else {
+            print_formatted_1("CALL", "$strLength");
+        }
         break;
     }
     case NODE_INT_LITERAL: {
@@ -773,6 +820,33 @@ static void builtin_chr() {
     print_formatted_0("RETURN");
 }
 
+/**
+ * @brief outputs body of the floor function for the member .floor (VALMEM)
+ *
+ * FLOAT2INT cuts the decimal part (towards zero), so for a negative
+ * number with a decimal part the result is one smaller.
+ * The label has '$' inside, so it cannot clash with a user function.
+ */
+static void builtin_floor() {
+    print_formatted_1("LABEL", "$valmem$floor");
+    print_formatted_0("CREATEFRAME");
+    print_formatted_0("PUSHFRAME");
+    print_formatted_1("DEFVAR", "LF@value");
+    print_formatted_1("POPS", "LF@value");
+    print_formatted_1("DEFVAR", "LF@int");
+    print_formatted_2("FLOAT2INT", "LF@int", "LF@value");
+    print_formatted_1("DEFVAR", "LF@result");
+    print_formatted_2("INT2FLOAT", "LF@result", "LF@int");
+    print_formatted_1("DEFVAR", "LF@check");
+    print_formatted_3("LT", "LF@check", "LF@value", "LF@result");
+    print_formatted_3("JUMPIFEQ", "$valmem$floor_end", "LF@check", "bool@false");
+    print_formatted_3("SUB", "LF@result", "LF@result", "float@0x1p+0");
+    print_formatted_1("LABEL", "$valmem$floor_end");
+    print_formatted_1("PUSHS", "LF@result");
+    print_formatted_0("POPFRAME");
+    print_formatted_0("RETURN");
+}
+
 int generator(ASTNode *ast) {
     fprintf(stdout, ".IFJcode26\n"); // mandatory first line of the program
 
@@ -840,5 +914,6 @@ int generator(ASTNode *ast) {
     builtin_substr();
     builtin_ord();
     builtin_chr();
+    builtin_floor();
     return 0;
 }

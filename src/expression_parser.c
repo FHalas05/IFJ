@@ -15,7 +15,9 @@
 #include "library.h"
 #include "parser.h"
 #include "token.h"
+
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 /**
@@ -32,17 +34,17 @@
  */
 static const char precedence_table[PREC_TERMINAL_COUNT][PREC_TERMINAL_COUNT] = {
     //                +    *    <   ==   &&   ||    (    )    ~    i    $
-    [P_ADD] =       {'>', '<', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_MUL] =       {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_REL] =       {'<', '<', ' ', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_EQ] =        {'<', '<', '<', ' ', '>', '>', '<', '>', '<', '<', '>'},
-    [P_AND] =       {'<', '<', '<', '<', '>', '>', '<', '>', '<', '<', '>'},
-    [P_OR] =        {'<', '<', '<', '<', '<', '>', '<', '>', '<', '<', '>'},
-    [P_LPAREN] =    {'<', '<', '<', '<', '<', '<', '<', '=', '<', '<', ' '},
-    [P_RPAREN] =    {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
-    [P_UNARY] =     {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
-    [P_OPERAND] =   {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
-    [P_END] =       {'<', '<', '<', '<', '<', '<', '<', ' ', '<', '<', ' '},
+    [P_ADD] = {'>', '<', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_MUL] = {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_REL] = {'<', '<', ' ', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_EQ] = {'<', '<', '<', ' ', '>', '>', '<', '>', '<', '<', '>'},
+    [P_AND] = {'<', '<', '<', '<', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OR] = {'<', '<', '<', '<', '<', '>', '<', '>', '<', '<', '>'},
+    [P_LPAREN] = {'<', '<', '<', '<', '<', '<', '<', '=', '<', '<', ' '},
+    [P_RPAREN] = {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_UNARY] = {'>', '>', '>', '>', '>', '>', '<', '>', '<', '<', '>'},
+    [P_OPERAND] = {'>', '>', '>', '>', '>', '>', ' ', '>', ' ', ' ', '>'},
+    [P_END] = {'<', '<', '<', '<', '<', '<', '<', ' ', '<', '<', ' '},
 };
 
 /**
@@ -330,10 +332,117 @@ static ASTNode *parse_function_call(Parser *parser) {
     }
 }
 
+/**
+ * @brief Parses a lambda expression and adds its function definition to the program
+ *
+ * @param parser Parser positioned at the first token after '('
+ * @param mode Expression mode used for a single-expression body
+ *
+ * @return Lambda AST node that refers to the function definition
+ */
+static ASTNode *parse_lambda(Parser *parser, ExprMode mode) {
+    const size_t name_capacity = 32;
+    static size_t lambda_count = 0;
+
+    ASTNode *func = create_node(NODE_FUNCTION_DEF);
+    char *name = malloc(name_capacity);
+    if (name == NULL) {
+        throw_fatal_error(99, "Allocation error");
+    }
+
+    snprintf(name, name_capacity, "lambda$%zu", lambda_count++);
+    func->data.function_def.name = name;
+
+    parse_params(parser, func);
+    expect(parser, T_PAR_R, "Lambda: expected ')' after parameters");
+    expect(parser, T_OP_ROCKET, "Lambda: expected '=>' after ')'");
+
+    if (parser->token.type == T_NEWLINE) {
+        func->data.function_def.body = parse_block(parser);
+        parser->ended_with_block = true;
+    } else {
+        ASTNode *block = create_node(NODE_BLOCK);
+        ast_array_append(&block->data.block.statements, &block->data.block.count,
+                         &block->data.block.capacity, parse_expression(parser, mode));
+        func->data.function_def.body = block;
+    }
+
+    func->data.function_def.is_lambda = true;
+    ast_array_append(&parser->program->data.program.functions, &parser->program->data.program.count,
+                     &parser->program->data.program.capacity, func);
+
+    ASTNode *lambda = create_node(NODE_LAMBDA);
+    lambda->data.lambda.function = func;
+    return lambda;
+}
+
+/**
+ * @brief Parses members after a value: object.name.name ... (VALMEM)
+ *
+ * The parser is on the '.' after the value. Every ".name" wraps
+ * the value into a NODE_MEMBER, so chains like number.floor.toInt work.
+ *
+ * @param parser Parser positioned at '.'
+ * @param object Value the first member is used on
+ *
+ * @return The value with all members (NODE_MEMBER), or object if there is no '.'
+ */
+static ASTNode *parse_member_suffix(Parser *parser, ASTNode *object) {
+    while (parser->token.type == T_DOT) {
+        advance(parser);
+        if (parser->token.type != T_IDENT) {
+            throw_fatal_error(2, "Expected member name after '.'");
+        }
+
+        ASTNode *member = create_node(NODE_MEMBER);
+        member->data.member.object = object;
+        member->data.member.name = parser->token.data;
+        parser->token.data = NULL; // the AST owns the name now
+        advance(parser);
+        
+        if (parser->token.type == T_PAR_L) {
+            member->data.member.has_parens = true;
+            advance(parser);
+            if (parser->token.type == T_PAR_R) {
+                advance(parser);
+            } else {
+                while (true) {
+                    ASTNode *argument = parse_expression(parser, EXPR_ARGUMENT);
+
+                    ast_array_append(&member->data.member.arguments, &member->data.member.arg_count,
+                                     &member->data.member.arg_capacity, argument);
+
+                    if (parser->token.type == T_COMMA) {
+                        // Track only a newline occurring after this comma.
+                        parser->pending_lf = false;
+                        advance(parser);
+
+                        if (parser->token.type == T_PAR_R) {
+                            // A trailing comma is allowed only if ')' is on a new line.
+                            if (!parser->pending_lf) {
+                                throw_fatal_error(2,
+                                                  "After last comma, ')' must be on a new line!");
+                            }
+                            advance(parser);
+                            break;
+                        }
+                    } else {
+                        expect(parser, T_PAR_R, "Expected ',' or ')' after argument!");
+                        break;
+                    }
+                }
+            }
+        }
+        object = member;
+    }
+    return object;
+}
+
 ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     ExprStack stack;
     init_expr_stack(&stack);
     bool expected_operand = true;
+    size_t expr_paren_depth = 0;
 
     // The end symbol stays at the bottom until one complete expression remains.
     ExprItem start_symbol = {
@@ -343,9 +452,32 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
     };
     expr_stack_push(&stack, start_symbol);
 
-    ExprHandle handle;
+    // lambda or ()
+    if (parser->token.type == T_PAR_L) {
+        advance(parser);
 
-    size_t expr_paren_depth = 0;
+        TokenType next = peek_token_type(parser);
+        bool is_lambda = ((parser->token.type == T_IDENT && next == T_COLON) ||
+                          (parser->token.type == T_PAR_R && next == T_OP_ROCKET));
+
+        if (is_lambda) {
+            clear_expr_stack(&stack);
+            return parse_lambda(parser, mode);
+        }
+
+        // Not a lambda: do the same as the '<' step does for '('
+        expr_stack_insert_marker(&stack);
+        ExprItem lparen = {
+            .type = EXPR_TERMINAL,
+            .terminal = P_LPAREN,
+            .token = {.type = T_PAR_L},
+        };
+        expr_stack_push(&stack, lparen);
+        expr_paren_depth = 1;
+        expected_operand = true;
+    }
+
+    ExprHandle handle;
 
     while (true) {
         PrecTerminal top_t = expr_stack_top_terminal(&stack);
@@ -397,6 +529,15 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
                 // Keep operand data for reduction instead of freeing it in advance().
                 parser->token.data = NULL;
             }
+            if (!is_call) {
+                // Function call parsing has already moved to the next token.
+                advance(parser);
+            }
+
+            if ((input_terminal == P_OPERAND) && (parser->token.type == T_DOT)) {
+                ASTNode *object = reduce_operand(&input_data);
+                input_data.node = parse_member_suffix(parser, object);
+            }
 
             expr_stack_push(&stack, input_data);
 
@@ -411,11 +552,17 @@ ASTNode *parse_expression(Parser *parser, ExprMode mode) {
 
             expected_operand = input_terminal != P_OPERAND && input_terminal != P_RPAREN;
 
-            if (!is_call) {
-                // Function call parsing has already moved to the next token.
-                advance(parser);
+            if ((input_terminal == P_RPAREN) && (parser->token.type == T_DOT)) {
+                if (!expr_stack_get_handle(&stack, &handle)) {
+                    throw_fatal_error(2, "Invalid expression reduction!");
+                }
+                ExprItem inner = {
+                    .type = EXPR_NONTERMINAL,
+                    .node = reduce_handle(&handle),
+                };
+                inner.node = parse_member_suffix(parser, inner.node);
+                expr_stack_replace_handle(&stack, inner);
             }
-
             break;
         }
         case '>':

@@ -26,17 +26,17 @@ typedef enum {
  * @brief Terminal categories used in precedence comparisons
  */
 typedef enum {
-    P_ADD,          // +, -
-    P_MUL,          // *, /
-    P_REL,          // <, >, <=, >=
-    P_EQ,           // ==, !=
-    P_AND,          // &&
-    P_OR,           // ||
-    P_LPAREN,       // (
-    P_RPAREN,       // )
-    P_UNARY,        // ~ (unary minus), !
-    P_OPERAND,      // i (literal, identifier or function call)
-    P_END,          // $ (end of the expression)
+    P_ADD,     // +, -
+    P_MUL,     // *, /
+    P_REL,     // <, >, <=, >=
+    P_EQ,      // ==, !=
+    P_AND,     // &&
+    P_OR,      // ||
+    P_LPAREN,  // (
+    P_RPAREN,  // )
+    P_UNARY,   // ~ (unary minus), !
+    P_OPERAND, // i (literal, identifier or function call)
+    P_END,     // $ (end of the expression)
 } PrecTerminal;
 
 /**
