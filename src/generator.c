@@ -14,8 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
-// Maximum number of characters in a number
-#define INT_CHAR_COUNT 21 // maximum number of characters in int literal
+// Maximum number of characters in a number including '\0'
+#define INT_CHAR_COUNT 21 // maximum number of characters in int literal and size_t
 #define INT_CHAR_PREFIX_COUNT                                                                      \
     26 // maximum number of characters in int literal with IFJcode26
        // prefix (int@...)
@@ -282,10 +282,12 @@ static void instruction_generator(ASTNode *body, bool is_return) {
             bool statement_is_return = is_return && (i == body->data.block.count - 1);
             ASTNode *statement = body->data.block.statements[i];
             instruction_generator(statement, statement_is_return);
+            // Discards value on data stack if node type does have return value and
+            // is not in implicit return position within the function
             if (statement->type != NODE_DEF_VAR && statement->type != NODE_ASSIGN &&
                 statement->type != NODE_IF && statement->type != NODE_WHILE &&
                 statement->type != NODE_RETURN && !statement_is_return) {
-                print_formatted_1("POPS", "LF@discard");
+                print_formatted_1("POPS", "LF@discard"); 
             }
         }
         break;
@@ -332,6 +334,7 @@ static void instruction_generator(ASTNode *body, bool is_return) {
         Operator op = body->data.bin_op.operation;
         ASTNode *right = body->data.bin_op.right;
         ASTNode *left = body->data.bin_op.left;
+        // results are evaluated with IFJcode26 instructions
         if (op == OP_AND) {
             size_t and_label_count = get_label_count_and_increment_it();
             DynamicString *and_label_failed = dyn_str_init();
@@ -374,21 +377,26 @@ static void instruction_generator(ASTNode *body, bool is_return) {
             break;
         }
         instruction_generator(left, false);
+        // both operands must be of the same data type if they are to be used in bi-operation
         if (left->data_type == TYPE_INT && right->data_type == TYPE_DOUBLE) {
             print_formatted_0("INT2FLOATS");
         }
         instruction_generator(right, false);
+        // both operands must be of the same data type if they are to be used in bi-operation
         if (left->data_type == TYPE_DOUBLE && right->data_type == TYPE_INT) {
             print_formatted_0("INT2FLOATS");
         }
+        // String + string performs concatenation, so $helpConcat must be called
         if (op == OP_ADD && left->data_type == TYPE_STRING && right->data_type == TYPE_STRING) {
             print_formatted_1("CALL", "$helpConcat");
             break;
         }
+        // for floating point division must be instruction DIVS
         if (op == OP_DIV && (left->data_type == TYPE_DOUBLE || right->data_type == TYPE_DOUBLE)) {
             print_formatted_0("DIVS");
             break;
         }
+        // for integer division must be instruction IDIVS
         if (op == OP_DIV && left->data_type == TYPE_INT && right->data_type == TYPE_INT) {
             print_formatted_0("IDIVS");
             break;
