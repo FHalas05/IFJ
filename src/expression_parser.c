@@ -332,14 +332,25 @@ static ASTNode *parse_function_call(Parser *parser) {
     }
 }
 
+/**
+ * @brief Parses a lambda expression and adds its function definition to the program
+ *
+ * @param parser Parser positioned at the first token after '('
+ * @param mode Expression mode used for a single-expression body
+ *
+ * @return Lambda AST node that refers to the function definition
+ */
 static ASTNode *parse_lambda(Parser *parser, ExprMode mode) {
+    const size_t name_capacity = 32;
     static size_t lambda_count = 0;
+
     ASTNode *func = create_node(NODE_FUNCTION_DEF);
-    char *name = malloc(32);
+    char *name = malloc(name_capacity);
     if (name == NULL) {
         throw_fatal_error(99, "Allocation error");
     }
-    snprintf(name, 32, "lambda$%zu", lambda_count++);
+
+    snprintf(name, name_capacity, "lambda$%zu", lambda_count++);
     func->data.function_def.name = name;
 
     parse_params(parser, func);
@@ -382,11 +393,13 @@ static ASTNode *parse_member_suffix(Parser *parser, ASTNode *object) {
         if (parser->token.type != T_IDENT) {
             throw_fatal_error(2, "Expected member name after '.'");
         }
+
         ASTNode *member = create_node(NODE_MEMBER);
         member->data.member.object = object;
         member->data.member.name = parser->token.data;
         parser->token.data = NULL; // the AST owns the name now
         advance(parser);
+        
         if (parser->token.type == T_PAR_L) {
             member->data.member.has_parens = true;
             advance(parser);
