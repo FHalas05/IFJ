@@ -1,6 +1,10 @@
-//
-// Created by Filip on 9. 10. 2026.
-//
+/**
+ * @file library.c
+ * @brief Implementation of a set of useful functions for other modules
+ *
+ * @author Filip Holan (xholanf00)
+ * @date 9.10.2026
+ */
 
 #include "library.h"
 

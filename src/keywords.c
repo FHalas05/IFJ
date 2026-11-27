@@ -1,6 +1,10 @@
-//
-// Created by Šimon on 9/10/2026
-//
+/**
+ * @file keywords.c
+ * @brief Code for determining if a token is T_KEYWORD or T_IDENT
+ *
+ * @author Šimon Hejl (xhejlsi00)
+ * @date 9.10.2026
+ */
 
 #include "keywords.h"
 #include "library.h"

@@ -1,6 +1,13 @@
-//
-// Created by Filip on 04/10/2026.
-//
+/**
+ * @file token.c
+ * @brief Implementation of TokenType and Token
+ *
+ * TokenType is implemented as an enum, while Token is a struct which
+ * holds a TokenType and its data (string content, numerical value, ...)
+ *
+ * @author Filip Holan (xholanf00)
+ * @date 4.10.2026
+ */
 
 #include "token.h"
 
@@ -27,10 +34,10 @@ int token_get_indent_count(Token token) {
 // invalid token type -> -1, else 0
 int token_set_indent_count(Token *token, int indent_count) {
     if (token->type != T_INDENT)
-        return 0;
+        return -1;
 
     token->data = (void *)(intptr_t)indent_count;
-    return -1;
+    return 0;
 }
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
