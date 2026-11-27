@@ -1,6 +1,10 @@
-//
-// Created by Šimon on 9/10/2026
-//
+/**
+ * @file keywords.h
+ * @brief Interface for determining if a token is T_KEYWORD or T_IDENT
+ *
+ * @author Šimon Hejl (xhejlsi00)
+ * @date 9.10.2026
+ */
 
 #ifndef IFJ_KEYWORD_H
 #define IFJ_KEYWORD_H
@@ -10,7 +14,7 @@
 #include <stddef.h>
 
 /**
- * @brief checks if string is keyword
+ * @brief checks if string is keyword and returns the corresponding Token
  *
  * @param string checked string
  *

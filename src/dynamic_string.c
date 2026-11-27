@@ -1,6 +1,12 @@
-//
-// Created by Filip on 7. 10. 2026.
-//
+/**
+ * @file dynamic_string.c
+ * @brief Implementation of a dynamic string
+ *
+ * All needed functions for a useful dynamic string
+ *
+ * @author Filip Holan (xholanf00)
+ * @date 7.10.2026
+ */
 
 #include "dynamic_string.h"
 
@@ -64,6 +70,7 @@ void dyn_str_add_string(DynamicString *dyn_str, const char *str) {
 }
 
 // WARNING: the returned string NEEDS to be freed eventually (use token_free_data_if_applicable())
+// creates a copy of a string, so that the original DynamicString can be freed
 char *dyn_str_get_string_copy(DynamicString *string) {
     if (string == NULL) {
         fprintf(stderr, "Input is NULL\n");

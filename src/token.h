@@ -1,6 +1,13 @@
-//
-// Created by Filip on 04/10/2026.
-//
+/**
+ * @file token.h
+ * @brief Interface for TokenType and Token
+ *
+ * TokenType is implemented as an enum, while Token is a struct which
+ * holds a TokenType and its data (string content, numerical value, ...)
+ *
+ * @author Filip Holan (xholanf00)
+ * @date 4.10.2026
+ */
 
 #include <stdbool.h>
 
@@ -73,17 +80,46 @@ typedef struct {
     void *data;
 } Token;
 
-// returns the data stored in INDENT
-// Incompatible Token type -> -1
+/**
+ * @brief get indent count stored in a T_INDENT Token
+ *
+ * @param token token in which the data is stored
+ *
+ * @return int indent count, -1 when invalid Token
+ */
 int token_get_indent_count(Token token);
+
+/**
+ * @brief set indent count in a T_INDENT Token
+ *
+ * @param token token in which the data is stored
+ *
+ * @return int indent count, -1 when invalid Token
+ */
 int token_set_indent_count(Token *token, int indent_count);
 
 // returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
 // Incompatible Token type -> NULL
+
+/**
+ * @brief returns the data stored in the {IDENT, INT, DOUBLE, STRING} types
+ *
+ * @param token token in which the data is stored
+ *
+ * @return char* data, Incompatible Token type -> NULL
+ */
 char *token_get_data_IDENT_INT_DOUBLE_STRING(Token token);
 
 // frees token data if possible
 // returns bool of whether any data has been freed
+
+/**
+ * @brief frees token data if possible
+ *
+ * @param token token which's data is to be freed
+ *
+ * @return bool of whether any data has been freed
+ */
 bool token_free_data_if_applicable(Token token);
 
 #endif // IFJ_TOKEN_H

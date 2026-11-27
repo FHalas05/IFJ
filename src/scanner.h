@@ -1,6 +1,12 @@
-//
-// Created by Filip on 04/10/2026.
-//
+/**
+ * @file scanner.H
+ * @brief Interface for a lexical analyzer.
+ *
+ * Scans file and returns the next token or throws error if no token type matches
+ *
+ * @author Filip Holan (xholanf00), Šimon Hejl (xhejlsi00)
+ * @date 4.10.2026
+ */
 
 #ifndef IFJ_SCANNER_H
 #define IFJ_SCANNER_H

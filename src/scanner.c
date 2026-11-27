@@ -1,6 +1,16 @@
-//
-// Created by Filip on 04/10/2026.
-//
+/**
+ * @file scanner.c
+ * @brief Implementation of a lexical analyzer based on Finite Automata
+ *
+ * When the first character of a token is read, its value decides what FSM is chosen.
+ * Specifically, we have implemented three sub-FSMs: comments, strings and numerals.
+ * Token types which do not belong in these categories are handled
+ * in "handler"s - essentially simple if statements, as using a full-blown FSM there,
+ * would make the code unreadable and overly complex.
+ *
+ * @author Filip Holan (xholanf00), Šimon Hejl (xhejlsi00)
+ * @date 4.10.2026
+ */
 
 #include "scanner.h"
 #include "dynamic_string.h"
@@ -773,7 +783,7 @@ Token HANDLER_whitespace(FILE *file, TokenType last_token_type, int c) {
  *
  * @warning first run should use T_NEWLINE as last_token_type
  * @warning you MUST free the data in tokens which include additional data in string form
- * i.e. free(token.data)
+ * i.e. token_free_data_if_applicable(token)
  *
  * @param file The program source file
  *
