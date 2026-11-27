@@ -274,8 +274,6 @@ Token FSM_strings(FILE *file) {
     return (Token){NO_TOKEN_FOUND, NULL};
 }
 
-static bool pending_dot = false; // '.' after a number, returned on the next call (VALMEM)
-
 /**
  * @brief FSM for numerals (int, double)
  *

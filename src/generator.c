@@ -528,7 +528,6 @@ static void instruction_generator(ASTNode *body, bool is_return) {
     }
     default: {
         throw_fatal_error(404, "generator error - invalid node type");
-        // break;
     }
     }
 

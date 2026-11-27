@@ -229,6 +229,13 @@ static Token next_token(Parser *p) {
     return next_token(p);
 }
 
+/**
+ * @brief Frees data and moves the parser to the next token
+ *
+ * Uses the cached token if a previous peek already read it.
+ *
+ * @param p Parser
+ */
 void advance(Parser *p) {
     token_free_data_if_applicable(p->token);
     if (p->has_peek) {
@@ -239,12 +246,30 @@ void advance(Parser *p) {
     }
 }
 
+/**
+ * @brief Checks the current token type and advances if it matches
+ *
+ * Reports a syntax error and exits with code 2 if the types differ.
+ *
+ * @param p Parser 
+ * @param type Expected token type
+ * @param msg Error message to print if the types differ
+ */
 void expect(Parser *p, TokenType type, char *msg) {
     if (p->token.type != type)
         throw_fatal_error(2, msg);
     advance(p);
 }
 
+/**
+ * @brief Returns the next token type without changing the current token
+ *
+ * Caches the next token so advance() can use it.
+ *
+ * @param p Parser
+ *
+ * @return Type of the next token
+ */
 TokenType peek_token_type(Parser *p) {
     if (!p->has_peek) {
         p->peek_token = next_token(p);
